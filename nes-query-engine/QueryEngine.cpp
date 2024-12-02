@@ -541,7 +541,7 @@ void QueryCatalog::start(
             QUERY_ENGINE_LOG("Query {} onFailure", queryId);
             if (auto locked = state.lock())
             {
-                locked->transition(
+                auto successfulTransition = locked->transition(
                     [](Starting&& starting)
                     {
                         RunningQueryPlan::dispose(std::move(starting.plan));
@@ -557,7 +557,13 @@ void QueryCatalog::start(
                         StoppingQueryPlan::dispose(std::move(stopping.plan));
                         return Terminated{Terminated::Failure};
                     });
-                listener->logQueryFailure(queryId, std::move(exception));
+
+                if (successfulTransition)
+                {
+                    exception.what() += fmt::format(" In Query {}.", queryId);
+                    ENGINE_LOG_ERROR("Query Failed: {}", exception.what());
+                    listener->logQueryFailure(queryId, std::move(exception));
+                }
             }
         }
         /// OnDestruction is called when the entire query graph is terminated.
