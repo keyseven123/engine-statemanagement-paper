@@ -173,7 +173,31 @@ struct StartQueryTask : BaseTask
     std::weak_ptr<QueryCatalog> catalog;
 };
 
-using Task = std::variant<WorkTask, StopQueryTask, StartQueryTask, FailSourceTask, StopSourceTask, StopPipelineTask, StartPipelineTask>;
+struct PendingPipelineStop : BaseTask
+{
+    PendingPipelineStop(
+        QueryId queryId,
+        std::shared_ptr<RunningQueryPlanNode> pipeline,
+        size_t attempts,
+        std::function<void()> onCompletion,
+        std::function<void(Exception)> onError)
+        : BaseTask(std::move(queryId), std::move(onCompletion), std::move(onError)), attempts(attempts), pipeline(std::move(pipeline))
+    {
+    }
+
+    size_t attempts;
+    std::shared_ptr<RunningQueryPlanNode> pipeline;
+};
+
+using Task = std::variant<
+    WorkTask,
+    StopQueryTask,
+    StartQueryTask,
+    FailSourceTask,
+    StopSourceTask,
+    PendingPipelineStop,
+    StopPipelineTask,
+    StartPipelineTask>;
 
 inline auto completeTask(const Task& task)
 {

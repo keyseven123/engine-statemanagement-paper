@@ -175,19 +175,45 @@ public:
         onComplete complete,
         onFailure failure) override
     {
+        auto updatedCount = node->pendingTasks.fetch_add(1) + 1;
+        ENGINE_LOG_DEBUG("Increasing number of pending tasks on pipeline {}-{} to {}", qid, node->id, updatedCount);
         taskQueue.blockingWrite(WorkTask(
             qid,
             node->id,
             node,
             buffer,
-            complete,
-            [failure = std::move(failure), node = std::weak_ptr(node)](auto exception)
+            [ENGINE_IF_LOG_DEBUG(qid, ) complete = std::move(complete), node = std::weak_ptr(node)]()
             {
                 if (auto existingNode = node.lock())
                 {
+                    auto updatedCount = existingNode->pendingTasks.fetch_sub(1) - 1;
+                    ENGINE_LOG_DEBUG("Decreasing number of pending tasks on pipeline {}-{} to {}", qid, existingNode->id, updatedCount);
+                    INVARIANT(updatedCount >= 0, "ThreadPool returned a negative number of pending tasks.");
+                }
+                else
+                {
+                    ENGINE_LOG_WARNING("Node Expired and pendingTasks could not be reduced");
+                }
+                if (complete)
+                {
+                    complete();
+                }
+            },
+            [ENGINE_IF_LOG_DEBUG(qid, ) failure = std::move(failure), node = std::weak_ptr(node)](auto exception)
+            {
+                if (auto existingNode = node.lock())
+                {
+                    auto updatedCount = existingNode->pendingTasks.fetch_sub(1) - 1;
+                    ENGINE_LOG_DEBUG("Decreasing number of pending tasks on pipeline {}-{} to {}", qid, existingNode->id, updatedCount);
+                    INVARIANT(updatedCount >= 0, "ThreadPool returned a negative number of pending tasks.");
                     exception.what() += fmt::format(" In Pipeline: {}.", existingNode->id);
                     existingNode->fail(exception);
                 }
+                else
+                {
+                    ENGINE_LOG_WARNING("Node Expired and pendingTasks could not be reduced");
+                }
+
                 if (failure)
                 {
                     failure(exception);
@@ -224,6 +250,13 @@ public:
             {}});
     }
 
+    void
+    emitPendingPipelineStop(QueryId queryId, std::shared_ptr<RunningQueryPlanNode> node, onComplete complete, onFailure failure) override
+    {
+        ENGINE_LOG_DEBUG("Inserting Pending Pipeline Stop for {}-{}", queryId, node->id);
+        taskQueue.blockingWrite(PendingPipelineStop{queryId, std::move(node), 0, std::move(complete), std::move(failure)});
+    }
+
     ThreadPool(
         std::shared_ptr<AbstractQueryStatusListener> listener,
         std::shared_ptr<QueryEngineStatisticListener> stats,
@@ -236,6 +269,7 @@ public:
     {
     }
 
+
 private:
     struct Worker
     {
@@ -245,6 +279,7 @@ private:
         bool operator()(const StopQueryTask& stopQuery) const;
         bool operator()(StartQueryTask& startQuery) const;
         bool operator()(const StartPipelineTask& startPipeline) const;
+        bool operator()(PendingPipelineStop pendingPipelineStop) const;
         bool operator()(const StopPipelineTask& stopPipeline) const;
         bool operator()(const StopSourceTask& stopSource) const;
         bool operator()(const FailSourceTask& failSource) const;
@@ -340,6 +375,24 @@ bool ThreadPool::Worker::operator()(const StartPipelineTask& startPipeline) cons
 
     ENGINE_LOG_WARNING("Setup pipeline is expired for {}-{}", startPipeline.queryId, startPipeline.pipelineId);
     return false;
+}
+
+bool ThreadPool::Worker::operator()(PendingPipelineStop pendingPipelineStop) const
+{
+    INVARIANT(pendingPipelineStop.pipeline->requireTermination, "Pending Pipeline Stop should always require a non-terminated pipeline");
+    INVARIANT(pendingPipelineStop.pipeline->pendingTasks >= 0);
+
+    if (pendingPipelineStop.pipeline->pendingTasks != 0)
+    {
+        ENGINE_LOG_WARNING(
+            "Pipeline {}-{} is still active: {}",
+            pendingPipelineStop.queryId,
+            pendingPipelineStop.pipeline->id,
+            pendingPipelineStop.pipeline->pendingTasks);
+        pool.taskQueue.blockingWrite(std::move(pendingPipelineStop));
+    }
+
+    return true;
 }
 
 bool ThreadPool::Worker::operator()(const StopPipelineTask& stopPipeline) const
