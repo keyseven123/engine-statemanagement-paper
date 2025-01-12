@@ -10,6 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(Phases)
-add_subdirectory(QueryRewrite)
-add_subdirectory(Cost)
+add_source_files(nes-optimizer
+        CostFunctions.cpp
+)
