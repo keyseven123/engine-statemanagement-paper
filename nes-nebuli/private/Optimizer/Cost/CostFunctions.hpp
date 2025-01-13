@@ -13,36 +13,133 @@
 */
 
 #pragma once
-#include <set>
+#include <functional>
+#include <map>
 #include <optional>
+#include <set>
+#include <string>
+
 
 
 template <typename T>
-concept Trait = requires (T trait)
+concept Trait = requires (T trait, T other)
 {
+    //placeholder condition
     { trait.atNode() } -> std::same_as<bool>;
+    { trait == other };
 };
 
-template <typename TS, typename... T>
-concept TraitSet = requires(TS traitset, T... traits)
+template<Trait... T>
+class TraitSet
 {
-    { traitset.equals(traitset)} -> std::same_as<bool>;
+    bool operator==(const TraitSet& other) const
+    {
+        return this == &other;
+    }
+};
+
+template<Trait... T>
+struct std::hash<TraitSet<T...>>
+{
+    std::size_t operator()(const TraitSet<T...>) const
+    {
+        return 2;
+    }
+};
+// template <typename TS, typename... T>
+// concept TraitSet = requires(TS traitSet, T... traits, TS other)
+// {
+//     { traitSet == other} -> std::same_as<bool>;
+// }
+// && (Trait<T> && ...);
+
+template <typename SV>
+concept StatisticsValue = requires(SV statisticsValue)
+{
+    std::equality_comparable<SV>;
+};
+
+template <typename C, typename SV, typename... T>
+concept CostFunction = requires (C function, SV)
+{
+  { function(TraitSet<T...>()) } -> std::same_as<SV>;
 }
-&& (Trait<T> && ...)
-;
+&& StatisticsValue<SV>
+//&& TraitSet<TS>
+&& (Trait<T> && ...);
 
-class StatisticsSubject
+template <typename C, typename SV, typename... T>
+concept OptionalCostFunction = requires (C function)
 {
+  { function(TraitSet<T...>()) } -> std::same_as<std::optional<SV>>;
+}
+&& StatisticsValue<SV>
+//&& TraitSet<TS>
+&& (Trait<T> && ...);
+
+
+class QueryForSubtree
+{
+public:
+    bool operator==(const QueryForSubtree&) const { return true; }
+    bool atNode() { return false; }
 };
 
-template <typename C, typename TS, typename... T>
-concept CostFunction = requires (T function, TS)
+static_assert(Trait<QueryForSubtree>);
+
+class Placement
 {
-  { function.apply(std::set<Trait>()) } -> std::same_as<StatisticsSubject>;
+public:
+    std::string nodeName;
+    bool operator==(const Placement& other) const { return nodeName == other.nodeName; }
+    static constexpr bool atNode() { return true; }
 };
 
-template <typename T>
-concept OptionalCostFunction = requires (T function)
+class StatisticsCatalog
 {
-  { function.apply(std::set<Trait>()) } -> std::same_as<std::optional<StatisticsSubject>>;
+
+    std::unordered_map<TraitSet<QueryForSubtree>, int> cardinalities;
+    std::unordered_map<TraitSet<Placement>, float> memoryUsage;
+public:
+
+
+
+
+    std::optional<int> getCardinality(TraitSet<QueryForSubtree> ts)
+    {
+        if (cardinalities.contains(ts))
+        {
+            return cardinalities.at(ts);
+        }
+        return std::nullopt;
+    }
+
+
+    std::optional<float> getMemoryUsage(TraitSet<Placement> ts)
+    {
+        if (memoryUsage.contains(ts))
+        {
+            return memoryUsage.at(ts);
+        }
+        return std::nullopt;
+    }
+};
+
+template <OptionalCostFunction StatisticsCatalogCost>
+class CardinalityEstimator
+{
+    StatisticsCatalogCost statisticsFunction;
+    std::function<std::optional<int>(TraitSet<QueryForSubtree>)> baseFunction;
+
+    CardinalityEstimator(StatisticsCatalog& statisticsCatalog): statisticsFunction(statisticsCatalog.getCardinality){}
+
+private:
+    int estimate(TraitSet<QueryForSubtree> ts)
+    {
+        if (const std::optional<int> statistic = statisticsFunction(ts))
+        {
+            return *statistic;
+        }
+        return 20;
+    }
 };
