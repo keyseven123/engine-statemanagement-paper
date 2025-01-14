@@ -49,6 +49,13 @@ concept Trait = requires(T trait, T other) {
     };
 };
 
+//Traits with compile-time finite instances (enums or booleans like isGPU) could be added like
+template <typename T>
+concept FiniteTrait = requires() {
+    { T::getInstances() } -> std::same_as<std::set<T>>;
+}
+&& Trait<T>;
+
 template <typename TS, typename... T>
 concept TraitSet = requires(TS ts) {
     (requires() {
