@@ -15,37 +15,68 @@
 #pragma once
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 
+#include "../../../../nes-runtime/include/Util/Core.hpp"
 
+namespace NES::Optimizer
+{
+template <typename T, typename = std::void_t<>>
+struct is_std_hashable : std::false_type
+{
+};
 
 template <typename T>
-concept Trait = requires (T trait, T other)
+struct is_std_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type
 {
+};
+
+template <typename T>
+constexpr bool is_std_hashable_v = is_std_hashable<T>::value;
+
+template <typename T>
+concept Trait = requires(T trait, T other) {
     //placeholder condition
-    { trait.atNode() } -> std::same_as<bool>;
-    { trait == other };
+    {
+        T::atNode()
+    } -> std::same_as<bool>;
+    {
+        trait == other
+    };
 };
 
-template<Trait... T>
-class TraitSet
+template <typename TS, typename... T>
+concept TraitSet = requires(TS ts) {
+    (requires() {
+        {
+            ts.template get<T>()
+        } -> std::same_as<T>;
+    } && ...);
+};
+
+template <Trait... T>
+class TupleTraitSet
 {
-    bool operator==(const TraitSet& other) const
+    std::tuple<T...> underlying;
+
+public:
+    explicit TupleTraitSet(T... args) : underlying(args...) { }
+
+    bool operator==(const TupleTraitSet& other) const { return this == &other; }
+
+    template <Trait O>
+    requires(std::same_as<O, T> || ...)
+    O get()
     {
-        return this == &other;
+        return std::get<O>(underlying);
     }
 };
 
-template<Trait... T>
-struct std::hash<TraitSet<T...>>
-{
-    std::size_t operator()(const TraitSet<T...>) const
-    {
-        return 2;
-    }
-};
+
 // template <typename TS, typename... T>
 // concept TraitSet = requires(TS traitSet, T... traits, TS other)
 // {
@@ -54,68 +85,124 @@ struct std::hash<TraitSet<T...>>
 // && (Trait<T> && ...);
 
 template <typename SV>
-concept StatisticsValue = requires(SV statisticsValue)
+concept StatisticsValue = requires(SV statisticsValue) { std::equality_comparable<SV>; };
+
+//Make pack over trait sets instead
+template <typename C, typename SV, typename TS>
+concept CostFunction = requires(C function, TS ts) {
+    {
+        function(ts)
+    } -> std::same_as<SV>;
+    // { function.derive(TraitSet<TOs...>()) } -> std::same_as<TraitSet<TIs...>>;
+} && StatisticsValue<SV> && TraitSet<TS>;
+// && (TraitSet<TIs> && ...)
+// && (Trait<TOs> && ...);
+
+// template <StatisticsValue SV, Trait... TIs, Trait... TOs, CostFunction<SV, TIs, TOs> C>
+// SV C::operator()(TraitSet<TIs...> ts)
+// {
+//     operator()(derive(ts));
+// }
+
+template <typename C, typename SV, typename TS>
+concept OptionalCostFunction = requires(C function, TS ts) {
+    {
+        function(ts)
+    } -> std::same_as<std::optional<SV>>;
+} && StatisticsValue<SV> && TraitSet<TS>;
+// && (Trait<T> && ...);
+}
+
+template <NES::Optimizer::Trait... T>
+struct std::hash<NES::Optimizer::TupleTraitSet<T...>>
 {
-    std::equality_comparable<SV>;
+    std::size_t operator()(const NES::Optimizer::TupleTraitSet<T...>) const { return 2; }
 };
 
-template <typename C, typename SV, typename... T>
-concept CostFunction = requires (C function, SV)
+namespace NES::Optimizer
 {
-  { function(TraitSet<T...>()) } -> std::same_as<SV>;
-}
-&& StatisticsValue<SV>
-//&& TraitSet<TS>
-&& (Trait<T> && ...);
-
-template <typename C, typename SV, typename... T>
-concept OptionalCostFunction = requires (C function)
-{
-  { function(TraitSet<T...>()) } -> std::same_as<std::optional<SV>>;
-}
-&& StatisticsValue<SV>
-//&& TraitSet<TS>
-&& (Trait<T> && ...);
-
-
 class QueryForSubtree
 {
+    const std::string str;
+
 public:
+    explicit QueryForSubtree(std::string str) : str(std::move(str)) { }
     bool operator==(const QueryForSubtree&) const { return true; }
-    bool atNode() { return false; }
+    static bool atNode() { return false; }
 };
 
 static_assert(Trait<QueryForSubtree>);
 
 class Placement
 {
+    const int nodeID;
+
 public:
-    std::string nodeName;
-    bool operator==(const Placement& other) const { return nodeName == other.nodeName; }
+    explicit Placement(int nodeID) : nodeID(nodeID) { }
+    bool operator==(const Placement& other) const { return nodeID == other.nodeID; }
     static constexpr bool atNode() { return true; }
 };
 
+static_assert(Trait<Placement>);
+
+// template <typename T, typename... Ts>
+// struct PackContains
+// {
+//     static constexpr bool value{(std::is_same_v<T, Ts> || ...)};
+// };
+//
+// //Needs to be more controllable
+// template <typename TI, typename TO>
+// TO derive(TI);
+//
+// template <Trait... TIs, Trait... TOs>
+// TraitSet<TOs...> derive(TIs... tis)
+// {
+//     return TraitSet<TOs...>{(PackContains<TOs, TIs...>::value, ...)};
+// }
+//
+//
+// template <StatisticsValue SV, Trait... TIs, CostFunction<SV, TIs...> C, Trait... TOs>
+// SV C::operator()(TraitSet<TIs...> tis)
+// {
+//     C(derive(tis));
+// }
+
+
 class StatisticsCatalog
 {
+    std::unordered_map<TupleTraitSet<QueryForSubtree>, int> rates;
+    std::unordered_map<TupleTraitSet<Placement>, float> memoryUsage;
 
-    std::unordered_map<TraitSet<QueryForSubtree>, int> cardinalities;
-    std::unordered_map<TraitSet<Placement>, float> memoryUsage;
 public:
+    explicit StatisticsCatalog(){};
 
 
-
-
-    std::optional<int> getCardinality(TraitSet<QueryForSubtree> ts)
+    class RateStore
     {
-        if (cardinalities.contains(ts))
+        friend StatisticsCatalog;
+        std::unordered_map<TupleTraitSet<QueryForSubtree>, int>& rates;
+        explicit RateStore(std::unordered_map<TupleTraitSet<QueryForSubtree>, int>& rates) : rates(rates) { }
+
+    public:
+        std::optional<int> operator()(TupleTraitSet<QueryForSubtree> ts) const
         {
-            return cardinalities.at(ts);
+            if (rates.contains(ts))
+            {
+                return rates.at(ts);
+            }
+            return std::nullopt;
         }
-        return std::nullopt;
-    }
+    };
+
+private:
+    RateStore rateStore = RateStore{rates};
+
+public:
+    RateStore& getRateStore() { return rateStore; }
 
 
-    std::optional<float> getMemoryUsage(TraitSet<Placement> ts)
+    std::optional<float> getMemoryUsage(TupleTraitSet<Placement> ts)
     {
         if (memoryUsage.contains(ts))
         {
@@ -125,16 +212,18 @@ public:
     }
 };
 
-template <OptionalCostFunction StatisticsCatalogCost>
-class CardinalityEstimator
+static_assert(OptionalCostFunction<StatisticsCatalog::RateStore, int, TupleTraitSet<QueryForSubtree>>);
+
+
+template <TraitSet<QueryForSubtree> TS, OptionalCostFunction<int, TS> StatisticsCatalogCost>
+class RateEstimator
 {
     StatisticsCatalogCost statisticsFunction;
-    std::function<std::optional<int>(TraitSet<QueryForSubtree>)> baseFunction;
 
-    CardinalityEstimator(StatisticsCatalog& statisticsCatalog): statisticsFunction(statisticsCatalog.getCardinality){}
+public:
+    explicit RateEstimator(StatisticsCatalogCost statisticsBaseFunction) : statisticsFunction(statisticsBaseFunction) { }
 
-private:
-    int estimate(TraitSet<QueryForSubtree> ts)
+    int operator()(TS ts)
     {
         if (const std::optional<int> statistic = statisticsFunction(ts))
         {
@@ -143,3 +232,23 @@ private:
         return 20;
     }
 };
+
+template <TraitSet<QueryForSubtree> TS, CostFunction<int, TS> RateEstimator>
+class PlacementCost
+{
+    RateEstimator rateEstimator;
+
+public:
+    explicit PlacementCost(RateEstimator rateEstimator) : rateEstimator(rateEstimator) { }
+
+    template <TraitSet<QueryForSubtree, Placement> TSI>
+    int operator()(TSI ts)
+    {
+        auto derived = TupleTraitSet<QueryForSubtree>{ts.template get<QueryForSubtree>()};
+        int rate = rateEstimator(derived);
+        return rate;
+    }
+};
+
+
+}

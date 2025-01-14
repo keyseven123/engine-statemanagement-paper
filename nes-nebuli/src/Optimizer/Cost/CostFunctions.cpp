@@ -13,4 +13,10 @@
 */
 
 #include <Optimizer/Cost/CostFunctions.hpp>
+#include <Util/Logger/Logger.hpp>
+#include <Util/Logger/impl/NesLogger.hpp>
 
+namespace NES::Optimizer
+{
+
+}

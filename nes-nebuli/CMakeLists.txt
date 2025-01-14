@@ -11,6 +11,7 @@
 # limitations under the License.
 
 add_subdirectory(src)
+add_subdirectory(tests)
 
 find_program(CLANG_EXECUTABLE NAMES clang clang-18 REQUIRED)
 message(STATUS "Found Clang Binary: ${CLANG_EXECUTABLE}")
