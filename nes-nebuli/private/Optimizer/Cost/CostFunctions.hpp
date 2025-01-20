@@ -54,17 +54,17 @@ concept Trait = requires(T trait, T other) {
 template <typename T>
 concept RecursiveTrait = requires()
 {
-    //Not gonna be easy to make it work how I'd like it.
+    //Not going to be easy to make it work how I'd like it.
     //Ideally, we could just name a container type in the RecursiveTrait and use this as the container for the children.
     //But, the container type only gets fully specified when specifying a trait set with some parameters, because
     //the other traits need to be saved too.
     //There are two ways around this:
     //Always only have collections with pointers to TraitSets (I dislike this solution because now our plan parts are spread all across memory).
-    //In my opinion, the better solution would be allow for a finite set of options in this RecursiveTrait concept
+    //In my opinion, the better solution would be to allow for a finite set of options in this RecursiveTrait concept
     //and translate them into specific container types.
     //That way, all possible container types are known to the trait set concept.
     //
-    //IN THEORY it should possible for a compiler to do the original idea, but it would require the compiler to
+    //IN THEORY, it should be possible for a compiler to do the original idea, but it would require the compiler to
     //understand when to stop expanding.
     //Maybe this is possible by swapping in a "stop" type after one expansion with "using"
     {T::recursive()};
