@@ -35,9 +35,14 @@ TEST_F(CostTest, testHarcodedFunctions)
 {
     auto statCatalog = StatisticsCatalog{};
     auto cardEstimator = RateEstimator<TupleTraitSet<QueryForSubtree>, StatisticsCatalog::RateStore>{statCatalog.getRateStore()};
-    auto placementCost = PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)>{cardEstimator};
+    PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)> placementCost
+        = PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)>{cardEstimator};
 
-    auto ts = TupleTraitSet{QueryForSubtree{"test"}, Placement{5}};
+
+    RecursiveTupleTraitSet<QueryForSubtree, Placement, Children> child = RecursiveTupleTraitSet{QueryForSubtree{"child"}, Placement{4}, Children{}};
+    std::vector<decltype(child)> children {child};
+    RecursiveTupleTraitSet<QueryForSubtree, Placement, Children> ts = RecursiveTupleTraitSet{children, QueryForSubtree{"test"}, Placement{5}, Children{}};
+
 
     auto cost = placementCost(ts);
 

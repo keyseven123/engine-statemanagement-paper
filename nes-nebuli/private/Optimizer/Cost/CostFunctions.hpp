@@ -23,6 +23,8 @@
 
 #include "../../../../nes-runtime/include/Util/Core.hpp"
 
+#include <Util/Logger/Logger.hpp>
+
 namespace NES::Optimizer
 {
 template <typename T, typename = std::void_t<>>
@@ -49,6 +51,12 @@ concept Trait = requires(T trait, T other) {
     };
 };
 
+template <typename T>
+concept RecursiveTrait = requires()
+{
+    {T::recursive()};
+};
+
 //Traits with compile-time finite instances (enums or booleans like isGPU) could be added like
 template <typename T>
 concept FiniteTrait = requires() {
@@ -63,7 +71,27 @@ concept TraitSet = requires(TS ts) {
             ts.template get<T>()
         } -> std::same_as<T>;
     } && ...);
+
+    ((!RecursiveTrait<T> || requires()
+    {
+        { ts.getChildren() } -> std::same_as<std::vector<TS>>;
+    } ) && ...);
 };
+
+class Children
+{
+
+public:
+    explicit Children() {}
+    bool operator==(const Children& ) const { return true; }
+    static constexpr bool atNode() { return true; }
+    static constexpr void recursive()
+    {
+        return;
+    }
+};
+
+static_assert(RecursiveTrait<Children>);
 
 template <Trait... T>
 class TupleTraitSet
@@ -82,6 +110,41 @@ public:
         return std::get<O>(underlying);
     }
 };
+
+template <Trait... T>
+class RecursiveTupleTraitSet
+{
+    std::tuple<T...> underlying;
+    std::vector<RecursiveTupleTraitSet<T...>> children;
+
+public:
+    explicit RecursiveTupleTraitSet(T... args) : underlying(args...) { }
+    explicit RecursiveTupleTraitSet(std::vector<RecursiveTupleTraitSet<T...>>& children, T... args) : underlying(args...), children(children) { }
+
+    bool operator==(const RecursiveTupleTraitSet& other) const { return this == &other; }
+
+    template <Trait O>
+    requires(std::same_as<O, T> || ...)
+    O get()
+    {
+        return std::get<O>(underlying);
+    }
+
+    std::vector<RecursiveTupleTraitSet> getChildren()
+    {
+        return children;
+    }
+};
+
+
+
+// template <Trait... T>
+// class TraitSetView
+// {
+// public:
+//     template <Trait... TE>
+//     explicit TraitSetView()
+// };
 
 
 // template <typename TS, typename... T>
@@ -136,6 +199,10 @@ public:
     explicit QueryForSubtree(std::string str) : str(std::move(str)) { }
     bool operator==(const QueryForSubtree&) const { return true; }
     static bool atNode() { return false; }
+
+    const std::string& getQuery() const {
+        return str;
+    }
 };
 
 static_assert(Trait<QueryForSubtree>);
@@ -151,6 +218,7 @@ public:
 };
 
 static_assert(Trait<Placement>);
+
 
 // template <typename T, typename... Ts>
 // struct PackContains
@@ -248,9 +316,13 @@ class PlacementCost
 public:
     explicit PlacementCost(RateEstimator rateEstimator) : rateEstimator(rateEstimator) { }
 
-    template <TraitSet<QueryForSubtree, Placement> TSI>
+    template <TraitSet<QueryForSubtree, Placement, Children> TSI>
     int operator()(TSI ts)
     {
+        for (TSI child : ts.getChildren())
+        {
+            NES_INFO("Child query: {}", child.template get<QueryForSubtree>().getQuery());
+        }
         auto derived = TupleTraitSet<QueryForSubtree>{ts.template get<QueryForSubtree>()};
         int rate = rateEstimator(derived);
         return rate;
