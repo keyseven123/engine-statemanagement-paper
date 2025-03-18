@@ -99,33 +99,17 @@ template <typename TS, typename T>
 T get(TS) = delete;
 
 
-template <typename TS>
-struct HasGet
-{
-private:
-    template <class T, class Dummy = decltype(get<TS, T>(std::declval<TS>()))>
-    static constexpr bool exists(int)
-    {
-        return true;
-    }
-
-    template <class T>
-    static constexpr bool exists(char)
-    {
-        return false;
-    }
-
-public:
-    template <class T>
-    static constexpr bool check()
-    {
-        return exists<T>(5);
-    }
-};
 
 template <typename TS, typename T>
 concept hasGetter = requires(TS ts) {
     { get<TS, T>(ts) } -> std::same_as<T>;
+} || requires(TS ts)
+{
+    { ts.template get<T>()} -> std::same_as<T>;
+}
+|| requires(TS ts)
+{
+    {static_cast<T>(ts)} -> std::same_as<T>;
 };
 
 
@@ -138,7 +122,7 @@ concept TraitSet = requires(TS ts) {
     ((!RecursiveTrait<T> || requires() {
          { ts.getChildren() } -> std::same_as<std::vector<TS>>;
      }) && ...);
-} && (HasGet<TS>::template check<T>() && ...);
+} && (hasGetter<TS, T> && ...);
 
 class Children
 {
@@ -171,12 +155,6 @@ public:
     }
 };
 
-template <Trait... T, Trait O>
-template <TupleTraitSet<T...>, O>
-O get(TupleTraitSet<T...> ts)
-{
-    return ts.template get<O>(ts);
-}
 
 class VirtualTraitSet
 {
@@ -305,19 +283,22 @@ struct TestOperator
 {
     const Placement placement;
     // Placement get() { return Placement{1}; };
+    explicit operator Placement() const {
+        return placement;
+    }
 };
 
-template <>
-Placement get<TestOperator, Placement>(TestOperator op)
-{
-    return op.placement;
-}
+// template <>
+// inline Placement get<TestOperator, Placement>(TestOperator op)
+// {
+//     return op.placement;
+// }
 
-static_assert(HasGet<TestOperator>::check<Placement>());
+static_assert(hasGetter<TestOperator, Placement>);
 
 
 static_assert(TraitSet<TupleTraitSet<Placement>, Placement>);
-static_assert(TraitSet<TestOperator, QueryForSubtree>);
+static_assert(TraitSet<TestOperator, Placement>);
 
 // static_assert(hasGetter<TupleTraitSet<Placement>, Placement>::value::value);
 
