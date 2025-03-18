@@ -19,11 +19,14 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 #include "../../../../nes-runtime/include/Util/Core.hpp"
 
 #include <Util/Logger/Logger.hpp>
+#include <absl/container/internal/layout.h>
 
 namespace NES::Optimizer
 {
@@ -43,20 +46,13 @@ constexpr bool is_std_hashable_v = is_std_hashable<T>::value;
 template <typename T>
 concept Trait = requires(T trait, T other) {
     //placeholder condition
-    {
-        T::atNode()
-    } -> std::same_as<bool>;
-    {
-        trait == other
-    };
-    {
-        T::getName()
-    } -> std::same_as<std::string>;
+    { T::atNode() } -> std::same_as<bool>;
+    { trait == other };
+    { T::getName() } -> std::same_as<std::string>;
 };
 
 template <typename T>
-concept RecursiveTrait = requires()
-{
+concept RecursiveTrait = requires() {
     //Not going to be easy to make it work how I'd like it.
     //Ideally, we could just name a container type in the RecursiveTrait and use this as the container for the children.
     //But, the container type only gets fully specified when specifying a trait set with some parameters, because
@@ -74,15 +70,14 @@ concept RecursiveTrait = requires()
     //In addition, we could also model other nested data structures as trait sets, like predicates.
     //These Traits could contain a definition of what traitset they contain, e.g. a predicate would only contain other predicates.
     //This would give us a unified representation of "relnodes and rexnodes" in calcite-lingo
-    {T::recursive()};
+    { T::recursive() };
 };
 
 //Traits with compile-time finite instances (enums or booleans like isGPU) could be added like
 template <typename T>
 concept FiniteTrait = requires() {
     { T::getInstances() } -> std::same_as<std::set<T>>;
-}
-&& Trait<T>;
+} && Trait<T>;
 
 
 class VirtualTrait
@@ -95,43 +90,65 @@ template <Trait T>
 class VirtualTraitImpl : VirtualTrait
 {
     T trait;
+
 public:
-    std::string getName() override
+    std::string getName() override { return trait.getName(); }
+};
+
+template <typename TS, typename T>
+T get(TS) = delete;
+
+
+template <typename TS>
+struct HasGet
+{
+private:
+    template <class T, class Dummy = decltype(get<TS, T>(std::declval<TS>()))>
+    static constexpr bool exists(int)
     {
-        return trait.getName();
+        return true;
+    }
+
+    template <class T>
+    static constexpr bool exists(char)
+    {
+        return false;
+    }
+
+public:
+    template <class T>
+    static constexpr bool check()
+    {
+        return exists<T>(5);
     }
 };
+
+template <typename TS, typename T>
+concept hasGetter = requires(TS ts) {
+    { get<TS, T>(ts) } -> std::same_as<T>;
+};
+
 
 template <typename TS, typename... T>
 concept TraitSet = requires(TS ts) {
-    (requires() {
-        {
-            ts.template get<T>()
-        } -> std::same_as<T>;
-    } && ...);
+    // (requires() {
+    //     { get<T>(ts) } -> std::same_as<T>;
+    // } && ...);
 
-    ((!RecursiveTrait<T> || requires()
-    {
-        { ts.getChildren() } -> std::same_as<std::vector<TS>>;
-    } ) && ...);
-};
+    ((!RecursiveTrait<T> || requires() {
+         { ts.getChildren() } -> std::same_as<std::vector<TS>>;
+     }) && ...);
+} && (HasGet<TS>::template check<T>() && ...);
 
 class Children
 {
-
 public:
-    explicit Children() {}
-    bool operator==(const Children& ) const { return true; }
+    explicit Children() { }
+    bool operator==(const Children&) const { return true; }
     static constexpr bool atNode() { return true; }
-    static constexpr void recursive()
-    {
-        return;
-    }
+    static constexpr void recursive() { return; }
 
-    static std::string getName()
-    {
-        return "Children";
-    }
+    static std::string getName() { return "Children"; }
 };
 
 static_assert(RecursiveTrait<Children>);
@@ -154,6 +171,13 @@ public:
     }
 };
 
+template <Trait... T, Trait O>
+template <TupleTraitSet<T...>, O>
+O get(TupleTraitSet<T...> ts)
+{
+    return ts.template get<O>(ts);
+}
+
 class VirtualTraitSet
 {
 public:
@@ -164,14 +188,13 @@ template <Trait... T>
 class DynamicTraitSet : VirtualTraitSet
 {
     std::unordered_map<VirtualTrait, void*> traits;
+
 public:
-    template<Trait... O>
+    template <Trait... O>
     DynamicTraitSet(DynamicTraitSet<O...> other) : traits(other.traits)
     {
     }
-
 };
-
 
 
 template <Trait... T>
@@ -182,7 +205,10 @@ class RecursiveTupleTraitSet
 
 public:
     explicit RecursiveTupleTraitSet(T... args) : underlying(args...) { }
-    explicit RecursiveTupleTraitSet(std::vector<RecursiveTupleTraitSet<T...>>& children, T... args) : underlying(args...), children(children) { }
+    explicit RecursiveTupleTraitSet(std::vector<RecursiveTupleTraitSet<T...>>& children, T... args)
+        : underlying(args...), children(children)
+    {
+    }
 
     bool operator==(const RecursiveTupleTraitSet& other) const { return this == &other; }
 
@@ -193,12 +219,8 @@ public:
         return std::get<O>(underlying);
     }
 
-    std::vector<RecursiveTupleTraitSet> getChildren()
-    {
-        return children;
-    }
+    std::vector<RecursiveTupleTraitSet> getChildren() { return children; }
 };
-
 
 
 // template <Trait... T>
@@ -223,9 +245,7 @@ concept StatisticsValue = requires(SV statisticsValue) { std::equality_comparabl
 //Make pack over trait sets instead
 template <typename C, typename SV, typename TS>
 concept CostFunction = requires(C function, TS ts) {
-    {
-        function(ts)
-    } -> std::same_as<SV>;
+    { function(ts) } -> std::same_as<SV>;
     // { function.derive(TraitSet<TOs...>()) } -> std::same_as<TraitSet<TIs...>>;
 } && StatisticsValue<SV> && TraitSet<TS>;
 // && (TraitSet<TIs> && ...)
@@ -239,9 +259,7 @@ concept CostFunction = requires(C function, TS ts) {
 
 template <typename C, typename SV, typename TS>
 concept OptionalCostFunction = requires(C function, TS ts) {
-    {
-        function(ts)
-    } -> std::same_as<std::optional<SV>>;
+    { function(ts) } -> std::same_as<std::optional<SV>>;
 } && StatisticsValue<SV> && TraitSet<TS>;
 // && (Trait<T> && ...);
 }
@@ -263,14 +281,9 @@ public:
     bool operator==(const QueryForSubtree&) const { return true; }
     static bool atNode() { return false; }
 
-    static std::string getName()
-    {
-        return "QueryForSubtree";
-    }
+    static std::string getName() { return "QueryForSubtree"; }
 
-    const std::string& getQuery() const {
-        return str;
-    }
+    const std::string& getQuery() const { return str; }
 };
 
 static_assert(Trait<QueryForSubtree>);
@@ -283,27 +296,37 @@ public:
     explicit Placement(int nodeID) : nodeID(nodeID) { }
     bool operator==(const Placement& other) const { return nodeID == other.nodeID; }
     static constexpr bool atNode() { return true; }
-    static std::string getName()
-    {
-        return "Placement";
-    }
+    static std::string getName() { return "Placement"; }
 };
 
 static_assert(Trait<Placement>);
 
+struct TestOperator
+{
+    const Placement placement;
+    // Placement get() { return Placement{1}; };
+};
+
+template <>
+Placement get<TestOperator, Placement>(TestOperator op)
+{
+    return op.placement;
+}
+
+static_assert(HasGet<TestOperator>::check<Placement>());
+
+
+static_assert(TraitSet<TupleTraitSet<Placement>, Placement>);
+static_assert(TraitSet<TestOperator, QueryForSubtree>);
+
+// static_assert(hasGetter<TupleTraitSet<Placement>, Placement>::value::value);
 
 class Operator
 {
 public:
-    bool operator==(const Operator &) const
-    {
-        return true;
-    }
+    bool operator==(const Operator&) const { return true; }
     static constexpr bool atNode() { return true; }
-    static std::string getName()
-    {
-        return "Operator";
-    }
+    static std::string getName() { return "Operator"; }
 };
 
 static_assert(Trait<Operator>);
@@ -338,7 +361,7 @@ class StatisticsCatalog
     std::unordered_map<TupleTraitSet<Placement>, float> memoryUsage;
 
 public:
-    explicit StatisticsCatalog(){};
+    explicit StatisticsCatalog() { };
 
 
     class RateStore
@@ -419,30 +442,21 @@ public:
 
 class AbstractRewriteRule
 {
-
     virtual VirtualTraitSet* apply(VirtualTraitSet*);
 };
 
 template <Trait... T>
 class TypedAbstractRewriteRule : AbstractRewriteRule
 {
-    VirtualTraitSet* apply(VirtualTraitSet * inputTS) override
-    {
-        applyTyped(DynamicTraitSet<T...>{inputTS});
-    };
+    VirtualTraitSet* apply(VirtualTraitSet* inputTS) override { applyTyped(DynamicTraitSet<T...>{inputTS}); };
 
     virtual DynamicTraitSet<T...>* applyTyped(DynamicTraitSet<T...>*) = 0;
 };
 
 class LowerToPhysicalSelection : TypedAbstractRewriteRule<QueryForSubtree, Operator>
 {
-    DynamicTraitSet<QueryForSubtree, Operator>* applyTyped(DynamicTraitSet<QueryForSubtree, Operator>*) override
-    {
-        return nullptr;
-    };
+    DynamicTraitSet<QueryForSubtree, Operator>* applyTyped(DynamicTraitSet<QueryForSubtree, Operator>*) override { return nullptr; };
 };
-
-
 
 
 }
