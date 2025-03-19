@@ -12,6 +12,9 @@
     limitations under the License.
 */
 
+#include <typeinfo>
+#include <unordered_map>
+
 #include <Util/Logger/Logger.hpp>
 #include <gtest/gtest.h>
 #include <private/Optimizer/Cost/CostFunctions.hpp>
@@ -35,13 +38,18 @@ TEST_F(CostTest, testHarcodedFunctions)
 {
     auto statCatalog = StatisticsCatalog{};
     auto cardEstimator = RateEstimator<TupleTraitSet<QueryForSubtree>, StatisticsCatalog::RateStore>{statCatalog.getRateStore()};
-    PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)> placementCost
-        = PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)>{cardEstimator};
+    auto placementCost = PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)>{cardEstimator};
 
 
-    RecursiveTupleTraitSet<QueryForSubtree, Placement, Children> child = RecursiveTupleTraitSet{QueryForSubtree{"child"}, Placement{4}, Children{}};
-    std::vector<decltype(child)> children {child};
-    RecursiveTupleTraitSet<QueryForSubtree, Placement, Children> ts = RecursiveTupleTraitSet{children, QueryForSubtree{"test"}, Placement{5}, Children{}};
+    using TraitSetType = RecursiveTupleTraitSet<QueryForSubtree, Placement, Children, Parents>;
+    const auto child
+        = TraitSetType{TraitSetType::EdgeTuple{std::vector<TraitSetType>{}, std::vector<TraitSetType>{}}, QueryForSubtree{"child"}, Placement{4}};
+    getEdges<TraitSetType, Parents>(child);
+    //TODO add mutability of traits/edges
+
+    const EdgeContainerTuple<TraitSetType, Children> children{std::vector{child}};
+
+    const auto ts = TraitSetType{TraitSetType::EdgeTuple{std::vector{child}, std::vector<TraitSetType>{}}, QueryForSubtree{"test"}, Placement{5}};
 
 
     auto cost = placementCost(ts);

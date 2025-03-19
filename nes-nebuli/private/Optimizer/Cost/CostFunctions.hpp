@@ -13,6 +13,7 @@
 */
 
 #pragma once
+
 #include <functional>
 #include <map>
 #include <memory>
@@ -20,13 +21,15 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <typeindex>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
-#include "../../../../nes-runtime/include/Util/Core.hpp"
 
 #include <Util/Logger/Logger.hpp>
 #include <absl/container/internal/layout.h>
+#include <gmock/internal/gmock-internal-utils.h>
 
 namespace NES::Optimizer
 {
@@ -52,7 +55,7 @@ concept Trait = requires(T trait, T other) {
 };
 
 template <typename T>
-concept RecursiveTrait = requires() {
+concept RecursiveTrait = std::is_same_v<typename T::recursive, std::true_type> && Trait<T>; //requires() {
     //Not going to be easy to make it work how I'd like it.
     //Ideally, we could just name a container type in the RecursiveTrait and use this as the container for the children.
     //But, the container type only gets fully specified when specifying a trait set with some parameters, because
@@ -70,8 +73,8 @@ concept RecursiveTrait = requires() {
     //In addition, we could also model other nested data structures as trait sets, like predicates.
     //These Traits could contain a definition of what traitset they contain, e.g. a predicate would only contain other predicates.
     //This would give us a unified representation of "relnodes and rexnodes" in calcite-lingo
-    { T::recursive() };
-};
+//     { T::recursive() };
+// };
 
 //Traits with compile-time finite instances (enums or booleans like isGPU) could be added like
 template <typename T>
@@ -99,43 +102,72 @@ template <typename TS, typename T>
 T get(TS) = delete;
 
 
+template <typename TS, typename T>
+std::vector<TS> getEdges(TS) = delete;
+
+template <typename TS, typename T>
+concept hasInternalGetter = requires(TS ts) {
+    { ts.template get<T>() } -> std::same_as<T>;
+};
+
+template <typename TS, typename T>
+concept hasEdgesInternal = requires(TS ts) {
+    { ts.template getEdges<T>() } -> std::same_as<std::vector<TS>>;
+};
+
+
+template <typename TS, typename T>
+requires hasInternalGetter<TS, T>
+T get(TS ts)
+{
+    return ts.template get<T>();
+}
+
+template <typename TS, typename T>
+requires hasEdgesInternal<TS, T>
+std::vector<TS> getEdges(TS ts)
+{
+    return ts.template getEdges<T>();
+}
 
 template <typename TS, typename T>
 concept hasGetter = requires(TS ts) {
     { get<TS, T>(ts) } -> std::same_as<T>;
-} || requires(TS ts)
-{
-    { ts.template get<T>()} -> std::same_as<T>;
-}
-|| requires(TS ts)
-{
-    {static_cast<T>(ts)} -> std::same_as<T>;
 };
 
 
-template <typename TS, typename... T>
-concept TraitSet = requires(TS ts) {
-    // (requires() {
-    //     { get<T>(ts) } -> std::same_as<T>;
-    // } && ...);
+template <typename TS, typename T>
+concept hasEdges = requires(TS ts) {
+    { getEdges<TS, T>(ts) } -> std::same_as<std::vector<TS>>;
+};
 
-    ((!RecursiveTrait<T> || requires() {
-         { ts.getChildren() } -> std::same_as<std::vector<TS>>;
-     }) && ...);
-} && (hasGetter<TS, T> && ...);
+template <typename TS, typename... T>
+concept TraitSet = ((Trait<T> && (!RecursiveTrait<T> && hasGetter<TS, T>) != (hasEdges<TS, T> || hasEdgesInternal<TS, T>)) && ...);
 
 class Children
 {
 public:
+    using recursive = std::true_type;
     explicit Children() { }
     bool operator==(const Children&) const { return true; }
     static constexpr bool atNode() { return true; }
-    static constexpr void recursive() { return; }
 
     static std::string getName() { return "Children"; }
 };
 
-static_assert(RecursiveTrait<Children>);
+class Parents
+{
+public:
+    using recursive = std::true_type;
+    explicit Parents() { }
+    bool operator==(const Parents&) const { return true; }
+    static constexpr bool atNode() { return true; }
+
+    static std::string getName() { return "Parents"; }
+};
+
+
+static_assert(RecursiveTrait<Parents>);
 
 template <Trait... T>
 class TupleTraitSet
@@ -174,30 +206,123 @@ public:
     }
 };
 
+template <typename, typename>
+struct Cons;
+
+template <typename T, typename... Args>
+struct Cons<T, std::tuple<Args...>>
+{
+    using type = std::tuple<T, Args...>;
+};
+
+template <auto matches, typename...>
+struct filter_s;
+
+template <auto matches>
+struct filter_s<matches>
+{
+    using type = std::tuple<>;
+};
+
+template <auto matches, typename Head, typename... Tail>
+struct filter_s<matches, Head, Tail...>
+{
+    using type = std::conditional_t<
+        matches.template operator()<Head>(),
+        typename Cons<Head, typename filter_s<matches, Tail...>::type>::type,
+        typename filter_s<matches, Tail...>::type>;
+};
+
+
+
+template <auto mapping, template <typename, typename > typename Replacement, typename Constant, typename...>
+struct map_s;
+
+template <auto mapping, template <typename, typename> typename Replacement, typename Constant>
+struct map_s<mapping, Replacement, Constant>
+{
+    using type = std::tuple<>;
+};
+
+template <auto mapping, template <typename, typename> typename Replacement, typename Constant, typename Head, typename... Tail>
+struct map_s<mapping, Replacement, Constant, Head, Tail...>
+{
+    using type = std::conditional_t<
+        mapping.template operator()<Head>(),
+        typename Cons<Replacement<Constant, Head>, typename map_s<mapping, Replacement, Constant, Tail...>::type>::type,
+        typename map_s<mapping, Replacement, Constant, Tail...>::type>;
+};
+
+template <TraitSet TS, typename T>
+struct EdgeContainer
+{
+    using type = T;
+    std::vector<TS> edges;
+};
+
+template <Trait... T>
+using NonRecursiveTraitTuple = typename filter_s<[]<typename R>() consteval { return !RecursiveTrait<R>; }, T...>::type;
+
+template <TraitSet TS, Trait... T>
+using EdgeContainerTuple =
+    typename map_s<[]<typename R>() consteval { return RecursiveTrait<R>; }, EdgeContainer, TS, T...>::type ;
+;
 
 template <Trait... T>
 class RecursiveTupleTraitSet
 {
-    std::tuple<T...> underlying;
-    std::vector<RecursiveTupleTraitSet<T...>> children;
+public:
+    using EdgeTuple = EdgeContainerTuple<RecursiveTupleTraitSet, T...>;
+private:
+
+    NonRecursiveTraitTuple<T...> underlying;
+    // std::unordered_map<std::type_index, std::vector<RecursiveTupleTraitSet>> edges;
+
+     EdgeContainerTuple<RecursiveTupleTraitSet, T...>edges;
 
 public:
-    explicit RecursiveTupleTraitSet(T... args) : underlying(args...) { }
-    explicit RecursiveTupleTraitSet(std::vector<RecursiveTupleTraitSet<T...>>& children, T... args)
-        : underlying(args...), children(children)
+    template <RecursiveTrait... RTs, Trait... Ts>
+    requires std::is_same_v<NonRecursiveTraitTuple<Ts...>, std::tuple<Ts...>>
+    explicit RecursiveTupleTraitSet(EdgeTuple edges, Ts... args)
+        : underlying(args...), edges(edges)
     {
     }
 
     bool operator==(const RecursiveTupleTraitSet& other) const { return this == &other; }
 
     template <Trait O>
-    requires(std::same_as<O, T> || ...)
+    requires((std::same_as<O, T> || ...) && !RecursiveTrait<O>)
     O get()
     {
         return std::get<O>(underlying);
     }
 
-    std::vector<RecursiveTupleTraitSet> getChildren() { return children; }
+    template <typename O>
+    std::vector<RecursiveTupleTraitSet> getEdges() = delete;
+
+
+    template <typename O>
+    requires((std::same_as<O, T> || ...) && RecursiveTrait<O>)
+    std::vector<RecursiveTupleTraitSet> getEdges()
+    {
+        return std::get<EdgeContainer<RecursiveTupleTraitSet, O>>(edges).edges;
+        // return edges.at(typeid(O));
+    }
+    // template <RecursiveTrait O>
+    // requires(std::same_as<O, T> || ...)
+    // std::vector<RecursiveTupleTraitSet> getEdges()
+    // {
+    //     return children;
+    // }
+
+
+    // template <>
+    // std::vector<RecursiveTupleTraitSet> getEdges<Children>()
+    // {
+    //     return children;
+    // }
+
+    // std::vector<RecursiveTupleTraitSet> getChildren() { return children; }
 };
 
 
@@ -282,10 +407,20 @@ static_assert(Trait<Placement>);
 struct TestOperator
 {
     const Placement placement;
-    // Placement get() { return Placement{1}; };
-    explicit operator Placement() const {
+
+    template <typename T>
+    T get() = delete;
+
+    template <>
+    Placement get<Placement>()
+    {
         return placement;
     }
+
+    // Placement get() { return Placement{1}; };
+    // explicit operator Placement() const {
+    //     return placement;
+    // }
 };
 
 // template <>
@@ -297,7 +432,7 @@ struct TestOperator
 static_assert(hasGetter<TestOperator, Placement>);
 
 
-static_assert(TraitSet<TupleTraitSet<Placement>, Placement>);
+static_assert(TraitSet<RecursiveTupleTraitSet<Placement, Children>, Placement, Children>);
 static_assert(TraitSet<TestOperator, Placement>);
 
 // static_assert(hasGetter<TupleTraitSet<Placement>, Placement>::value::value);
@@ -411,12 +546,13 @@ public:
     template <TraitSet<QueryForSubtree, Placement, Children> TSI>
     int operator()(TSI ts)
     {
-        for (TSI child : ts.getChildren())
+        for (TSI child : getEdges<TSI, Children>(ts))
         {
-            NES_INFO("Child query: {}", child.template get<QueryForSubtree>().getQuery());
+            NES_INFO("Child query: {}", get<TSI, QueryForSubtree>(child).getQuery());
         }
-        auto derived = TupleTraitSet<QueryForSubtree>{ts.template get<QueryForSubtree>()};
-        int rate = rateEstimator(derived);
+        auto derived = TupleTraitSet<QueryForSubtree>{get<TSI, QueryForSubtree>(ts)};
+        auto subtree = get<TSI, QueryForSubtree>(ts);
+        const int rate = rateEstimator(derived);
         return rate;
     }
 };
