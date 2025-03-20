@@ -233,9 +233,9 @@ struct filter_s<matches, Head, Tail...>
         typename filter_s<matches, Tail...>::type>;
 };
 
+//Didn't manage to do proper currying of the replacement template, so I just hardcoded it for the two parameter case
 
-
-template <auto mapping, template <typename, typename > typename Replacement, typename Constant, typename...>
+template <auto mapping, template <typename, typename> typename Replacement, typename Constant, typename...>
 struct map_s;
 
 template <auto mapping, template <typename, typename> typename Replacement, typename Constant>
@@ -258,14 +258,15 @@ struct EdgeContainer
 {
     using type = T;
     std::vector<TS> edges;
+
+    EdgeContainer(std::vector<TS> edges) : edges(edges) { }
 };
 
 template <Trait... T>
 using NonRecursiveTraitTuple = typename filter_s<[]<typename R>() consteval { return !RecursiveTrait<R>; }, T...>::type;
 
 template <TraitSet TS, Trait... T>
-using EdgeContainerTuple =
-    typename map_s<[]<typename R>() consteval { return RecursiveTrait<R>; }, EdgeContainer, TS, T...>::type ;
+using EdgeContainerTuple = typename map_s<[]<typename R>() consteval { return RecursiveTrait<R>; }, EdgeContainer, TS, T...>::type;
 ;
 
 template <Trait... T>
@@ -273,21 +274,25 @@ class RecursiveTupleTraitSet
 {
 public:
     using EdgeTuple = EdgeContainerTuple<RecursiveTupleTraitSet, T...>;
-private:
 
+private:
     NonRecursiveTraitTuple<T...> underlying;
     // std::unordered_map<std::type_index, std::vector<RecursiveTupleTraitSet>> edges;
 
-     EdgeContainerTuple<RecursiveTupleTraitSet, T...>edges;
+    EdgeContainerTuple<RecursiveTupleTraitSet, T...> edges;
 
 public:
-    template <RecursiveTrait... RTs, Trait... Ts>
+    template <Trait... Ts>
     requires std::is_same_v<NonRecursiveTraitTuple<Ts...>, std::tuple<Ts...>>
-    explicit RecursiveTupleTraitSet(EdgeTuple edges, Ts... args)
-        : underlying(args...), edges(edges)
+    explicit RecursiveTupleTraitSet(EdgeTuple edges, Ts... args) : underlying(args...), edges(edges)
     {
     }
 
+    template <typename... RTEs, Trait... Ts>
+    requires std::is_same_v<NonRecursiveTraitTuple<Ts...>, std::tuple<Ts...>> && std::is_same_v<EdgeTuple, std::tuple<RTEs...>>
+    explicit RecursiveTupleTraitSet(RTEs... edges, Ts... args) : underlying(args...), edges(edges...)
+    {
+    }
     bool operator==(const RecursiveTupleTraitSet& other) const { return this == &other; }
 
     template <Trait O>
@@ -411,10 +416,16 @@ struct TestOperator
     template <typename T>
     T get() = delete;
 
+    // template <>
+    // Placement get<Placement>()
+    // {
+    //     return placement;
+    // }
+
     template <>
-    Placement get<Placement>()
+    QueryForSubtree get<QueryForSubtree>()
     {
-        return placement;
+        return QueryForSubtree{"Test Operator"};
     }
 
     // Placement get() { return Placement{1}; };
@@ -429,11 +440,11 @@ struct TestOperator
 //     return op.placement;
 // }
 
-static_assert(hasGetter<TestOperator, Placement>);
-
-
-static_assert(TraitSet<RecursiveTupleTraitSet<Placement, Children>, Placement, Children>);
-static_assert(TraitSet<TestOperator, Placement>);
+// static_assert(hasGetter<TestOperator, Placement>);
+//
+//
+// static_assert(TraitSet<RecursiveTupleTraitSet<Placement, Children>, Placement, Children>);
+// static_assert(TraitSet<TestOperator, Placement>);
 
 // static_assert(hasGetter<TupleTraitSet<Placement>, Placement>::value::value);
 
@@ -544,6 +555,29 @@ public:
     explicit PlacementCost(RateEstimator rateEstimator) : rateEstimator(rateEstimator) { }
 
     template <TraitSet<QueryForSubtree, Placement, Children> TSI>
+    int operator()(TSI ts)
+    {
+        for (TSI child : getEdges<TSI, Children>(ts))
+        {
+            NES_INFO("Child query: {}", get<TSI, QueryForSubtree>(child).getQuery());
+        }
+        auto derived = TupleTraitSet<QueryForSubtree>{get<TSI, QueryForSubtree>(ts)};
+        auto subtree = get<TSI, QueryForSubtree>(ts);
+        const int rate = rateEstimator(derived);
+        return rate;
+    }
+};
+
+//just for testing and playing around
+template <TraitSet<QueryForSubtree, Placement> TS, CostFunction<int, TS> RateEstimator>
+class OuterCost
+{
+    RateEstimator rateEstimator;
+
+public:
+    explicit OuterCost(RateEstimator rateEstimator) : rateEstimator(rateEstimator) { }
+
+    template <TraitSet<QueryForSubtree, Children> TSI>
     int operator()(TSI ts)
     {
         for (TSI child : getEdges<TSI, Children>(ts))

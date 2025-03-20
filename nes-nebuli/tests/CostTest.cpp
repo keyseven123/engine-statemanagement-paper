@@ -40,8 +40,15 @@ TEST_F(CostTest, testHarcodedFunctions)
     auto cardEstimator = RateEstimator<TupleTraitSet<QueryForSubtree>, StatisticsCatalog::RateStore>{statCatalog.getRateStore()};
     auto placementCost = PlacementCost<TupleTraitSet<QueryForSubtree>, decltype(cardEstimator)>{cardEstimator};
 
+    auto invalidCost = OuterCost<RecursiveTupleTraitSet<QueryForSubtree, Placement, Children>, decltype(placementCost)>{placementCost};
+    using TestType = RecursiveTupleTraitSet<QueryForSubtree, Children>;
 
-    using TraitSetType = RecursiveTupleTraitSet<QueryForSubtree, Placement, Children, Parents>;
+    // auto testTS = TestType{TestType::EdgeTuple{std::vector<TestType>{}}, QueryForSubtree{"invalid"}};
+    // invalidCost(testTS);
+
+    // invalidCost(op);
+
+    using TraitSetType = RecursiveTupleTraitSet<QueryForSubtree, Children, Parents, Placement>;
     const auto child
         = TraitSetType{TraitSetType::EdgeTuple{std::vector<TraitSetType>{}, std::vector<TraitSetType>{}}, QueryForSubtree{"child"}, Placement{4}};
     getEdges<TraitSetType, Parents>(child);
