@@ -98,51 +98,52 @@ public:
     std::string getName() override { return trait.getName(); }
 };
 
-template <typename TS, typename T>
+template <typename T, typename TS>
 T get(TS) = delete;
 
 
-template <typename TS, typename T>
+template <typename T, typename TS>
 std::vector<TS> getEdges(TS) = delete;
 
-template <typename TS, typename T>
+
+template <typename T, typename TS>
 concept hasInternalGetter = requires(TS ts) {
     { ts.template get<T>() } -> std::same_as<T>;
 };
 
-template <typename TS, typename T>
+template <typename T, typename TS>
 concept hasEdgesInternal = requires(TS ts) {
     { ts.template getEdges<T>() } -> std::same_as<std::vector<TS>>;
 };
 
 
-template <typename TS, typename T>
-requires hasInternalGetter<TS, T>
+template <typename T, typename TS>
+requires hasInternalGetter<T, TS>
 T get(TS ts)
 {
     return ts.template get<T>();
 }
 
-template <typename TS, typename T>
-requires hasEdgesInternal<TS, T>
+template <typename T, typename TS>
+requires hasEdgesInternal<T, TS>
 std::vector<TS> getEdges(TS ts)
 {
     return ts.template getEdges<T>();
 }
 
-template <typename TS, typename T>
+template <typename T, typename TS>
 concept hasGetter = requires(TS ts) {
-    { get<TS, T>(ts) } -> std::same_as<T>;
+    { get<T, TS>(ts) } -> std::same_as<T>;
 };
 
 
-template <typename TS, typename T>
+template <typename T, typename TS>
 concept hasEdges = requires(TS ts) {
-    { getEdges<TS, T>(ts) } -> std::same_as<std::vector<TS>>;
+    { getEdges<T, TS>(ts) } -> std::same_as<std::vector<TS>>;
 };
 
 template <typename TS, typename... T>
-concept TraitSet = ((Trait<T> && (!RecursiveTrait<T> && hasGetter<TS, T>) != (hasEdges<TS, T> || hasEdgesInternal<TS, T>)) && ...);
+concept TraitSet = ((Trait<T> && (!RecursiveTrait<T> && hasGetter<T, TS>) != (hasEdges<T, TS> || hasEdgesInternal<T, TS>)) && ...);
 
 class Children
 {
@@ -554,15 +555,15 @@ class PlacementCost
 public:
     explicit PlacementCost(RateEstimator rateEstimator) : rateEstimator(rateEstimator) { }
 
-    template <TraitSet<QueryForSubtree, Placement, Children> TSI>
-    int operator()(TSI ts)
+    // template <TraitSet<QueryForSubtree, Placement, Children> TSI>
+    int operator()(TraitSet<QueryForSubtree, Placement, Children> auto ts)
     {
-        for (TSI child : getEdges<TSI, Children>(ts))
+        for (auto child : getEdges<Children>(ts))
         {
-            NES_INFO("Child query: {}", get<TSI, QueryForSubtree>(child).getQuery());
+            NES_INFO("Child query: {}", get<QueryForSubtree>(child).getQuery());
         }
-        auto derived = TupleTraitSet<QueryForSubtree>{get<TSI, QueryForSubtree>(ts)};
-        auto subtree = get<TSI, QueryForSubtree>(ts);
+        auto derived = TupleTraitSet<QueryForSubtree>{get<QueryForSubtree>(ts)};
+        auto subtree = get<QueryForSubtree>(ts);
         const int rate = rateEstimator(derived);
         return rate;
     }
@@ -577,15 +578,27 @@ class OuterCost
 public:
     explicit OuterCost(RateEstimator rateEstimator) : rateEstimator(rateEstimator) { }
 
-    template <TraitSet<QueryForSubtree, Children> TSI>
-    int operator()(TSI ts)
+    // template <TraitSet<QueryForSubtree, Children> TSI>
+    // int operator()(TSI ts)
+    // {
+    //     for (TSI child : getEdges<TSI, Children>(ts))
+    //     {
+    //         NES_INFO("Child query: {}", get<TSI, QueryForSubtree>(child).getQuery());
+    //     }
+    //     auto derived = TupleTraitSet<QueryForSubtree>{get<TSI, QueryForSubtree>(ts)};
+    //     auto subtree = get<TSI, QueryForSubtree>(ts);
+    //     const int rate = rateEstimator(derived);
+    //     return rate;
+    // }
+    // template <TraitSet<QueryForSubtree, Children> TSI>
+    int operator()(const TraitSet<QueryForSubtree, Children> auto& ts)
     {
-        for (TSI child : getEdges<TSI, Children>(ts))
+        for (auto child : getEdges<Children>(ts))
         {
-            NES_INFO("Child query: {}", get<TSI, QueryForSubtree>(child).getQuery());
+            NES_INFO("Child query: {}", get<QueryForSubtree>(child).getQuery());
         }
-        auto derived = TupleTraitSet<QueryForSubtree>{get<TSI, QueryForSubtree>(ts)};
-        auto subtree = get<TSI, QueryForSubtree>(ts);
+        auto derived = TupleTraitSet<QueryForSubtree>{get<QueryForSubtree>(ts)};
+        auto subtree = get<QueryForSubtree>(ts);
         const int rate = rateEstimator(derived);
         return rate;
     }
