@@ -14,6 +14,7 @@ cmake_minimum_required(VERSION 3.21.0)
 include(CMakeDependentOption)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
+set(LLVM_VERSION 18.1.6)
 set(LLVM_TOOLCHAIN_VERSION 19)
 
 # Enable native mtune/march for optimizations
