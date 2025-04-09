@@ -33,6 +33,7 @@ std::unique_ptr<SourceHandle> SourceProvider::lower(
 {
     /// Todo #241: Get the new source identfier from the source descriptor and pass it to SourceHandle.
     auto sourceArguments = NES::Sources::SourceRegistryArguments(sourceDescriptor);
+
     if (auto source = SourceRegistry::instance().create(sourceDescriptor.sourceType, sourceArguments))
     {
         /// The source-specific configuration of numberOfBuffersInSourceLocalBufferPool stakes priority.
