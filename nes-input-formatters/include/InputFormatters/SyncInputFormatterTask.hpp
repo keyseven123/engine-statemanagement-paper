@@ -111,6 +111,7 @@ private:
         size_t offsetToFirstTupleDelimiter,
         Memory::AbstractBufferProvider& bufferProvider,
         Memory::TupleBuffer& formattedBuffer,
+        Runtime::Execution::PipelineExecutionContext& pipelineExecutionContext,
         size_t offsetToFormattedBuffer);
 };
 

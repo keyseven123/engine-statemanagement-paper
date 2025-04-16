@@ -30,10 +30,9 @@ namespace NES::InputFormatters
 void CSVInputFormatter::indexSpanningTuple(
     const std::string_view tuple,
     const std::string_view fieldDelimiter,
-    FieldOffsetsType* fieldOffsets,
+    FieldOffsetIterator& fieldOffsets,
     const FieldOffsetsType startIdxOfCurrentTuple,
-    const FieldOffsetsType endIdxOfCurrentTuple,
-    FieldOffsetsType currentFieldIndex)
+    const FieldOffsetsType endIdxOfCurrentTuple)
 {
     /// Iterate over all fields, parse the string values and write the formatted data into the TBF.
     size_t currentFieldOffset = 0;
@@ -41,14 +40,14 @@ void CSVInputFormatter::indexSpanningTuple(
     while (hasAnotherField)
     {
         const auto fieldOffset = startIdxOfCurrentTuple + currentFieldOffset;
-        fieldOffsets[currentFieldIndex] = fieldOffset;
-        ++currentFieldIndex;
+        fieldOffsets.write(fieldOffset);
+        ++fieldOffsets;
         currentFieldOffset = tuple.find(fieldDelimiter, currentFieldOffset + fieldDelimiter.size()) + fieldDelimiter.size();
         hasAnotherField = currentFieldOffset != (std::string::npos + fieldDelimiter.size());
     }
     /// The last delimiter is the size of the tuple itself, which allows the next phase to determine the last field without any extra calculations
-    fieldOffsets[currentFieldIndex] = endIdxOfCurrentTuple;
-    ++currentFieldIndex;
+    fieldOffsets.write(endIdxOfCurrentTuple);
+    ++fieldOffsets;
 }
 
 void CSVInputFormatter::indexRawBuffer(

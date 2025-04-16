@@ -44,10 +44,9 @@ public:
     virtual void indexSpanningTuple(
         std::string_view tuple,
         std::string_view fieldDelimiter,
-        FieldOffsetsType* fieldOffsets,
+        FieldOffsetIterator& fieldOffsets,
         FieldOffsetsType startIdxOfCurrentTuple,
-        FieldOffsetsType endIdxOfCurrentTuple,
-        FieldOffsetsType currentFieldIndex)
+        FieldOffsetsType endIdxOfCurrentTuple)
         = 0;
 
     /// Determines all indexes of all full tuples in a raw buffer. A raw buffer may start and end with a partial tuple.

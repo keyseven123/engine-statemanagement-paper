@@ -123,6 +123,7 @@ void processSpanningTuple(
     const std::string_view fieldDelimiter,
     NES::InputFormatters::InputFormatter& inputFormatter,
     const std::vector<NES::InputFormatters::AsyncInputFormatterTask::CastFunctionSignature>& fieldParseFunctions,
+    NES::Runtime::Execution::PipelineExecutionContext& pipelineExecutionContext,
     const std::vector<size_t>& fieldSizes)
 {
     /// If the buffers are not empty, there are at least three buffers
@@ -152,12 +153,14 @@ void processSpanningTuple(
     /// A partial tuple may currently be empty (the 'stop' call produces an empty tuple, if the last buffer ends in a tuple delimiter)
     if (not partialTuple.empty())
     {
-        std::vector<NES::InputFormatters::FieldOffsetsType> partialTupleOffset(numberOfFieldsInSchema + 1);
-        inputFormatter.indexSpanningTuple(partialTuple, fieldDelimiter, partialTupleOffset.data(), 0, partialTuple.size(), 0);
+        auto partialTupleOffsets = NES::InputFormatters::FieldOffsetIterator(
+            numberOfFieldsInSchema, bufferProvider.getBufferSize(), pipelineExecutionContext.getBufferManager());
+        inputFormatter.indexSpanningTuple(partialTuple, fieldDelimiter, partialTupleOffsets, 0, partialTuple.size());
+        auto tuplesinBuffer = partialTupleOffsets.finishRead();
 
-        processTuple<NES::InputFormatters::FieldOffsetsType*>(
+        processTuple<NES::InputFormatters::FieldOffsetIterator&>(
             partialTuple.data(),
-            partialTupleOffset.data(),
+            partialTupleOffsets,
             numberOfFieldsInSchema,
             fieldDelimiter.size(),
             bufferProvider,
@@ -243,6 +246,7 @@ void AsyncInputFormatterTask::stop(Runtime::Execution::PipelineExecutionContext&
         fieldDelimiter,
         *inputFormatter,
         fieldParseFunctions,
+        pipelineExecutionContext,
         fieldSizes);
     /// Emit formatted buffer with single flushed tuple
     if (formattedBuffer.getNumberOfTuples() != 0)
@@ -344,6 +348,7 @@ void AsyncInputFormatterTask::processRawBufferWithTupleDelimiter(
             fieldDelimiter,
             *inputFormatter,
             fieldParseFunctions,
+            pec,
             fieldSizes);
     }
 
@@ -387,6 +392,7 @@ void AsyncInputFormatterTask::processRawBufferWithTupleDelimiter(
             fieldDelimiter,
             *inputFormatter,
             fieldParseFunctions,
+            pec,
             fieldSizes);
     }
     /// If a raw buffer contains exactly one delimiter, but does not complete a partial tuple, the formatted buffer does not contain a tuple
@@ -429,6 +435,7 @@ void AsyncInputFormatterTask::processRawBufferWithoutTupleDelimiter(
         fieldDelimiter,
         *inputFormatter,
         fieldParseFunctions,
+        pec,
         fieldSizes);
 
     formattedBuffer.setSequenceNumber(rawBuffer.getSequenceNumber());

@@ -36,10 +36,9 @@ public:
     void indexSpanningTuple(
         std::string_view tuple,
         std::string_view fieldDelimiter,
-        FieldOffsetsType* offsets,
+        FieldOffsetIterator& offsets,
         FieldOffsetsType startIdxOfCurrentTuple,
-        FieldOffsetsType endIdxOfCurrentTuple,
-        FieldOffsetsType currentFieldIndex) override;
+        FieldOffsetsType endIdxOfCurrentTuple) override;
 
     void indexRawBuffer(
         const char* rawTB,

@@ -242,6 +242,7 @@ void SyncInputFormatterTask::processLeadingSpanningTuple(
     const size_t offsetToFirstTupleDelimiter,
     Memory::AbstractBufferProvider& bufferProvider,
     Memory::TupleBuffer& formattedBuffer,
+    Runtime::Execution::PipelineExecutionContext& pipelineExecutionContext,
     const size_t offsetToFormattedBuffer)
 {
     /// If the buffers are not empty, there are at least three buffers
@@ -268,12 +269,14 @@ void SyncInputFormatterTask::processLeadingSpanningTuple(
     /// A partial tuple may currently be empty (the 'stop' call produces an empty tuple, if the last buffer ends in a tuple delimiter)
     if (not partialTuple.empty())
     {
-        std::vector<NES::InputFormatters::FieldOffsetsType> partialTupleOffset(numberOfFieldsInSchema + 1);
-        inputFormatter->indexSpanningTuple(partialTuple, fieldDelimiter, partialTupleOffset.data(), 0, partialTuple.size(), 0);
+        auto partialTupleOffsets
+            = FieldOffsetIterator(numberOfFieldsInSchema, bufferProvider.getBufferSize(), pipelineExecutionContext.getBufferManager());
+        inputFormatter->indexSpanningTuple(partialTuple, fieldDelimiter, partialTupleOffsets, 0, partialTuple.size());
+        auto tuplesInBuffer = partialTupleOffsets.finishRead();
 
-        processTuple<NES::InputFormatters::FieldOffsetsType*>(
+        processTuple<NES::InputFormatters::FieldOffsetIterator&>(
             partialTuple.data(),
-            partialTupleOffset.data(),
+            partialTupleOffsets,
             numberOfFieldsInSchema,
             fieldDelimiter.size(),
             bufferProvider,
@@ -300,7 +303,8 @@ void SyncInputFormatterTask::stop(Runtime::Execution::PipelineExecutionContext& 
     {
         /// If there is only one buffer, 'processSpanningTuple()' gets the trailing bytes from the buffer (which is the entire spanning tuple),
         /// then skips over the middle buffers (there are none) and reads 0 bytes from the empty tuple buffer provided in the function call.
-        processLeadingSpanningTuple(Memory::TupleBuffer{}, 0, *pipelineExecutionContext.getBufferManager(), formattedBuffer, 0);
+        processLeadingSpanningTuple(
+            Memory::TupleBuffer{}, 0, *pipelineExecutionContext.getBufferManager(), formattedBuffer, pipelineExecutionContext, 0);
     }
     else /// there is a spanning tuple that spans over multiple buffers
     {
@@ -308,7 +312,12 @@ void SyncInputFormatterTask::stop(Runtime::Execution::PipelineExecutionContext& 
         const auto lastBuffer = std::move(stagedBuffers.back());
         stagedBuffers.pop_back();
         processLeadingSpanningTuple(
-            lastBuffer.buffer, lastBuffer.offsetOfLastTupleDelimiter, *pipelineExecutionContext.getBufferManager(), formattedBuffer, 0);
+            lastBuffer.buffer,
+            lastBuffer.offsetOfLastTupleDelimiter,
+            *pipelineExecutionContext.getBufferManager(),
+            formattedBuffer,
+            pipelineExecutionContext,
+            0);
     }
 
     /// Emit formatted buffer with single flushed tuple
@@ -358,7 +367,8 @@ void SyncInputFormatterTask::execute(
         auto formattedBuffer = bufferManager->getBufferBlocking();
         if (not stagedBuffers.empty())
         {
-            processLeadingSpanningTuple(rawBuffer, offsetOfFirstTupleDelimiter, *bufferManager, formattedBuffer, 0);
+            processLeadingSpanningTuple(
+                rawBuffer, offsetOfFirstTupleDelimiter, *bufferManager, formattedBuffer, pipelineExecutionContext, 0);
         }
         /// Clear the staged buffers. Emplace the current buffer. Notify
         stagedBuffers.clear();
