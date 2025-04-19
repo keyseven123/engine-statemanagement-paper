@@ -72,22 +72,8 @@ void CSVInputFormatter::indexRawBuffer(
         const auto sizeOfCurrentTuple = endIdxOfCurrentTuple - startIdxOfCurrentTuple;
         /// WE ALWAYS skip the first partial tuple and start with the first full tuple delimiter, thus, we can ALWAYS add the size of the tuple delimiter
         const auto currentTuple = std::string_view(bufferView.begin() + startIdxOfCurrentTuple, sizeOfCurrentTuple);
-
-        /// Iterate over all fields, parse the string values and write the formatted data into the TBF.
-        size_t currentFieldOffset = 0;
-        bool hasAnotherField = true;
-        while (hasAnotherField)
-        {
-            const auto fieldOffset = startIdxOfCurrentTuple + currentFieldOffset;
-            fieldOffsets.write(fieldOffset);
-            ++fieldOffsets;
-            currentFieldOffset = currentTuple.find(fieldDelimiter, currentFieldOffset + fieldDelimiter.size()) + fieldDelimiter.size();
-            hasAnotherField = currentFieldOffset != (std::string::npos + fieldDelimiter.size());
-        }
-        /// The last delimiter is the size of the tuple itself, which allows the next phase to determine the last field without any extra calculations
-        fieldOffsets.write(endIdxOfCurrentTuple);
-        ++fieldOffsets;
-
+        /// Call indexSpanningTupleFunction to format the single tuple
+        indexSpanningTuple(currentTuple, fieldDelimiter, fieldOffsets, startIdxOfCurrentTuple, endIdxOfCurrentTuple);
         startIdxOfCurrentTuple = endIdxOfCurrentTuple + sizeOfTupleDelimiter;
         endIdxOfCurrentTuple = bufferView.find(tupleDelimiter, startIdxOfCurrentTuple);
         ++tuplesInCurrentBuffer;
