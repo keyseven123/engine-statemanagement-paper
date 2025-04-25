@@ -37,6 +37,7 @@
 #include <QueryOptimizer.hpp>
 #include <SingleNodeWorkerConfiguration.hpp>
 #include <StatisticPrinter.hpp>
+#include <ThroughputListener.hpp>
 
 namespace NES
 {
@@ -46,9 +47,7 @@ SingleNodeWorker::SingleNodeWorker(SingleNodeWorker&& other) noexcept = default;
 SingleNodeWorker& SingleNodeWorker::operator=(SingleNodeWorker&& other) noexcept = default;
 
 SingleNodeWorker::SingleNodeWorker(const SingleNodeWorkerConfiguration& configuration)
-    : listener(std::make_shared<PrintingStatisticListener>(
-          fmt::format("EngineStats_{:%Y-%m-%d_%H-%M-%S}_{:d}.stats", std::chrono::system_clock::now(), ::getpid())))
-    , nodeEngine(NodeEngineBuilder(configuration.workerConfiguration, Util::copyPtr(listener), Util::copyPtr(listener)).build())
+    : nodeEngine(NodeEngineBuilder(configuration.workerConfiguration, Util::copyPtr(listener), Util::copyPtr(listener)).build())
     , optimizer(std::make_unique<QueryOptimizer>(configuration.workerConfiguration.defaultQueryExecution))
     , compiler(std::make_unique<QueryCompilation::QueryCompiler>())
     , configuration(configuration)
@@ -61,6 +60,43 @@ SingleNodeWorker::SingleNodeWorker(const SingleNodeWorkerConfiguration& configur
             configuration.workerConfiguration.bufferSizeInBytes.getValue(),
             configuration.workerConfiguration.defaultQueryExecution.operatorBufferSize.getValue());
     }
+
+    /// Writing the current throughput to the log
+    auto callback = [](const ThroughputListener::CallBackParams& callBackParams)
+    {
+        /// Helper function to format throughput in SI units
+        auto formatThroughput = [](double throughput, const std::string_view suffix)
+        {
+            constexpr std::array<const char*, 5> units = {"", "k", "M", "G", "T"};
+            int unitIndex = 0;
+
+            while (throughput >= 1000 && unitIndex < 4)
+            {
+                throughput /= 1000;
+                unitIndex++;
+            }
+
+            return fmt::format("{:.3f} {}{}/s", throughput, units[unitIndex], suffix);
+        };
+
+        const auto bytesPerSecondMessage = formatThroughput(callBackParams.throughputInBytesPerSec, "B");
+        const auto tuplesPerSecondMessage = formatThroughput(callBackParams.throughputInTuplesPerSec, "Tup");
+        std::cout << fmt::format(
+            "Throughput for queryId {} in window {}-{} is {} / {}\n",
+            callBackParams.queryId,
+            callBackParams.windowStart,
+            callBackParams.windowEnd,
+            bytesPerSecondMessage,
+            tuplesPerSecondMessage);
+    };
+    constexpr auto timeIntervalInMilliSeconds = 1000;
+    const auto throughputListener = std::make_shared<ThroughputListener>(timeIntervalInMilliSeconds, callback);
+
+    const auto printStatisticListener = std::make_shared<PrintingStatisticListener>(
+        fmt::format("EngineStats_{:%Y-%m-%d_%H-%M-%S}_{:d}.stats", std::chrono::system_clock::now(), ::getpid()));
+    queryEngineStatisticsListener = {printStatisticListener, throughputListener};
+    systemEventListener = printStatisticListener;
+    nodeEngine = NodeEngineBuilder(configuration.workerConfiguration, systemEventListener, queryEngineStatisticsListener).build();
 }
 
 /// TODO #305: This is a hotfix to get again unique queryId after our initial worker refactoring.

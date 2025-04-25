@@ -130,7 +130,7 @@ SourceImplementationTermination dataSourceThreadRoutine(
         {
             /// The source read in raw bytes, thus we don't know the number of tuples yet.
             /// The InputFormatterTask expects that the source set the number of bytes this way and uses it to determine the number of tuples.
-            emptyBuffer.setNumberOfTuples(numReadBytes);
+            emptyBuffer.setUsedMemorySize(numReadBytes);
             emit(emptyBuffer, true);
         }
 

@@ -47,7 +47,7 @@ MemorySegment& MemorySegment::operator=(const MemorySegment& other) = default;
 
 MemorySegment::MemorySegment(
     uint8_t* ptr,
-    uint32_t size,
+    const uint32_t size,
     std::function<void(MemorySegment*, BufferRecycler*)>&& recycleFunction,
     uint8_t* controlBlock) /// NOLINT (readability-non-const-parameter)
     : ptr(ptr), size(size), controlBlock(new(controlBlock) BufferControlBlock(this, std::move(recycleFunction)))
@@ -249,6 +249,16 @@ Timestamp BufferControlBlock::getWatermark() const noexcept
 void BufferControlBlock::setWatermark(const Timestamp watermark)
 {
     this->watermark = watermark;
+}
+
+uint64_t BufferControlBlock::getUsedMemorySize() const noexcept
+{
+    return usedMemorySize;
+}
+
+void BufferControlBlock::setUsedMemorySize(const uint64_t usedMemorySize)
+{
+    this->usedMemorySize = usedMemorySize;
 }
 
 SequenceNumber BufferControlBlock::getSequenceNumber() const noexcept
