@@ -18,8 +18,11 @@ add_source_files(nes-input-formatters
         SequenceShredder.cpp
         RawInputDataParser.cpp
         FieldOffsetsIterator.cpp
+        HL7InputFormatter.cpp
 )
 
 # Register plugins
 add_plugin(CSV AsyncInputFormatter nes-input-formatters CSVInputFormatter.cpp)
 add_plugin(CSV SyncInputFormatter nes-input-formatters CSVInputFormatter.cpp)
+add_plugin(HL7 AsyncInputFormatter nes-input-formatters HL7InputFormatter.cpp)
+add_plugin(HL7 SyncInputFormatter nes-input-formatters HL7InputFormatter.cpp)

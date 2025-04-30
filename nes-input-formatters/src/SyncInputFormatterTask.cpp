@@ -252,7 +252,7 @@ void SyncInputFormatterTask::processLeadingSpanningTuple(
     const auto sizeOfLeadingPartialTuple
         = firstBuffer.sizeOfBufferInBytes - (firstBuffer.offsetOfLastTupleDelimiter + tupleDelimiter.size());
     const std::string_view firstPartialTuple = std::string_view(
-        firstBuffer.buffer.getBuffer<const char>() + (firstBuffer.offsetOfLastTupleDelimiter + 1), sizeOfLeadingPartialTuple);
+        firstBuffer.buffer.getBuffer<const char>() + (firstBuffer.offsetOfLastTupleDelimiter + tupleDelimiter.size()), sizeOfLeadingPartialTuple);
     partialTuple.append(firstPartialTuple);
     /// 2. Process all buffers in-between the first and the last
     for (const auto& stagedBuffer : stagedBuffers | std::views::drop(1))

@@ -133,7 +133,7 @@ void processSpanningTuple(
     const auto sizeOfLeadingPartialTuple
         = firstBuffer.sizeOfBufferInBytes - (firstBuffer.offsetOfLastTupleDelimiter + sizeOfTupleDelimiter);
     const std::string_view firstPartialTuple = std::string_view(
-        firstBuffer.buffer.getBuffer<const char>() + (firstBuffer.offsetOfLastTupleDelimiter + 1), sizeOfLeadingPartialTuple);
+        firstBuffer.buffer.getBuffer<const char>() + (firstBuffer.offsetOfLastTupleDelimiter + sizeOfTupleDelimiter), sizeOfLeadingPartialTuple);
     partialTuple.append(firstPartialTuple);
     /// 2. Process all buffers in-between the first and the last
     for (size_t bufferIndex = partialTupleStartIdx + 1; bufferIndex < partialTupleEndIdx; ++bufferIndex)
