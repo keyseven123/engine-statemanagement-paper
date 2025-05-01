@@ -174,7 +174,8 @@ std::unique_ptr<Sources::SourceHandle> createFileSource(
         std::move(validatedSourceConfiguration),
         ParserConfig{});
     INVARIANT(sourceDescriptor.has_value(), "Test File Source couldn't be created");
-    return Sources::SourceProvider::lower(NES::OriginId(1), sourceDescriptor.value(), std::move(sourceBufferPool), -1);
+    auto [_, ingestion] = Backpressure();
+    return Sources::SourceProvider::lower(NES::OriginId(1), ingestion, sourceDescriptor.value(), std::move(sourceBufferPool), -1);
 }
 std::shared_ptr<InputFormatters::InputFormatterTask> createInputFormatterTask(const Schema& schema)
 {
