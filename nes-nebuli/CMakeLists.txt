@@ -18,7 +18,10 @@ get_source(nes-legacy-optimizer LEGACYOPTIMIZER_SOURCE_FILES)
 get_source(nes-coordinator COORDINATOR_SOURCE_FILES)
 get_source(nes-yaml-binder YAML_BINDER_SOURCE_FILES)
 
-add_library(nes-nebuli-lib STATIC src/NebuLI.cpp ${CATALOG_SOURCE_FILES} ${LEGACYOPTIMIZER_SOURCE_FILES} ${OPERATORS_SOURCE_FILES} ${COORDINATOR_SOURCE_FILES} ${CLIENT_SOURCE_FILES} ${YAML_BINDER_SOURCE_FILES})
+add_library(nes-nebuli-lib STATIC src/NebuLI.cpp src/Configuration.cpp ${CATALOG_SOURCE_FILES} ${LEGACYOPTIMIZER_SOURCE_FILES} ${OPERATORS_SOURCE_FILES} ${COORDINATOR_SOURCE_FILES} ${CLIENT_SOURCE_FILES} ${YAML_BINDER_SOURCE_FILES})
+
+find_package(PkgConfig)
+pkg_check_modules(uuid REQUIRED IMPORTED_TARGET GLOBAL uuid)
 
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(argparse CONFIG REQUIRED)
@@ -29,7 +32,7 @@ target_include_directories(nes-nebuli-lib
 
 target_link_libraries(nes-nebuli-lib
         PUBLIC nes-logical-operators
-        PRIVATE nes-sql-parser yaml-cpp::yaml-cpp
+        PRIVATE nes-sql-parser yaml-cpp::yaml-cpp nes-client PkgConfig::uuid nes-distributed
 )
 
 add_executable(nes-nebuli src/NebuLIStarter.cpp)
