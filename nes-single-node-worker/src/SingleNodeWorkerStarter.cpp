@@ -12,6 +12,7 @@
     limitations under the License.
 */
 
+#include <csignal>
 #include <Configurations/Util.hpp>
 #include <Util/Logger/LogLevel.hpp>
 #include <Util/Logger/Logger.hpp>
@@ -25,15 +26,24 @@
 #include <SingleNodeWorker.hpp>
 #include <SingleNodeWorkerConfiguration.hpp>
 
+extern void init_receiver_server_string(std::string bind, std::string connection);
+extern void init_sender_server_string(std::string connection);
+
 int main(const int argc, const char* argv[])
 {
     CPPTRACE_TRY
     {
+        signal(SIGPIPE, SIG_IGN);
         NES::Logger::setupLogging("singleNodeWorker.log", NES::LogLevel::LOG_DEBUG);
         auto configuration = NES::Configurations::loadConfiguration<NES::Configuration::SingleNodeWorkerConfiguration>(argc, argv);
         if (!configuration)
         {
             return 0;
+        }
+        if (!configuration->bind.getValue().empty() && !configuration->connection.getValue().empty())
+        {
+            init_receiver_server_string(configuration->bind.getValue(), configuration->connection.getValue());
+            init_sender_server_string(configuration->connection.getValue());
         }
 
         NES::GRPCServer workerService{NES::SingleNodeWorker(*configuration)};
