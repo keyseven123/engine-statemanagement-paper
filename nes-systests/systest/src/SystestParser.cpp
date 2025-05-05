@@ -12,6 +12,7 @@
     limitations under the License.
 */
 
+#include <map>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -38,18 +39,22 @@
 
 namespace NES::Systest
 {
+std::vector<std::map<std::string, std::string>> configurations;
+
 static constexpr auto CSVSourceToken = "SourceCSV"s;
 static constexpr auto SLTSourceToken = "Source"s;
 static constexpr auto QueryToken = "SELECT"s;
 static constexpr auto SinkToken = "SINK"s;
 static constexpr auto ResultDelimiter = "----"s;
+static constexpr auto ConfigurationToken = "Configuration"s;
 
-static const std::array<std::pair<std::string_view, TokenType>, 5> stringToToken
+static const std::array<std::pair<std::string_view, TokenType>, 6> stringToToken
     = {{{CSVSourceToken, TokenType::CSV_SOURCE},
         {SLTSourceToken, TokenType::SLT_SOURCE},
         {QueryToken, TokenType::QUERY},
         {SinkToken, TokenType::SINK},
-        {ResultDelimiter, TokenType::RESULT_DELIMITER}}};
+        {ResultDelimiter, TokenType::RESULT_DELIMITER},
+        {ConfigurationToken, TokenType::CONFIGURATION}}};
 
 static bool emptyOrComment(const std::string& line)
 {
@@ -199,6 +204,12 @@ void SystestParser::parse()
             {
                 onSinkCallback(std::move(sink));
             }
+        }
+        else if (token == TokenType::CONFIGURATION)
+        {
+            const auto& line = lines[currentLine];
+            auto parsedConfigs = expectConfiguration(line);
+            configurations = std::move(parsedConfigs);
         }
         else if (token == TokenType::QUERY)
         {
@@ -432,6 +443,61 @@ SystestParser::ResultTuples SystestParser::expectTuples(const bool ignoreFirst)
         currentLine++;
     }
     return tuples;
+}
+
+std::vector<std::map<std::string, std::string>> expectConfiguration(const std::string& line) {
+    std::vector<std::map<std::string, std::string>> result;
+
+    std::istringstream stream(line);
+    std::string discard, key, colon;
+    stream >> discard;
+
+    std::vector<std::pair<std::string, std::vector<std::string>>> configs;
+
+    while (stream >> key >> colon) {
+        if (colon != ":") {
+            throw SLTUnexpectedToken("Expected ':' after configuration key: " + key);
+        }
+        std::string valuesString;
+        if (!(stream >> valuesString)) {
+            throw SLTUnexpectedToken("Expected value list after configuration key: " + key);
+        }
+
+        if (valuesString.front() != '[' || valuesString.back() != ']') {
+            throw SLTUnexpectedToken("Configuration values must be in square brackets: " + valuesString);
+        }
+
+        valuesString = valuesString.substr(1, valuesString.size() - 2);
+        std::vector<std::string> values;
+        std::stringstream valStream(valuesString);
+        std::string value;
+        while (std::getline(valStream, value, ',')) {
+            //values.emplace_back(NES::Util::trim(value));
+        }
+
+        configs.emplace_back(key, std::move(values));
+    }
+
+    /// cartesian product to get all config combinations
+    /*
+    std::function<void(size_t, std::map<std::string, std::string>)> buildConfigs;
+    buildConfigs = [&](size_t i, std::map<std::string, std::string> current) {
+        if (i == configs.size()) {
+            result.push_back(std::move(current));
+            return;
+        }
+        const auto& [key, values] = configs[i];
+        for (const auto& v : values) {
+            auto next = current;
+            next[key] = v;
+            buildConfigs(i + 1, std::move(next));
+        }
+    };
+
+    buildConfigs(0, {});
+    */
+
+    return result;
 }
 
 SystestParser::Query SystestParser::expectQuery()

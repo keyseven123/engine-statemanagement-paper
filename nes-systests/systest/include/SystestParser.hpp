@@ -37,6 +37,7 @@ enum class TokenType : uint8_t
     SINK,
     QUERY,
     RESULT_DELIMITER,
+    CONFIGURATION,
 };
 
 /// This is a parser for a dialect of the sqllogictest format. We follow a pull-based parser design as proposed in:
@@ -129,6 +130,7 @@ private:
     [[nodiscard]] Sink expectSink() const;
     [[nodiscard]] ResultTuples expectTuples(bool ignoreFirst = false);
     [[nodiscard]] Query expectQuery();
+    [[nodiscard]] std::vector<std::map<std::string, std::string>> expectConfiguration(const std::string& line);
 
     QueryCallback onQueryCallback;
     ResultTuplesCallback onResultTuplesCallback;
