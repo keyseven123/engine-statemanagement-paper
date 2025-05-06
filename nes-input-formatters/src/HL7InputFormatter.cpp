@@ -76,10 +76,6 @@ void indexSegment(
         currentOffset = std::min({nextCompositeDelim, nextSubCompositeDelim, nextSubSubCompositeDelim}) + 1;
         hasAnotherValue = currentOffset != std::string_view::npos + 1;
     }
-    /// We also add the offset to the \r behind the segment. This will mark the place where the segment ends and mark the start of the next segment identifier (-1).
-    /// The InputFormatterTask will have to jump forward 1 char when parsing the value after this offset to ignore the \r. (CSV already does something similar)
-    offsets.write(endOfSegment);
-    ++offsets;
 }
 
 /// Think of "indexMessage" in this case
@@ -103,7 +99,7 @@ void HL7InputFormatter::indexSpanningTuple(
     const auto escapeChar = std::string_view(tuple.begin() + 6, 1);
     const auto subSubCompositeDelim = std::string_view(tuple.begin() + 7, 1);
     /// Store the delimiter-composite-offsets manually since it will mess with the search for delimiter symbols otherwise
-    /// This is also the only instance where 2 composites are not seperated via a composite seperator is treated as the value itself here.
+    /// This is also the only instance where 2 composites are not seperated via a composite seperator, because the seperator is treated as the value itself here.
     /// This needs to be accounted for in the formatter task.
     /// For reference, see https://hl7-definition.caristix.com/v2/HL7v2.5.1/Segments/MSH
     offsets.write(startIdxOfCurrentMessage + 3);
@@ -126,11 +122,10 @@ void HL7InputFormatter::indexSpanningTuple(
             offsets,
             startIdxOfCurrentMessage + currentSegmentStart,
             startIdxOfCurrentMessage + currentSegmentEnd);
-        /// Already jump to the value after the segment identifier, since its offset already was added at the end of indexSegment.
-        currentSegmentStart = currentSegmentEnd + segmentDelimiter.size() + 4;
+        currentSegmentStart = currentSegmentEnd + segmentDelimiter.size();
         currentSegmentEnd = findFirstIndexOfSymbolWithoutEscape(tuple, segmentDelimiter, escapeChar, currentSegmentStart);
     }
-    /// The following sugment delimiter of the very last segment of the message is not included in the tuple, we still need to parse it though
+    /// The following segment delimiter of the very last segment of the message is not included in the tuple (because we marked it as message delim ), we still need to parse it though
     auto currentSegment
         = std::string_view(tuple.begin() + currentSegmentStart, endIndxOfCurrentMessage - (currentSegmentStart + startIdxOfCurrentMessage));
     indexSegment(
@@ -142,6 +137,9 @@ void HL7InputFormatter::indexSpanningTuple(
         offsets,
         startIdxOfCurrentMessage + currentSegmentStart,
         endIndxOfCurrentMessage);
+    /// Very last offset entry is the end of the message (to make processing easier)
+    offsets.write(endIndxOfCurrentMessage);
+    ++offsets;
 }
 
 /// In the case of HL7 v2, we probably want to use \r as message delimiter as well as segment delimiter.

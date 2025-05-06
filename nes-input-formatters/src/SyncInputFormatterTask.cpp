@@ -33,6 +33,7 @@
 #include <fmt/ranges.h>
 #include <ErrorHandling.hpp>
 #include <FieldOffsetsIterator.hpp>
+#include <HL7InputFormatter.hpp>
 #include <RawInputDataParser.hpp>
 #include <Common/PhysicalTypes/BasicPhysicalType.hpp>
 #include <Common/PhysicalTypes/DefaultPhysicalTypeFactory.hpp>
@@ -65,7 +66,8 @@ void processTuple(
     NES::Memory::TupleBuffer& formattedBuffer,
     const std::vector<NES::InputFormatters::SyncInputFormatterTask::CastFunctionSignature>& fieldParseFunctions,
     const NES::InputFormatters::FieldOffsetsType offsetToFormattedBuffer,
-    const std::vector<size_t>& fieldSizes)
+    const std::vector<size_t>& fieldSizes,
+    bool isHL7)
 {
     size_t fieldOffsetInRawData = 0;
     size_t fieldOffsetInFormattedData = 0;
@@ -91,7 +93,10 @@ void processTuple(
 
         /// Deduct the size of the field delimiter for all fields except for the last
         const auto isLastField = fieldIndex == numberOfFields - 1;
-        sizeOfCurrentRawField = (isLastField) ? sizeOfCurrentRawField : sizeOfCurrentRawField - sizeOfFieldDelimiter;
+        /// In case of HL7, the second field is the field delimiter itself and is not seperated via another field delimiter
+        /// In case of HL7, we also currently assume that the segment delimiter is as big as the field delimiter (size = 1).
+        sizeOfCurrentRawField
+            = (isLastField || (isHL7 && fieldIndex == 1)) ? sizeOfCurrentRawField : sizeOfCurrentRawField - sizeOfFieldDelimiter;
 
         const auto sizeOfCurrentFormattedField = fieldSizes[fieldIndex];
 
@@ -120,7 +125,8 @@ void executeStatelessFormatting(
     const uint32_t numberOfFieldsInSchema,
     const uint32_t sizeOfTupleInBytes,
     const std::vector<size_t>& fieldSizes,
-    const std::vector<NES::InputFormatters::SyncInputFormatterTask::CastFunctionSignature>& fieldParseFunctions)
+    const std::vector<NES::InputFormatters::SyncInputFormatterTask::CastFunctionSignature>& fieldParseFunctions,
+    bool isHL7)
 {
     /// 2. process tuples in buffer
     if (totalNumberOfTuplesInRawBuffer > 0)
@@ -165,7 +171,8 @@ void executeStatelessFormatting(
                     formattedBuffer,
                     fieldParseFunctions,
                     tupleIdxOfCurrentFormattedBuffer * sizeOfTupleInBytes,
-                    fieldSizes);
+                    fieldSizes,
+                    isHL7);
                 ++tupleIdxOfCurrentFormattedBuffer;
             }
             numberOfFormattedTuplesToProduce -= (tupleIdxOfCurrentFormattedBuffer);
@@ -245,6 +252,13 @@ void SyncInputFormatterTask::processLeadingSpanningTuple(
     Runtime::Execution::PipelineExecutionContext& pipelineExecutionContext,
     const size_t offsetToFormattedBuffer)
 {
+    /// Tempory part to check if the input formatter is a HL7 Input Formatter
+    bool isHl7 = false;
+    if (dynamic_cast<HL7InputFormatter*>(inputFormatter.get()))
+    {
+        isHl7 = true;
+    }
+
     /// If the buffers are not empty, there are at least three buffers
     std::string partialTuple;
     /// 1. Process the first buffer
@@ -252,7 +266,8 @@ void SyncInputFormatterTask::processLeadingSpanningTuple(
     const auto sizeOfLeadingPartialTuple
         = firstBuffer.sizeOfBufferInBytes - (firstBuffer.offsetOfLastTupleDelimiter + tupleDelimiter.size());
     const std::string_view firstPartialTuple = std::string_view(
-        firstBuffer.buffer.getBuffer<const char>() + (firstBuffer.offsetOfLastTupleDelimiter + tupleDelimiter.size()), sizeOfLeadingPartialTuple);
+        firstBuffer.buffer.getBuffer<const char>() + (firstBuffer.offsetOfLastTupleDelimiter + tupleDelimiter.size()),
+        sizeOfLeadingPartialTuple);
     partialTuple.append(firstPartialTuple);
     /// 2. Process all buffers in-between the first and the last
     for (const auto& stagedBuffer : stagedBuffers | std::views::drop(1))
@@ -283,7 +298,8 @@ void SyncInputFormatterTask::processLeadingSpanningTuple(
             formattedBuffer,
             fieldParseFunctions,
             offsetToFormattedBuffer,
-            fieldSizes);
+            fieldSizes,
+            isHl7);
         formattedBuffer.setNumberOfTuples(formattedBuffer.getNumberOfTuples() + 1);
     }
 }
@@ -331,6 +347,13 @@ void SyncInputFormatterTask::stop(Runtime::Execution::PipelineExecutionContext& 
 void SyncInputFormatterTask::execute(
     const Memory::TupleBuffer& rawBuffer, Runtime::Execution::PipelineExecutionContext& pipelineExecutionContext)
 {
+    /// Tempory part to check if the input formatter is a HL7 Input Formatter
+    bool isHl7 = false;
+    if (dynamic_cast<HL7InputFormatter*>(inputFormatter.get()))
+    {
+        isHl7 = true;
+    }
+
     if (rawBuffer.getBufferSize() == 0)
     {
         NES_WARNING("Received empty buffer in SyncInputFormatterTask.");
@@ -394,7 +417,8 @@ void SyncInputFormatterTask::execute(
             numberOfFieldsInSchema,
             sizeOfTupleInBytes,
             fieldSizes,
-            fieldParseFunctions);
+            fieldParseFunctions,
+            isHl7);
     }
     else
     {
