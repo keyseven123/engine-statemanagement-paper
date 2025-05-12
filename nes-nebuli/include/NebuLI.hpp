@@ -15,35 +15,34 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
-#include <DataTypes/DataType.hpp>
-#include <Identifiers/Identifiers.hpp>
-#include <Sources/LogicalSource.hpp>
-#include <Sources/SourceDescriptor.hpp>
 #include <experimental/propagate_const>
+
 #include <GRPCClient.hpp>
+#include <Identifiers/Identifiers.hpp>
+#include <YAML/YAMLBinder.hpp>
+#include <PlanningContext.hpp>
+#include <Plans/LogicalPlan.hpp>
 
 namespace NES
 {
 class LogicalPlan;
-}
 
+}
 
 namespace NES::CLI
 {
 
 class LegacyOptimizer
 {
-    std::shared_ptr<const SourceCatalog> sourceCatalog;
-
 public:
-    [[nodiscard]] LogicalPlan optimize(const LogicalPlan& plan) const;
-    LegacyOptimizer() = default;
-    explicit LegacyOptimizer(const std::shared_ptr<const SourceCatalog>& sourceCatalog) : sourceCatalog(sourceCatalog) { }
+    struct OptimizedLogicalPlan
+    {
+        LogicalPlan plan;
+        PlanningContext ctx;
+    };
+    static OptimizedLogicalPlan optimize(YAMLBinder::BoundLogicalPlan&& boundPlan);
 };
+
 class Nebuli
 {
     std::experimental::propagate_const<std::shared_ptr<GRPCClient>> grpcClient;

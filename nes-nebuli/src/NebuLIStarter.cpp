@@ -11,7 +11,6 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-
 #include <cerrno>
 #include <cstddef>
 #include <cstring>
@@ -21,27 +20,60 @@
 #include <memory>
 #include <ostream>
 #include <utility>
-#include <Plans/LogicalPlan.hpp>
-#include <Serialization/QueryPlanSerializationUtil.hpp>
 
-#include <Identifiers/Identifiers.hpp>
-#include <Sources/SourceCatalog.hpp>
-#include <Util/Logger/LogLevel.hpp>
-#include <Util/Logger/Logger.hpp>
-#include <Util/Logger/impl/NesLogger.hpp>
-#include <YAML/YAMLBinder.hpp>
+#include <Distributed/DistributedQueryId.hpp>
 #include <argparse/argparse.hpp>
 #include <cpptrace/from_current.hpp>
 #include <google/protobuf/text_format.h>
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
-#include <magic_enum/magic_enum.hpp>
-#include <yaml-cpp/yaml.h>
+
+#include <Distributed/DistributedQueryId.hpp>
+#include <Distributed/OperatorPlacement.hpp>
+#include <Distributed/QueryDecomposition.hpp>
+#include <Distributed/WorkerStatus.hpp>
+#include <Identifiers/Identifiers.hpp>
+#include <Plans/LogicalPlan.hpp>
+#include <Serialization/QueryPlanSerializationUtil.hpp>
+#include <Sources/SourceCatalog.hpp>
+#include <Util/Logger/LogLevel.hpp>
+#include <Util/Logger/Logger.hpp>
+#include <Util/Logger/impl/NesLogger.hpp>
+#include <YAML/YAMLBinder.hpp>
 #include <ErrorHandling.hpp>
 #include <GRPCClient.hpp>
 #include <NebuLI.hpp>
-#include <SingleNodeWorkerRPCService.grpc.pb.h>
+#include <QueryConfig.hpp>
 
+void doStatus(argparse::ArgumentParser& parser)
+{
+    const auto& statusArgs = parser.at<argparse::ArgumentParser>("status");
+
+    const auto input = statusArgs.get("-i");
+    const auto queryConfig = NES::CLI::YAMLLoader::load(statusArgs.get("-i"));
+
+    std::chrono::system_clock::time_point after(std::chrono::milliseconds(0));
+    if (statusArgs.is_used("--after"))
+    {
+        after = std::chrono::system_clock::time_point(std::chrono::milliseconds(statusArgs.get<size_t>("--after")));
+    }
+
+    for (const auto& workerConfig : queryConfig.workerNodes)
+    {
+        const NES::GRPCClient client(CreateChannel(workerConfig.grpc, grpc::InsecureChannelCredentials()));
+        try
+        {
+            auto summary = client.summary(after);
+            NES::Distributed::prettyPrintWorkerStatus(workerConfig.grpc, summary);
+        }
+        catch (...)
+        {
+            NES::tryLogCurrentException();
+            NES_ERROR("Failed to get summary of node at {}", workerConfig.grpc);
+        }
+        fmt::print("\n");
+    }
+}
 
 int main(int argc, char** argv)
 {
@@ -50,36 +82,37 @@ int main(int argc, char** argv)
         NES::Logger::setupLogging("client.log", NES::LogLevel::LOG_ERROR);
         using argparse::ArgumentParser;
         ArgumentParser program("nebuli");
-        program.add_argument("-d", "--debug").flag().help("Dump the Query plan and enable debug logging");
+        program.add_argument("-d", "--debug").flag().help("Dump the query plan and enable debug logging");
 
         ArgumentParser registerQuery("register");
-        registerQuery.add_argument("-s", "--server").help("grpc uri e.g., 127.0.0.1:8080");
         registerQuery.add_argument("-i", "--input")
             .default_value("-")
-            .help("Read the query description. Use - for stdin which is the default");
+            .help("Read the query description. Use - for stdin, which is the default");
         registerQuery.add_argument("-x").flag();
 
         ArgumentParser startQuery("start");
         startQuery.add_argument("queryId").scan<'i', size_t>();
-        startQuery.add_argument("-s", "--server").help("grpc uri e.g., 127.0.0.1:8080");
 
         ArgumentParser stopQuery("stop");
         stopQuery.add_argument("queryId").scan<'i', size_t>();
-        stopQuery.add_argument("-s", "--server").help("grpc uri e.g., 127.0.0.1:8080");
 
         ArgumentParser unregisterQuery("unregister");
         unregisterQuery.add_argument("queryId").scan<'i', size_t>();
-        unregisterQuery.add_argument("-s", "--server").help("grpc uri e.g., 127.0.0.1:8080");
 
         ArgumentParser dump("dump");
-        dump.add_argument("-o", "--output").default_value("-").help("Write the DecomposedQueryPlan to file. Use - for stdout");
+        dump.add_argument("-o", "--output").default_value("-").help("Write the query plan to file. Use - for stdout");
         dump.add_argument("-i", "--input").default_value("-").help("Read the query description. Use - for stdin which is the default");
+
+        ArgumentParser status("status");
+        status.add_argument("-i").nargs(1).help("Submit the query request");
+        status.add_argument("--after").nargs(1).default_value("Request only status updates that happens after this unix timestamp.");
 
         program.add_subparser(registerQuery);
         program.add_subparser(startQuery);
         program.add_subparser(stopQuery);
         program.add_subparser(unregisterQuery);
         program.add_subparser(dump);
+        program.add_subparser(status);
 
         program.parse_args(argc, argv);
 
@@ -89,6 +122,7 @@ int main(int argc, char** argv)
         }
 
         bool handled = false;
+        /// Handle calls to `start`, `unregister` and `stop` of a query
         for (const auto& [name, fn] : std::initializer_list<std::pair<std::string_view, void (NES::CLI::Nebuli::*)(NES::QueryId)>>{
                  {"start", &NES::CLI::Nebuli::startQuery},
                  {"unregister", &NES::CLI::Nebuli::unregisterQuery},
@@ -97,11 +131,13 @@ int main(int argc, char** argv)
             if (program.is_subcommand_used(name))
             {
                 auto& parser = program.at<ArgumentParser>(name);
-                auto serverUri = parser.get<std::string>("-s");
-                auto client = std::make_shared<NES::GRPCClient>(CreateChannel(serverUri, grpc::InsecureChannelCredentials()));
-                NES::CLI::Nebuli nebuli{client};
-                auto queryId = NES::QueryId{parser.get<size_t>("queryId")};
-                (nebuli.*fn)(queryId);
+                for (auto [queries] = NES::Distributed::QueryId::load(parser.get<std::string>("queryId"));
+                     auto& [connection, queryId] : queries)
+                {
+                    auto client = std::make_shared<NES::GRPCClient>(CreateChannel(connection, grpc::InsecureChannelCredentials()));
+                    NES::CLI::Nebuli nebuli{client};
+                    (nebuli.*fn)(NES::QueryId{queryId});
+                }
                 handled = true;
                 break;
             }
@@ -112,31 +148,29 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        auto sourceCatalog = std::make_shared<NES::SourceCatalog>();
-        auto yamlBinder = NES::CLI::YAMLBinder{sourceCatalog};
-        auto optimizer = NES::CLI::LegacyOptimizer{sourceCatalog};
-
+        /// Handle `register` and `dump` invocations
         const std::string command = program.is_subcommand_used("register") ? "register" : "dump";
-        auto input = program.at<argparse::ArgumentParser>(command).get("-i");
-        NES::CLI::BoundQueryConfig boundConfig;
-        if (input == "-")
-        {
-            boundConfig = yamlBinder.parseAndBind(std::cin);
-        }
-        else
-        {
-            std::ifstream file{input};
-            if (!file)
-            {
-                throw NES::QueryDescriptionNotReadable(std::strerror(errno)); /// NOLINT(concurrency-mt-unsafe)
-            }
-            boundConfig = yamlBinder.parseAndBind(file);
-        }
+        auto input = program.at<ArgumentParser>(command).get("-i");
 
-        const NES::LogicalPlan optimizedQueryPlan = optimizer.optimize(boundConfig.plan);
+        NES::CLI::QueryConfig queryConfig = NES::CLI::YAMLLoader::load(input);
+
+        NES::CLI::YAMLBinder::BoundLogicalPlan boundPlan = NES::CLI::YAMLBinder::from(std::move(queryConfig)).bind();
+
+        NES::CLI::LegacyOptimizer::OptimizedLogicalPlan optimizedPlan = NES::CLI::LegacyOptimizer{}.optimize(std::move(boundPlan));
+
+        NES::OperatorPlacer::PlacedLogicalPlan placedPlan = NES::OperatorPlacer::from(std::move(optimizedPlan)).place();
+
+        NES::QueryDecomposer::DecomposedLogicalPlan decomposedPlan = NES::QueryDecomposer::from(std::move(placedPlan)).decompose();
+
+        if (decomposedPlan.size() == 1) /// Single-node deployment
+        {
+        }
+        else /// Distributed deployment
+        {
+        }
 
         std::string output;
-        auto serialized = NES::QueryPlanSerializationUtil::serializeQueryPlan(optimizedQueryPlan);
+        auto serialized = NES::QueryPlanSerializationUtil::serializeQueryPlan(decomposedPlan.at(""));
         google::protobuf::TextFormat::PrintToString(serialized, &output);
         NES_INFO("GRPC QueryPlan: {}", output);
         if (program.is_subcommand_used("dump"))
@@ -172,7 +206,7 @@ int main(int argc, char** argv)
             auto client = std::make_shared<NES::GRPCClient>(
                 grpc::CreateChannel(registerArgs.get<std::string>("-s"), grpc::InsecureChannelCredentials()));
             NES::CLI::Nebuli nebuli{client};
-            const auto queryId = nebuli.registerQuery(optimizedQueryPlan);
+            const auto queryId = nebuli.registerQuery(decomposedPlan.at(""));
             if (registerArgs.is_used("-x"))
             {
                 nebuli.startQuery(queryId);

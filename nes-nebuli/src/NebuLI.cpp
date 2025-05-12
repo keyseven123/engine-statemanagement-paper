@@ -14,39 +14,21 @@
 
 #include <NebuLI.hpp>
 
-#include <filesystem>
-#include <fstream>
-#include <istream>
-#include <memory>
-#include <optional>
-#include <ranges>
-#include <stdexcept>
-#include <string>
-#include <utility>
-
-#include <Configurations/ConfigurationsNames.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <LegacyOptimizer/LogicalSourceExpansionRule.hpp>
 #include <LegacyOptimizer/OriginIdInferencePhase.hpp>
 #include <LegacyOptimizer/SourceInferencePhase.hpp>
 #include <LegacyOptimizer/TypeInferencePhase.hpp>
-#include <SQLQueryParser/AntlrSQLQueryParser.hpp>
-#include <Sources/SourceDescriptor.hpp>
-#include <Sources/SourceValidationProvider.hpp>
-#include <Util/Logger/Logger.hpp>
-#include <Util/Strings.hpp>
-#include <fmt/ranges.h>
-#include <yaml-cpp/yaml.h>
-#include <ErrorHandling.hpp>
+#include <YAML/YAMLBinder.hpp>
 
 namespace NES::CLI
 {
 
-LogicalPlan LegacyOptimizer::optimize(const LogicalPlan& plan) const
+LegacyOptimizer::OptimizedLogicalPlan LegacyOptimizer::optimize(YAMLBinder::BoundLogicalPlan&& boundPlan)
 {
-    auto newPlan = LogicalPlan{plan};
-    const auto sourceInference = NES::LegacyOptimizer::SourceInferencePhase{sourceCatalog};
-    const auto logicalSourceExpansionRule = NES::LegacyOptimizer::LogicalSourceExpansionRule(sourceCatalog);
+    auto newPlan = std::move(boundPlan.plan);
+    const auto sourceInference = NES::LegacyOptimizer::SourceInferencePhase{boundPlan.ctx.sourceCatalog};
+    const auto logicalSourceExpansionRule = NES::LegacyOptimizer::LogicalSourceExpansionRule(boundPlan.ctx.sourceCatalog);
     constexpr auto typeInference = NES::LegacyOptimizer::TypeInferencePhase{};
     constexpr auto originIdInferencePhase = NES::LegacyOptimizer::OriginIdInferencePhase{};
 
@@ -56,20 +38,24 @@ LogicalPlan LegacyOptimizer::optimize(const LogicalPlan& plan) const
 
     originIdInferencePhase.apply(newPlan);
     typeInference.apply(newPlan);
-    return newPlan;
+    return OptimizedLogicalPlan{std::move(newPlan), std::move(boundPlan.ctx)};
 }
+
 QueryId Nebuli::registerQuery(const LogicalPlan& plan)
 {
     return QueryId{grpcClient->registerQuery(plan)};
 }
+
 void Nebuli::startQuery(const QueryId queryId)
 {
     grpcClient->start(queryId);
 }
+
 void Nebuli::stopQuery(const QueryId queryId)
 {
     grpcClient->stop(queryId);
 }
+
 void Nebuli::unregisterQuery(const QueryId queryId)
 {
     grpcClient->unregister(queryId);
