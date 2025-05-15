@@ -25,8 +25,10 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
+
 #include <Identifiers/Identifiers.hpp>
 #include <Operators/Serialization/DecomposedQueryPlanSerializationUtil.hpp>
 #include <Plans/DecomposedQueryPlan/DecomposedQueryPlan.hpp>
@@ -127,10 +129,10 @@ struct RunningQuery
 
 struct TestFile
 {
-    explicit TestFile(std::filesystem::path file);
+    explicit TestFile(const std::filesystem::path& file);
 
     /// Load a testfile but consider only queries with a specific query number (location in test file)
-    explicit TestFile(std::filesystem::path file, std::vector<uint64_t> onlyEnableQueriesWithTestQueryNumber);
+    explicit TestFile(const std::filesystem::path& file, std::unordered_set<uint64_t> onlyEnableQueriesWithTestQueryNumber);
 
     /// Returns the correct logging path, depending on if the HOST_NEBULASTREAM_ROOT environment variable is set
     [[nodiscard]] std::string getLogFilePath() const
@@ -166,7 +168,7 @@ struct TestFile
     [[nodiscard]] TestName name() const { return file.stem().string(); }
 
     std::filesystem::path file;
-    std::vector<uint64_t> onlyEnableQueriesWithTestQueryNumber;
+    std::unordered_set<uint64_t> onlyEnableQueriesWithTestQueryNumber;
     std::vector<TestGroup> groups;
 
     std::vector<SystestQuery> queries;
