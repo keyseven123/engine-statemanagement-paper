@@ -50,12 +50,8 @@ static constexpr auto padSizeQueryCounter = 3;
 
 /// Load query plan objects by parsing an SLT file for queries and lowering it
 /// Returns a triplet of the lowered query plan, the query name and the schema of the sink
-[[nodiscard]] std::vector<LoadedQueryPlan> loadFromSLTFile(
-    const std::filesystem::path& testFilePath,
-    const std::filesystem::path& workingDir,
-    std::string_view testFileName,
-    const std::filesystem::path& testDataDir,
-    QueryResultMap& queryResultMap);
+[[nodiscard]] std::vector<LoadedQueryPlan>
+loadFromSLTFile(SystestStarterGlobals& systestStarterGlobals, const std::filesystem::path& testFilePath, std::string_view testFileName);
 
 /// Run queries locally ie not on single-node-worker in a separate process
 /// @return false if one query result is incorrect
@@ -63,12 +59,15 @@ static constexpr auto padSizeQueryCounter = 3;
     const std::vector<SystestQuery>& queries,
     uint64_t numConcurrentQueries,
     const Configuration::SingleNodeWorkerConfiguration& configuration,
-    QueryResultMap& queryResultMap);
+    const QueryResultMap& queryResultMap);
 
 /// Run queries remote on the single-node-worker specified by the URI
 /// @return false if one query result is incorrect
 [[nodiscard]] std::vector<RunningQuery> runQueriesAtRemoteWorker(
-    const std::vector<SystestQuery>& queries, uint64_t numConcurrentQueries, const std::string& serverURI, QueryResultMap& queryResultMap);
+    const std::vector<SystestQuery>& queries,
+    uint64_t numConcurrentQueries,
+    const std::string& serverURI,
+    const QueryResultMap& queryResultMap);
 
 
 /// Run queries sequentially locally and benchmark the run time of each query.
@@ -77,7 +76,7 @@ static constexpr auto padSizeQueryCounter = 3;
     const std::vector<SystestQuery>& queries,
     const Configuration::SingleNodeWorkerConfiguration& configuration,
     nlohmann::json& resultJson,
-    QueryResultMap& queryResultMap);
+    const QueryResultMap& queryResultMap);
 
 /// Prints the error message, if the query has failed/passed and the expected and result tuples, like below
 /// function/arithmetical/FunctionDiv:4..................................Passed

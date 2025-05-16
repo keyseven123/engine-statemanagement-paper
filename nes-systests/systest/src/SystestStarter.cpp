@@ -38,8 +38,19 @@
 #include <SystestState.hpp>
 #include <from_current.hpp>
 
-
 using namespace std::literals;
+
+namespace
+{
+
+void shuffleQueries(std::vector<NES::Systest::SystestQuery> queries)
+{
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::ranges::shuffle(queries, g);
+}
+
+}
 
 namespace NES::Systest
 {
@@ -274,13 +285,6 @@ Configuration::SystestConfiguration readConfiguration(int argc, const char** arg
 }
 }
 
-void shuffleQueries(std::vector<NES::Systest::SystestQuery> queries)
-{
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::ranges::shuffle(queries, g);
-}
-
 void createSymlink(const std::filesystem::path& absoluteLogPath, const std::filesystem::path& symlinkPath)
 {
     std::error_code errorCode;
@@ -356,9 +360,9 @@ int main(int argc, const char** argv)
         std::filesystem::remove_all(config.workingDir.getValue());
         std::filesystem::create_directory(config.workingDir.getValue());
 
-        auto testMap = Systest::loadTestFileMap(config);
-        Systest::QueryResultMap queryResultMap{};
-        const auto queries = loadQueries(testMap, config.workingDir.getValue(), config.testDataDir.getValue(), queryResultMap);
+        Systest::SystestStarterGlobals systestStarterGlobals{
+            config.workingDir.getValue(), config.testDataDir.getValue(), Systest::loadTestFileMap(config)};
+        const auto queries = loadQueries(systestStarterGlobals);
         std::cout << std::format("Running a total of {} queries.", queries.size()) << '\n';
         if (queries.empty())
         {
@@ -378,7 +382,7 @@ int main(int argc, const char** argv)
         std::vector<Systest::RunningQuery> failedQueries;
         if (const auto grpcURI = config.grpcAddressUri.getValue(); not grpcURI.empty())
         {
-            failedQueries = runQueriesAtRemoteWorker(queries, numberConcurrentQueries, grpcURI, queryResultMap);
+            failedQueries = runQueriesAtRemoteWorker(queries, numberConcurrentQueries, grpcURI, systestStarterGlobals.getQueryResultMap());
         }
         else
         {
@@ -394,7 +398,8 @@ int main(int argc, const char** argv)
             if (config.benchmark)
             {
                 nlohmann::json benchmarkResults;
-                failedQueries = Systest::runQueriesAndBenchmark(queries, singleNodeWorkerConfiguration, benchmarkResults, queryResultMap);
+                failedQueries = Systest::runQueriesAndBenchmark(
+                    queries, singleNodeWorkerConfiguration, benchmarkResults, systestStarterGlobals.getQueryResultMap());
                 std::cout << benchmarkResults.dump(4);
                 const auto outputPath = std::filesystem::path(config.workingDir.getValue()) / "BenchmarkResults.json";
                 std::ofstream outputFile(outputPath);
@@ -403,7 +408,8 @@ int main(int argc, const char** argv)
             }
             else
             {
-                failedQueries = runQueriesAtLocalWorker(queries, numberConcurrentQueries, singleNodeWorkerConfiguration, queryResultMap);
+                failedQueries = runQueriesAtLocalWorker(
+                    queries, numberConcurrentQueries, singleNodeWorkerConfiguration, systestStarterGlobals.getQueryResultMap());
             }
         }
         if (not failedQueries.empty())

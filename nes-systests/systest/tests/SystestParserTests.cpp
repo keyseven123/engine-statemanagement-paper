@@ -43,8 +43,8 @@ TEST_F(SystestParserTest, testEmptyFile)
     const std::string str;
 
     ASSERT_EQ(true, parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    parser.parse(queryResultMap, {}, {});
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
 }
 
 TEST_F(SystestParserTest, testEmptyLinesAndCommasFile)
@@ -54,8 +54,8 @@ TEST_F(SystestParserTest, testEmptyLinesAndCommasFile)
     const std::string str = std::string("#\n") + "\n" + "\r\n" + "\r";
 
     ASSERT_TRUE(parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
 }
 
 TEST_F(SystestParserTest, testCallbackSourceCSV)
@@ -84,8 +84,8 @@ TEST_F(SystestParserTest, testCallbackSourceCSV)
         });
 
     ASSERT_TRUE(parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
     ASSERT_TRUE(callbackCalled);
 }
 
@@ -111,14 +111,14 @@ TEST_F(SystestParserTest, testCallbackQuery)
     parser.registerOnCSVSourceCallback([&](SystestParser::CSVSource&&) { FAIL(); });
 
     ASSERT_TRUE(parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
     ASSERT_TRUE(queryCallbackCalled);
     /// Check that the queryResult map contains the expected two results for the query defined above
-    ASSERT_TRUE(queryResultMap.contains("results/_0.csv"));
-    ASSERT_EQ(queryResultMap.at("results/_0.csv").size(), 2);
-    ASSERT_EQ(queryResultMap.at("results/_0.csv").at(0), tpl1);
-    ASSERT_EQ(queryResultMap.at("results/_0.csv").at(1), tpl2);
+    ASSERT_TRUE(systestStarterGlobals.getQueryResultMap().contains("results/_0.csv"));
+    ASSERT_EQ(systestStarterGlobals.getQueryResultMap().at("results/_0.csv").size(), 2);
+    ASSERT_EQ(systestStarterGlobals.getQueryResultMap().at("results/_0.csv").at(0), tpl1);
+    ASSERT_EQ(systestStarterGlobals.getQueryResultMap().at("results/_0.csv").at(1), tpl2);
 }
 
 TEST_F(SystestParserTest, testCallbackSLTSource)
@@ -150,8 +150,8 @@ TEST_F(SystestParserTest, testCallbackSLTSource)
     parser.registerOnCSVSourceCallback([&](SystestParser::CSVSource&&) { FAIL(); });
 
     ASSERT_TRUE(parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
     ASSERT_TRUE(callbackCalled);
 }
 
@@ -169,8 +169,8 @@ TEST_F(SystestParserTest, testResultTuplesWithoutQuery)
     parser.registerOnCSVSourceCallback([&](SystestParser::CSVSource&&) { FAIL(); });
 
     ASSERT_TRUE(parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    ASSERT_EXCEPTION_ERRORCODE({ parser.parse(queryResultMap, {}, {}); }, ErrorCode::SLTUnexpectedToken)
+    SystestStarterGlobals systestStarterGlobals{};
+    ASSERT_EXCEPTION_ERRORCODE({ parser.parse(systestStarterGlobals, {}); }, ErrorCode::SLTUnexpectedToken)
 }
 
 TEST_F(SystestParserTest, testSubstitutionRule)
@@ -197,8 +197,8 @@ TEST_F(SystestParserTest, testSubstitutionRule)
     parser.registerOnQueryCallback(callback);
 
     ASSERT_TRUE(parser.loadString(str));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
     ASSERT_TRUE(callbackCalled);
 }
 

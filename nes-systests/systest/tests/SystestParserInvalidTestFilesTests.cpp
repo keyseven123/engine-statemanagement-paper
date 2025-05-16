@@ -18,6 +18,9 @@
 #include <BaseUnitTest.hpp>
 #include <ErrorHandling.hpp>
 #include <SystestParser.hpp>
+#include <SystestState.hpp>
+
+
 namespace NES::Systest
 {
 /// Tests if SLT Parser rejects invalid .test files correctly
@@ -41,7 +44,7 @@ TEST_F(SystestParserInvalidTestFilesTest, InvalidTestFile)
             /// nop, ensure parsing of CSVSource token
         });
     ASSERT_TRUE(parser.loadFile(filename));
-    QueryResultMap queryResultMap{};
-    ASSERT_EXCEPTION_ERRORCODE({ parser.parse(queryResultMap, {}, {}); }, ErrorCode::SLTUnexpectedToken)
+    SystestStarterGlobals systestStarterGlobals{};
+    ASSERT_EXCEPTION_ERRORCODE({ parser.parse(systestStarterGlobals, {}); }, ErrorCode::SLTUnexpectedToken)
 }
 }

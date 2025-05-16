@@ -72,8 +72,8 @@ TEST_F(SystestParserValidTestFileTest, ValidTestFile)
     parser.registerOnCSVSourceCallback([&](const SystestParser::CSVSource& source) { ASSERT_EQ(source, expectedCSVSource); });
 
     ASSERT_TRUE(parser.loadFile(filename));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
 }
 
 TEST_F(SystestParserValidTestFileTest, Comments1TestFile)
@@ -127,8 +127,8 @@ TEST_F(SystestParserValidTestFileTest, Comments1TestFile)
         });
 
     ASSERT_TRUE(parser.loadFile(filename));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
 }
 
 TEST_F(SystestParserValidTestFileTest, FilterTestFile)
@@ -230,8 +230,8 @@ TEST_F(SystestParserValidTestFileTest, FilterTestFile)
         });
 
     ASSERT_TRUE(parser.loadFile(filename));
-    QueryResultMap queryResultMap{};
-    EXPECT_NO_THROW(parser.parse(queryResultMap, {}, {}));
+    SystestStarterGlobals systestStarterGlobals{};
+    EXPECT_NO_THROW(parser.parse(systestStarterGlobals, {}));
 }
 
 }

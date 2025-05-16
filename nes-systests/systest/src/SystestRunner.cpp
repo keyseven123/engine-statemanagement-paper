@@ -51,12 +51,8 @@
 namespace NES::Systest
 {
 
-std::vector<LoadedQueryPlan> loadFromSLTFile(
-    const std::filesystem::path& testFilePath,
-    const std::filesystem::path& workingDir,
-    std::string_view testFileName,
-    const std::filesystem::path& testDataDir,
-    QueryResultMap& queryResultMap)
+std::vector<LoadedQueryPlan>
+loadFromSLTFile(SystestStarterGlobals& systestStarterGlobals, const std::filesystem::path& testFilePath, std::string_view testFileName)
 {
     std::vector<LoadedQueryPlan> plans{};
     CLI::QueryConfig config{};
@@ -66,7 +62,8 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
          {{.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "S$Count"},
           {.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "S$Checksum"}}}};
 
-    parser.registerSubstitutionRule({.keyword = "TESTDATA", .ruleFunction = [&](std::string& substitute) { substitute = testDataDir; }});
+    parser.registerSubstitutionRule(
+        {.keyword = "TESTDATA", .ruleFunction = [&](std::string& substitute) { substitute = systestStarterGlobals.getTestDataDir(); }});
     if (!parser.loadFile(testFilePath))
     {
         throw TestException("Could not successfully load test file://{}", testFilePath.string());
@@ -115,7 +112,7 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
                     return schema;
                 }()});
 
-            const auto sourceFile = SystestQuery::sourceFile(workingDir, testFileName, sourceIndex++);
+            const auto sourceFile = SystestQuery::sourceFile(systestStarterGlobals.getWorkingDir(), testFileName, sourceIndex++);
             config.physical.emplace_back(CLI::PhysicalSource{
                 .logical = source.name,
                 .parserConfig = {{"type", "CSV"}, {"tupleDelimiter", "\n"}, {"fieldDelimiter", ","}},
@@ -141,7 +138,7 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
 
     /// We create a new query plan from our config when finding a query
     parser.registerOnQueryCallback(
-        [&](std::string&& query, const size_t currentQueryNumberInTest)
+        [&](std::string query, const size_t currentQueryNumberInTest)
         {
             /// For system level tests, a single file can hold arbitrary many tests. We need to generate a unique sink name for
             /// every test by counting up a static query number. We then emplace the unique sinks in the global (per test file) query config.
@@ -194,7 +191,7 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
             query = std::regex_replace(query, std::regex(sinkName), sinkForQuery);
 
             /// Adding the sink to the sink config, such that we can create a fully specified query plan
-            const auto resultFile = SystestQuery::resultFile(workingDir, testFileName, currentQueryNumberInTest);
+            const auto resultFile = SystestQuery::resultFile(systestStarterGlobals.getWorkingDir(), testFileName, currentQueryNumberInTest);
 
             if (sinkName == "CHECKSUM")
             {
@@ -217,7 +214,7 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
         });
     try
     {
-        parser.parse(queryResultMap, workingDir, testFileName);
+        parser.parse(systestStarterGlobals, testFileName);
     }
     catch (Exception& exception)
     {
@@ -232,7 +229,7 @@ std::vector<RunningQuery> runQueriesAtLocalWorker(
     const std::vector<SystestQuery>& queries,
     const uint64_t numConcurrentQueries,
     const Configuration::SingleNodeWorkerConfiguration& configuration,
-    QueryResultMap& queryResultMap)
+    const QueryResultMap& queryResultMap)
 {
     folly::Synchronized<std::vector<RunningQuery>> failedQueries;
     folly::Synchronized<std::vector<std::shared_ptr<RunningQuery>>> runningQueries;
@@ -325,7 +322,7 @@ std::vector<RunningQuery> runQueriesAtRemoteWorker(
     const std::vector<SystestQuery>& queries,
     const uint64_t numConcurrentQueries,
     const std::string& serverURI,
-    QueryResultMap& queryResultMap)
+    const QueryResultMap& queryResultMap)
 {
     folly::Synchronized<std::vector<RunningQuery>> failedQueries;
     folly::Synchronized<std::vector<std::shared_ptr<RunningQuery>>> runningQueries;
@@ -415,7 +412,7 @@ std::vector<RunningQuery> serializeExecutionResults(const std::vector<RunningQue
         const auto executionTimeInNanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                               queryRan.queryExecutionInfo.endTime - queryRan.queryExecutionInfo.startTime)
                                               .count();
-        resultJson.push_back({{"query name", queryRan.query.name}, {"time", executionTimeInNanos}});
+        resultJson.push_back({{"query name", queryRan.query.testName}, {"time", executionTimeInNanos}});
     }
     return failedQueries;
 }
@@ -440,7 +437,7 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
     const std::vector<SystestQuery>& queries,
     const Configuration::SingleNodeWorkerConfiguration& configuration,
     nlohmann::json& resultJson,
-    QueryResultMap& queryResultMap)
+    const QueryResultMap& queryResultMap)
 {
     SingleNodeWorker worker(configuration);
     std::vector<RunningQuery> ranQueries;
@@ -474,7 +471,7 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
 void printQueryResultToStdOut(
     const RunningQuery& runningQuery, const std::string& errorMessage, const size_t queryCounter, const size_t totalQueries)
 {
-    const auto queryNameLength = runningQuery.query.name.size();
+    const auto queryNameLength = runningQuery.query.testName.size();
     const auto queryNumberAsString = std::to_string(runningQuery.query.queryIdInFile + 1);
     const auto queryNumberLength = queryNumberAsString.size();
     const auto queryCounterAsString = std::to_string(queryCounter + 1);
@@ -486,7 +483,7 @@ void printQueryResultToStdOut(
     /// And as this is only for test runs we use stdout here.
     std::cout << std::string(padSizeQueryCounter - queryCounterAsString.size(), ' ');
     std::cout << queryCounterAsString << "/" << totalQueries << " ";
-    std::cout << runningQuery.query.name << ":" << std::string(padSizeQueryNumber - queryNumberLength, '0') << queryNumberAsString;
+    std::cout << runningQuery.query.testName << ":" << std::string(padSizeQueryNumber - queryNumberLength, '0') << queryNumberAsString;
     std::cout << std::string(padSizeSuccess - (queryNameLength + padSizeQueryNumber), '.');
     if (errorMessage.empty())
     {
