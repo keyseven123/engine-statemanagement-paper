@@ -34,8 +34,6 @@
 #include <fmt/format.h>
 #include <SerializableDecomposedQueryPlan.pb.h>
 #include <SystestConfiguration.hpp>
-#include <SystestParser.hpp>
-#include <SystestRunner.hpp>
 
 
 namespace NES::Systest
@@ -43,12 +41,21 @@ namespace NES::Systest
 using TestName = std::string;
 using TestGroup = std::string;
 
-struct Query
+struct SystestField
+{
+    std::shared_ptr<DataType> type;
+    std::string name;
+    bool operator==(const SystestField& other) const { return *type == *other.type && name == other.name; }
+    bool operator!=(const SystestField& other) const = default;
+};
+using SystestSchema = std::vector<SystestField>;
+
+struct SystestQuery
 {
     static std::filesystem::path
     resultFile(const std::filesystem::path& workingDir, std::string_view testName, const uint64_t queryIdInTestFile)
     {
-        auto resultDir = workingDir / "results";
+        const auto resultDir = workingDir / "results";
         if (not is_directory(resultDir))
         {
             create_directory(resultDir);
@@ -70,15 +77,15 @@ struct Query
         return sourceDir / std::filesystem::path(fmt::format("{}_{}.csv", testName, sourceId));
     }
 
-    Query() = default;
-    explicit Query(
+    SystestQuery() = default;
+    explicit SystestQuery(
         TestName name,
         std::string queryDefinition,
         std::filesystem::path sqlLogicTestFile,
         std::shared_ptr<DecomposedQueryPlan> queryPlan,
         const uint64_t queryIdInFile,
         std::filesystem::path workingDir,
-        SystestParser::Schema sinkSchema)
+        SystestSchema sinkSchema)
         : name(std::move(name))
         , queryDefinition(std::move(queryDefinition))
         , sqlLogicTestFile(std::move(sqlLogicTestFile))
@@ -97,7 +104,7 @@ struct Query
     std::shared_ptr<DecomposedQueryPlan> queryPlan;
     uint64_t queryIdInFile;
     std::filesystem::path workingDir;
-    SystestParser::Schema expectedSinkSchema;
+    SystestSchema expectedSinkSchema;
 };
 
 struct QueryExecutionInfo
@@ -113,7 +120,7 @@ struct QueryExecutionInfo
 
 struct RunningQuery
 {
-    Query query;
+    SystestQuery query;
     QueryId queryId = INVALID_QUERY_ID;
     QueryExecutionInfo queryExecutionInfo;
 };
@@ -162,18 +169,23 @@ struct TestFile
     std::vector<uint64_t> onlyEnableQueriesWithTestQueryNumber;
     std::vector<TestGroup> groups;
 
-    std::vector<Query> queries;
+    std::vector<SystestQuery> queries;
 };
 
 /// intermediate representation storing all considered test files
 using TestFileMap = std::unordered_map<TestName, TestFile>;
+using QueryResultMap = std::unordered_map<std::filesystem::path, std::vector<std::string>>;
 std::ostream& operator<<(std::ostream& os, const TestFileMap& testMap);
 
 /// load test file map objects from files defined in systest config
 TestFileMap loadTestFileMap(const Configuration::SystestConfiguration& config);
 
 /// returns a vector of queries to run derived for our testfilemap
-std::vector<Query> loadQueries(TestFileMap& testmap, const std::filesystem::path& workingDir, const std::filesystem::path& testDataDir);
+std::vector<SystestQuery> loadQueries(
+    TestFileMap& testmap,
+    const std::filesystem::path& workingDir,
+    const std::filesystem::path& testDataDir,
+    QueryResultMap& queryResultMap);
 }
 
 template <>

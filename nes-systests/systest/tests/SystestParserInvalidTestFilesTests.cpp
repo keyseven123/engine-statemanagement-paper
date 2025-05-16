@@ -11,13 +11,13 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
+
 #include <string>
 #include <Util/Logger/Logger.hpp>
 #include <gtest/gtest.h>
 #include <BaseUnitTest.hpp>
 #include <ErrorHandling.hpp>
 #include <SystestParser.hpp>
-
 namespace NES::Systest
 {
 /// Tests if SLT Parser rejects invalid .test files correctly
@@ -29,23 +29,19 @@ public:
         Logger::setupLogging("SystestParserInvalidTestFilesTest.log", LogLevel::LOG_DEBUG);
         NES_DEBUG("Setup SystestParserInvalidTestFilesTest test class.");
     }
-
     static void TearDownTestSuite() { NES_DEBUG("Tear down SystestParserInvalidTestFilesTest test class."); }
 };
-
 TEST_F(SystestParserInvalidTestFilesTest, InvalidTestFile)
 {
     const std::string filename = TEST_DATA_DIR "invalid.dummy";
-
     SystestParser parser{};
     parser.registerOnCSVSourceCallback(
         [&](SystestParser::CSVSource&&)
         {
             /// nop, ensure parsing of CSVSource token
         });
-
     ASSERT_TRUE(parser.loadFile(filename));
-    ASSERT_EXCEPTION_ERRORCODE({ parser.parse(); }, ErrorCode::SLTUnexpectedToken)
+    QueryResultMap queryResultMap{};
+    ASSERT_EXCEPTION_ERRORCODE({ parser.parse(queryResultMap, {}, {}); }, ErrorCode::SLTUnexpectedToken)
 }
-
 }

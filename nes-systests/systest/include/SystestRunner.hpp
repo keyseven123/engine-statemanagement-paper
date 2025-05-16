@@ -25,18 +25,20 @@
 #include <nlohmann/json_fwd.hpp>
 #include <SingleNodeWorkerConfiguration.hpp>
 #include <SystestParser.hpp>
+#include <SystestState.hpp>
 
 namespace NES::Systest
 {
 /// Forward refs to avoid cyclic deps with SystestState
-struct Query;
+struct SystestQuery;
 struct RunningQuery;
 
 struct LoadedQueryPlan
 {
     std::shared_ptr<DecomposedQueryPlan> queryPlan;
     std::string queryName;
-    SystestParser::Schema sinkSchema;
+    SystestSchema sinkSchema;
+    size_t queryNumberInTest;
 };
 
 /// Pad size of (PASSED / FAILED) in the console output of the systest to have a nicely looking output
@@ -52,23 +54,30 @@ static constexpr auto padSizeQueryCounter = 3;
     const std::filesystem::path& testFilePath,
     const std::filesystem::path& workingDir,
     std::string_view testFileName,
-    const std::filesystem::path& testDataDir);
+    const std::filesystem::path& testDataDir,
+    QueryResultMap& queryResultMap);
 
 /// Run queries locally ie not on single-node-worker in a separate process
 /// @return false if one query result is incorrect
 [[nodiscard]] std::vector<RunningQuery> runQueriesAtLocalWorker(
-    const std::vector<Query>& queries, uint64_t numConcurrentQueries, const Configuration::SingleNodeWorkerConfiguration& configuration);
+    const std::vector<SystestQuery>& queries,
+    uint64_t numConcurrentQueries,
+    const Configuration::SingleNodeWorkerConfiguration& configuration,
+    QueryResultMap& queryResultMap);
 
 /// Run queries remote on the single-node-worker specified by the URI
 /// @return false if one query result is incorrect
-[[nodiscard]] std::vector<RunningQuery>
-runQueriesAtRemoteWorker(const std::vector<Query>& queries, uint64_t numConcurrentQueries, const std::string& serverURI);
+[[nodiscard]] std::vector<RunningQuery> runQueriesAtRemoteWorker(
+    const std::vector<SystestQuery>& queries, uint64_t numConcurrentQueries, const std::string& serverURI, QueryResultMap& queryResultMap);
 
 
 /// Run queries sequentially locally and benchmark the run time of each query.
 /// @return vector containing failed queries
 [[nodiscard]] std::vector<RunningQuery> runQueriesAndBenchmark(
-    const std::vector<Query>& queries, const Configuration::SingleNodeWorkerConfiguration& configuration, nlohmann::json& resultJson);
+    const std::vector<SystestQuery>& queries,
+    const Configuration::SingleNodeWorkerConfiguration& configuration,
+    nlohmann::json& resultJson,
+    QueryResultMap& queryResultMap);
 
 /// Prints the error message, if the query has failed/passed and the expected and result tuples, like below
 /// function/arithmetical/FunctionDiv:4..................................Passed

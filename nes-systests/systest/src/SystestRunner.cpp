@@ -55,12 +55,13 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
     const std::filesystem::path& testFilePath,
     const std::filesystem::path& workingDir,
     std::string_view testFileName,
-    const std::filesystem::path& testDataDir)
+    const std::filesystem::path& testDataDir,
+    QueryResultMap& queryResultMap)
 {
     std::vector<LoadedQueryPlan> plans{};
     CLI::QueryConfig config{};
     SystestParser parser{};
-    std::unordered_map<std::string, SystestParser::Schema> sinkNamesToSchema{
+    std::unordered_map<std::string, SystestSchema> sinkNamesToSchema{
         {"CHECKSUM",
          {{.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "S$Count"},
           {.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "S$Checksum"}}}};
@@ -114,7 +115,7 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
                     return schema;
                 }()});
 
-            const auto sourceFile = Query::sourceFile(workingDir, testFileName, sourceIndex++);
+            const auto sourceFile = SystestQuery::sourceFile(workingDir, testFileName, sourceIndex++);
             config.physical.emplace_back(CLI::PhysicalSource{
                 .logical = source.name,
                 .parserConfig = {{"type", "CSV"}, {"tupleDelimiter", "\n"}, {"fieldDelimiter", ","}},
@@ -140,22 +141,16 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
 
     /// We create a new query plan from our config when finding a query
     parser.registerOnQueryCallback(
-        [&](SystestParser::Query&& query)
+        [&](std::string&& query, const size_t currentQueryNumberInTest)
         {
             /// For system level tests, a single file can hold arbitrary many tests. We need to generate a unique sink name for
             /// every test by counting up a static query number. We then emplace the unique sinks in the global (per test file) query config.
-            static size_t currentQueryNumber = 0;
             static std::string currentTestFileName;
 
             /// We reset the current query number once we see a new test file
             if (currentTestFileName != testFileName)
             {
                 currentTestFileName = testFileName;
-                currentQueryNumber = 0;
-            }
-            else
-            {
-                ++currentQueryNumber;
             }
 
             /// We expect at least one sink to be defined in the test file
@@ -195,11 +190,11 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
 
 
             /// Replacing the sinkName with the created unique sink name
-            const auto sinkForQuery = sinkName + std::to_string(currentQueryNumber);
+            const auto sinkForQuery = sinkName + std::to_string(currentQueryNumberInTest);
             query = std::regex_replace(query, std::regex(sinkName), sinkForQuery);
 
             /// Adding the sink to the sink config, such that we can create a fully specified query plan
-            const auto resultFile = Query::resultFile(workingDir, testFileName, currentQueryNumber);
+            const auto resultFile = SystestQuery::resultFile(workingDir, testFileName, currentQueryNumberInTest);
 
             if (sinkName == "CHECKSUM")
             {
@@ -218,11 +213,11 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
 
             config.query = query;
             auto plan = createFullySpecifiedQueryPlan(config);
-            plans.emplace_back(plan, query, sinkNamesToSchema[sinkName]);
+            plans.emplace_back(plan, query, sinkNamesToSchema[sinkName], currentQueryNumberInTest);
         });
     try
     {
-        parser.parse();
+        parser.parse(queryResultMap, workingDir, testFileName);
     }
     catch (Exception& exception)
     {
@@ -234,9 +229,10 @@ std::vector<LoadedQueryPlan> loadFromSLTFile(
 }
 
 std::vector<RunningQuery> runQueriesAtLocalWorker(
-    const std::vector<Query>& queries,
+    const std::vector<SystestQuery>& queries,
     const uint64_t numConcurrentQueries,
-    const Configuration::SingleNodeWorkerConfiguration& configuration)
+    const Configuration::SingleNodeWorkerConfiguration& configuration,
+    QueryResultMap& queryResultMap)
 {
     folly::Synchronized<std::vector<RunningQuery>> failedQueries;
     folly::Synchronized<std::vector<std::shared_ptr<RunningQuery>>> runningQueries;
@@ -305,7 +301,7 @@ std::vector<RunningQuery> runQueriesAtLocalWorker(
                     {
                         worker.unregisterQuery(QueryId(runningQuery->queryId));
                         runningQuery->queryExecutionInfo.endTime = std::chrono::high_resolution_clock::now();
-                        auto errorMessage = checkResult(*runningQuery);
+                        auto errorMessage = checkResult(*runningQuery, queryResultMap);
                         printQueryResultToStdOut(*runningQuery, errorMessage.value_or(""), queryFinishedCounter.fetch_add(1), totalQueries);
                         if (errorMessage.has_value())
                         {
@@ -325,8 +321,11 @@ std::vector<RunningQuery> runQueriesAtLocalWorker(
     return failedQueries.copy();
 }
 
-std::vector<RunningQuery>
-runQueriesAtRemoteWorker(const std::vector<Query>& queries, const uint64_t numConcurrentQueries, const std::string& serverURI)
+std::vector<RunningQuery> runQueriesAtRemoteWorker(
+    const std::vector<SystestQuery>& queries,
+    const uint64_t numConcurrentQueries,
+    const std::string& serverURI,
+    QueryResultMap& queryResultMap)
 {
     folly::Synchronized<std::vector<RunningQuery>> failedQueries;
     folly::Synchronized<std::vector<std::shared_ptr<RunningQuery>>> runningQueries;
@@ -383,7 +382,7 @@ runQueriesAtRemoteWorker(const std::vector<Query>& queries, const uint64_t numCo
             {
                 client.unregister(runningQuery->queryId.getRawValue());
                 runningQuery->queryExecutionInfo.endTime = std::chrono::high_resolution_clock::now();
-                auto errorMessage = checkResult(*runningQuery);
+                auto errorMessage = checkResult(*runningQuery, queryResultMap);
                 printQueryResultToStdOut(*runningQuery, errorMessage.value_or(""), queryFinishedCounter.fetch_add(1), totalQueries);
                 if (errorMessage.has_value())
                 {
@@ -438,7 +437,10 @@ Runtime::QuerySummary waitForQueryTermination(SingleNodeWorker& worker, QueryId 
 }
 
 std::vector<RunningQuery> runQueriesAndBenchmark(
-    const std::vector<Query>& queries, const Configuration::SingleNodeWorkerConfiguration& configuration, nlohmann::json& resultJson)
+    const std::vector<SystestQuery>& queries,
+    const Configuration::SingleNodeWorkerConfiguration& configuration,
+    nlohmann::json& resultJson,
+    QueryResultMap& queryResultMap)
 {
     SingleNodeWorker worker(configuration);
     std::vector<RunningQuery> ranQueries;
@@ -457,7 +459,7 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
             continue;
         }
 
-        auto errorMessage = checkResult(ranQueries.back());
+        auto errorMessage = checkResult(ranQueries.back(), queryResultMap);
         ranQueries.back().queryExecutionInfo.passed = !errorMessage.has_value();
         ranQueries.back().queryExecutionInfo.endTime = std::chrono::high_resolution_clock::now();
 

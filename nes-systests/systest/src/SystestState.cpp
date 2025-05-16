@@ -57,13 +57,13 @@ TestFileMap discoverTestsRecursively(const std::filesystem::path& path, const st
     return testFiles;
 }
 
-void loadQueriesFromTestFile(TestFile& testfile, const std::filesystem::path& workingDir, const std::filesystem::path& testDataDir)
+void loadQueriesFromTestFile(
+    TestFile& testfile, const std::filesystem::path& workingDir, const std::filesystem::path& testDataDir, QueryResultMap& queryResultMap)
 {
-    auto loadedPlans = loadFromSLTFile(testfile.file, workingDir, testfile.name(), testDataDir);
-    uint64_t queryIdInFile = 0;
+    auto loadedPlans = loadFromSLTFile(testfile.file, workingDir, testfile.name(), testDataDir, queryResultMap);
     std::unordered_set<uint64_t> foundQueries;
 
-    for (const auto& [decomposedPlan, queryDefinition, sinkSchema] : loadedPlans)
+    for (const auto& [decomposedPlan, queryDefinition, sinkSchema, queryIdInFile] : loadedPlans)
     {
         if (not testfile.onlyEnableQueriesWithTestQueryNumber.empty())
         {
@@ -80,7 +80,6 @@ void loadQueriesFromTestFile(TestFile& testfile, const std::filesystem::path& wo
             testfile.queries.emplace_back(
                 testfile.name(), queryDefinition, testfile.file, decomposedPlan, queryIdInFile, workingDir, sinkSchema);
         }
-        ++queryIdInFile;
     }
 
     /// After processing all queries, warn if any specified query number was not found
@@ -129,16 +128,17 @@ TestFile::TestFile(std::filesystem::path file, std::vector<uint64_t> onlyEnableQ
     , onlyEnableQueriesWithTestQueryNumber(std::move(onlyEnableQueriesWithTestQueryNumber))
     , groups(readGroups(*this)) { };
 
-std::vector<Query> loadQueries(TestFileMap& testmap, const std::filesystem::path& workingDir, const std::filesystem::path& testDataDir)
+std::vector<SystestQuery> loadQueries(
+    TestFileMap& testmap, const std::filesystem::path& workingDir, const std::filesystem::path& testDataDir, QueryResultMap& queryResultMap)
 {
-    std::vector<Query> queries;
+    std::vector<SystestQuery> queries;
     uint64_t loadedFiles = 0;
     for (auto& [testname, testfile] : testmap)
     {
         std::cout << "Loading queries from test file: file://" << testfile.getLogFilePath() << '\n' << std::flush;
         try
         {
-            loadQueriesFromTestFile(testfile, workingDir, testDataDir);
+            loadQueriesFromTestFile(testfile, workingDir, testDataDir, queryResultMap);
             for (auto& query : testfile.queries)
             {
                 queries.emplace_back(std::move(query));
