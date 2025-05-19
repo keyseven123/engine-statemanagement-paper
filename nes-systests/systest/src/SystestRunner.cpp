@@ -40,6 +40,7 @@
 #include <yaml-cpp/node/parse.h>
 
 #include <Sources/SourceDataProvider.hpp>
+#include <SystestSources/SourceTypes.hpp>
 #include <ErrorHandling.hpp>
 #include <NebuLI.hpp>
 #include <SingleNodeWorker.hpp>
