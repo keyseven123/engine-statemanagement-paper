@@ -47,9 +47,9 @@ TEST_F(SystestParserValidTestFileTest, ValidTestFile)
     const std::vector<std::string> expectResult = {{"1,1,1"}, {"1,1,1"}, {"1,1,1"}};
     bool hasFirstSourceBeenParsed = false;
     bool hasSecondSourceBeenParsed = false;
-    SystestParser::SLTSource firstExpectedSLTSource
+    SystestParser::SystestLogicalSource firstExpectedSystestLogicalSource
         = {.name = "e123", .fields = {{.type = DataTypeProvider::provideDataType(LogicalType::UINT32), .name = "id"}}};
-    SystestParser::SLTSource secondExpectedSLTSource
+    SystestParser::SystestLogicalSource secondExpectedSystestLogicalSource
         = {.name = "e124",
            .fields
            = {{.type = DataTypeProvider::provideDataType(LogicalType::INT8), .name = "i"},
@@ -69,20 +69,20 @@ TEST_F(SystestParserValidTestFileTest, ValidTestFile)
     parser.registerOnQueryCallback([&expectQuery1, &expectQuery2](const std::string& query, size_t)
                                    { ASSERT_TRUE(query == expectQuery1 || query == expectQuery2); });
     parser.registerOnAttachSourceCallback([](const SystestAttachSource&&) { /* noop */ });
-    parser.registerOnSLTSourceCallback(
-        [&hasFirstSourceBeenParsed, &hasSecondSourceBeenParsed, &firstExpectedSLTSource, &secondExpectedSLTSource](
-            const SystestParser::SLTSource& source)
+    parser.registerOnSystestLogicalSourceCallback(
+        [&hasFirstSourceBeenParsed, &hasSecondSourceBeenParsed, &firstExpectedSystestLogicalSource, &secondExpectedSystestLogicalSource](
+            const SystestParser::SystestLogicalSource& source)
         {
-            if (source.name == firstExpectedSLTSource.name)
+            if (source.name == firstExpectedSystestLogicalSource.name)
             {
                 hasFirstSourceBeenParsed = true;
-                ASSERT_EQ(source, firstExpectedSLTSource);
+                ASSERT_EQ(source, firstExpectedSystestLogicalSource);
                 return;
             }
-            if (source.name == secondExpectedSLTSource.name)
+            if (source.name == secondExpectedSystestLogicalSource.name)
             {
                 hasSecondSourceBeenParsed = true;
-                ASSERT_EQ(source, secondExpectedSLTSource);
+                ASSERT_EQ(source, secondExpectedSystestLogicalSource);
                 return;
             }
             FAIL();
@@ -99,10 +99,10 @@ TEST_F(SystestParserValidTestFileTest, Comments1TestFile)
 {
     const auto* const filename = TEST_DATA_DIR "comments.dummy";
 
-    SystestParser::SLTSource expectedSLTSource;
+    SystestParser::SystestLogicalSource expectedSystestLogicalSource;
     SystestAttachSource expectedAttachSource{};
-    expectedSLTSource.name = "window";
-    expectedSLTSource.fields
+    expectedSystestLogicalSource.name = "window";
+    expectedSystestLogicalSource.fields
         = {{.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "id"},
            {.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "value"},
            {.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "timestamp"}};
@@ -131,11 +131,11 @@ TEST_F(SystestParserValidTestFileTest, Comments1TestFile)
     size_t queryCounter = 0;
 
     SystestParser parser{};
-    parser.registerOnSLTSourceCallback(
-        [&](SystestParser::SLTSource&& source)
+    parser.registerOnSystestLogicalSourceCallback(
+        [&](SystestParser::SystestLogicalSource&& source)
         {
-            ASSERT_EQ(source.name, expectedSLTSource.name);
-            ASSERT_EQ(source.fields, expectedSLTSource.fields);
+            ASSERT_EQ(source.name, expectedSystestLogicalSource.name);
+            ASSERT_EQ(source.fields, expectedSystestLogicalSource.fields);
         });
 
     parser.registerOnAttachSourceCallback(
@@ -158,10 +158,10 @@ TEST_F(SystestParserValidTestFileTest, FilterTestFile)
 {
     const auto* const filename = TEST_DATA_DIR "filter.dummy";
 
-    SystestParser::SLTSource expectedSLTSource;
+    SystestParser::SystestLogicalSource expectedSystestLogicalSource;
     SystestAttachSource expectedAttachSource{};
-    expectedSLTSource.name = "window";
-    expectedSLTSource.fields
+    expectedSystestLogicalSource.name = "window";
+    expectedSystestLogicalSource.fields
         = {{.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "id"},
            {.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "value"},
            {.type = DataTypeProvider::provideDataType(LogicalType::UINT64), .name = "timestamp"}};
@@ -238,11 +238,11 @@ TEST_F(SystestParserValidTestFileTest, FilterTestFile)
     size_t queryCounter = 0;
 
     SystestParser parser{};
-    parser.registerOnSLTSourceCallback(
-        [&](SystestParser::SLTSource&& source)
+    parser.registerOnSystestLogicalSourceCallback(
+        [&](SystestParser::SystestLogicalSource&& source)
         {
-            ASSERT_EQ(source.name, expectedSLTSource.name);
-            ASSERT_EQ(source.fields, expectedSLTSource.fields);
+            ASSERT_EQ(source.name, expectedSystestLogicalSource.name);
+            ASSERT_EQ(source.fields, expectedSystestLogicalSource.fields);
         });
 
     parser.registerOnAttachSourceCallback(

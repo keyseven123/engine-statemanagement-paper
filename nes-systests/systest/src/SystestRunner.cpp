@@ -75,11 +75,11 @@ loadFromSLTFile(SystestStarterGlobals& systestStarterGlobals, const std::filesys
 
     /// We create a map from sink names to their schema
     parser.registerOnSystestSystestSinkCallback([&](SystestParser::SystestSink&& sinkParsed)
-                                  { sinkNamesToSchema.insert_or_assign(sinkParsed.name, sinkParsed.fields); });
+                                                { sinkNamesToSchema.insert_or_assign(sinkParsed.name, sinkParsed.fields); });
 
     /// We add new found sources to our config
-    parser.registerOnSLTSourceCallback(
-        [&](SystestParser::SLTSource&& source)
+    parser.registerOnSystestLogicalSourceCallback(
+        [&](SystestParser::SystestLogicalSource&& source)
         {
             config.logical.emplace_back(CLI::LogicalSource{
                 .name = source.name,
