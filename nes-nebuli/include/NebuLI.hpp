@@ -20,7 +20,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
 #include <Plans/DecomposedQueryPlan/DecomposedQueryPlan.hpp>
+#include <SystestSources/SourceTypes.hpp>
 #include <Common/DataTypes/DataType.hpp>
 
 namespace NES::CLI
@@ -49,22 +51,16 @@ struct LogicalSource
     std::vector<SchemaField> schema;
 };
 
-struct PhysicalSource
-{
-    std::string logical;
-    std::unordered_map<std::string, std::string> parserConfig;
-    std::unordered_map<std::string, std::string> sourceConfig;
-};
-
 struct QueryConfig
 {
     std::string query;
     std::unordered_map<std::string, Sink> sinks;
     std::vector<LogicalSource> logical;
-    std::vector<PhysicalSource> physical;
+    std::vector<SystestPhysicalSource> physical;
 };
 
 std::shared_ptr<DecomposedQueryPlan> loadFromYAMLFile(const std::filesystem::path& file);
+SystestPhysicalSource loadFromYAMLSource(const std::filesystem::path& file);
 std::shared_ptr<DecomposedQueryPlan> loadFrom(std::istream& inputStream);
 std::shared_ptr<DecomposedQueryPlan> createFullySpecifiedQueryPlan(const QueryConfig& config);
 }

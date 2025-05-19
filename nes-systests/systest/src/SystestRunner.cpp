@@ -37,7 +37,9 @@
 #include <grpcpp/security/credentials.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <yaml-cpp/node/parse.h>
 
+#include <Sources/SourceDataProvider.hpp>
 #include <ErrorHandling.hpp>
 #include <NebuLI.hpp>
 #include <SingleNodeWorker.hpp>
@@ -47,6 +49,7 @@
 #include <SystestRunner.hpp>
 #include <SystestState.hpp>
 #include <Common/DataTypes/DataTypeProvider.hpp>
+
 
 namespace NES::Systest
 {
@@ -64,6 +67,7 @@ loadFromSLTFile(SystestStarterGlobals& systestStarterGlobals, const std::filesys
 
     parser.registerSubstitutionRule(
         {.keyword = "TESTDATA", .ruleFunction = [&](std::string& substitute) { substitute = systestStarterGlobals.getTestDataDir(); }});
+    parser.registerSubstitutionRule({"CONFIG", [&](std::string& substitute) { substitute = systestStarterGlobals.getConfigDir(); }});
     if (!parser.loadFile(testFilePath))
     {
         throw TestException("Could not successfully load test file://{}", testFilePath.string());
@@ -74,32 +78,9 @@ loadFromSLTFile(SystestStarterGlobals& systestStarterGlobals, const std::filesys
                                   { sinkNamesToSchema.insert_or_assign(sinkParsed.name, sinkParsed.fields); });
 
     /// We add new found sources to our config
-    parser.registerOnCSVSourceCallback(
-        [&](SystestParser::CSVSource&& source)
-        {
-            config.logical.emplace_back(CLI::LogicalSource{
-                .name = source.name,
-                .schema = [&source]()
-                {
-                    std::vector<CLI::SchemaField> schema;
-                    for (const auto& [type, name] : source.fields)
-                    {
-                        schema.emplace_back(name, type);
-                    }
-                    return schema;
-                }()});
-
-            config.physical.emplace_back(CLI::PhysicalSource{
-                .logical = source.name,
-                .parserConfig = {{"type", "CSV"}, {"tupleDelimiter", "\n"}, {"fieldDelimiter", ","}},
-                .sourceConfig = {{"type", "File"}, {"filePath", source.csvFilePath}, {"numberOfBuffersInSourceLocalBufferPool", "-1"}}});
-        });
-
     parser.registerOnSLTSourceCallback(
         [&](SystestParser::SLTSource&& source)
         {
-            static uint64_t sourceIndex = 0;
-
             config.logical.emplace_back(CLI::LogicalSource{
                 .name = source.name,
                 .schema = [&source]()
@@ -111,31 +92,48 @@ loadFromSLTFile(SystestStarterGlobals& systestStarterGlobals, const std::filesys
                     }
                     return schema;
                 }()});
-
-            const auto sourceFile = SystestQuery::sourceFile(systestStarterGlobals.getWorkingDir(), testFileName, sourceIndex++);
-            config.physical.emplace_back(CLI::PhysicalSource{
-                .logical = source.name,
-                .parserConfig = {{"type", "CSV"}, {"tupleDelimiter", "\n"}, {"fieldDelimiter", ","}},
-                .sourceConfig = {{"type", "File"}, {"filePath", sourceFile}, {"numberOfBuffersInSourceLocalBufferPool", "-1"}}});
-
-
-            {
-                std::ofstream testFile(sourceFile);
-                if (!testFile.is_open())
-                {
-                    throw TestException("Could not open source file \"{}\"", sourceFile);
-                }
-
-                for (const auto& tuple : source.tuples)
-                {
-                    testFile << tuple << "\n";
-                }
-                testFile.flush();
-            }
-
-            NES_INFO("Written in file: {}. Number of Tuples: {}", sourceFile, source.tuples.size());
         });
+    parser.registerOnAttachSourceCallback(
+        [&](SystestAttachSource&& attachSource)
+        {
+            static uint64_t sourceIndex = 0;
+            systestStarterGlobals.setDataServerThreadsInAttachSource(attachSource);
 
+            /// Load physical source from file and overwrite logical source name with value from attach source
+            const auto initialPhysicalSourceConfig = [](const std::string& path, const std::string& logicalSourceName)
+            {
+                try
+                {
+                    auto loadedPhysicalSourceConfig = CLI::loadFromYAMLSource(path);
+                    loadedPhysicalSourceConfig.logical = logicalSourceName;
+                    return loadedPhysicalSourceConfig;
+                }
+                catch (const std::exception& e)
+                {
+                    throw CannotLoadConfig("Failed to parse source: {}", e.what());
+                }
+            }(attachSource.configurationPath, attachSource.logicalSourceName);
+
+            switch (attachSource.testDataIngestionType)
+            {
+                case TestDataIngestionType::INLINE: {
+                    if (attachSource.tuples.has_value())
+                    {
+                        const auto sourceFile
+                            = SystestQuery::sourceFile(systestStarterGlobals.getWorkingDir(), testFileName, sourceIndex++);
+                        config.physical.emplace_back(
+                            Sources::SourceDataProvider::provideInlineDataSource(initialPhysicalSourceConfig, attachSource, sourceFile));
+                        break;
+                    }
+                    throw CannotLoadConfig("An InlineData source must have tuples, but tuples was null.");
+                }
+                case TestDataIngestionType::FILE: {
+                    config.physical.emplace_back(Sources::SourceDataProvider::provideFileDataSource(
+                        initialPhysicalSourceConfig, attachSource, systestStarterGlobals.getTestDataDir()));
+                    break;
+                }
+            }
+        });
     /// We create a new query plan from our config when finding a query
     parser.registerOnQueryCallback(
         [&](std::string query, const size_t currentQueryNumberInTest)
@@ -472,7 +470,7 @@ void printQueryResultToStdOut(
     const RunningQuery& runningQuery, const std::string& errorMessage, const size_t queryCounter, const size_t totalQueries)
 {
     const auto queryNameLength = runningQuery.query.testName.size();
-    const auto queryNumberAsString = std::to_string(runningQuery.query.queryIdInFile + 1);
+    const auto queryNumberAsString = std::to_string(runningQuery.query.queryIdInFile);
     const auto queryNumberLength = queryNumberAsString.size();
     const auto queryCounterAsString = std::to_string(queryCounter + 1);
     const std::chrono::duration<double> queryDurationInMs

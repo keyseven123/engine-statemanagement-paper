@@ -361,7 +361,7 @@ int main(int argc, const char** argv)
         std::filesystem::create_directory(config.workingDir.getValue());
 
         Systest::SystestStarterGlobals systestStarterGlobals{
-            config.workingDir.getValue(), config.testDataDir.getValue(), Systest::loadTestFileMap(config)};
+            config.workingDir.getValue(), config.testDataDir.getValue(), config.configDir.getValue(), Systest::loadTestFileMap(config)};
         const auto queries = loadQueries(systestStarterGlobals);
         std::cout << std::format("Running a total of {} queries.", queries.size()) << '\n';
         if (queries.empty())

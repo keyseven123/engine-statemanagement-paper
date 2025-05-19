@@ -61,42 +61,38 @@ void loadQueriesFromTestFile(const TestFile& testfile, SystestStarterGlobals& sy
     auto loadedPlans = loadFromSLTFile(systestStarterGlobals, testfile.file, testfile.name());
     std::unordered_set<uint64_t> foundQueries;
 
-    for (const auto& [decomposedPlan, queryDefinition, sinkSchema, queryIdInFile] : loadedPlans)
-    {
-        if (testfile.onlyEnableQueriesWithTestQueryNumber.contains(queryIdInFile))
+    std::ranges::for_each(
+        loadedPlans
+            | std::views::filter(
+                [&testfile](const auto& loadedQueryPlan)
+                {
+                    return testfile.onlyEnableQueriesWithTestQueryNumber.empty()
+                        or testfile.onlyEnableQueriesWithTestQueryNumber.contains(loadedQueryPlan.queryNumberInTest);
+                }),
+        [&systestStarterGlobals, &testfile, &foundQueries](const auto& filteredLoadedQueryPlan)
         {
-            foundQueries.insert(queryIdInFile + 1);
+            foundQueries.insert(filteredLoadedQueryPlan.queryNumberInTest);
             systestStarterGlobals.addQuery(
                 testfile.name(),
-                queryDefinition,
+                filteredLoadedQueryPlan.queryName,
                 testfile.file,
-                decomposedPlan,
-                queryIdInFile,
+                filteredLoadedQueryPlan.queryPlan,
+                filteredLoadedQueryPlan.queryNumberInTest,
                 systestStarterGlobals.getWorkingDir(),
-                sinkSchema);
-        }
-        else
-        {
-            systestStarterGlobals.addQuery(
-                testfile.name(),
-                queryDefinition,
-                testfile.file,
-                decomposedPlan,
-                queryIdInFile,
-                systestStarterGlobals.getWorkingDir(),
-                sinkSchema);
-        }
-    }
+                filteredLoadedQueryPlan.sinkSchema);
+        });
 
-    /// After processing all queries, warn if any specified query number was not found
-    for (auto testNumber : testfile.onlyEnableQueriesWithTestQueryNumber)
-    {
-        if (not foundQueries.contains(testNumber))
+    /// Warn about queries specified via the command line that were not found in the test file
+    std::ranges::for_each(
+        testfile.onlyEnableQueriesWithTestQueryNumber
+            | std::views::filter([&foundQueries](auto testNumber) { return not foundQueries.contains(testNumber); }),
+        [&testfile](const auto badTestNumber)
         {
-            std::cerr << "Warning: Query number " << testNumber << " specified via command line argument but not found in file://"
-                      << testfile.file.string() << "\n";
-        }
-    }
+            std::cerr << fmt::format(
+                "Warning: Query number {} specified via command line argument but not found in file://{}",
+                badTestNumber,
+                testfile.file.string());
+        });
 }
 
 std::vector<TestGroup> readGroups(const TestFile& testfile)
@@ -210,7 +206,7 @@ TestFileMap loadTestFileMap(const Configuration::SystestConfiguration& config)
             scalarTestNumbers | std::views::transform([](const auto& option) { return option.getValue(); }));
 
         const auto testfile = TestFile(directlySpecifiedTestFiles, testNumbers);
-        return TestFileMap{{testfile.name(), testfile}};
+        return TestFileMap{{testfile.file, testfile}};
     }
 
     auto testsDiscoverDir = config.testsDiscoverDir.getValue();
