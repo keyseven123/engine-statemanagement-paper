@@ -21,6 +21,7 @@
 
 #include <DataServer/TCPDataServer.hpp>
 #include <ErrorHandling.hpp>
+#include <stop_token>
 
 namespace NES
 {
