@@ -68,6 +68,12 @@ public:
     QueryOptimizerConfiguration queryOptimizer = {"queryOptimizer", "Configuration for the query optimizer"};
     StringOption configPath = {CONFIG_PATH, "", "Path to configuration file."};
 
+    UIntOption throughputListenerTimeInterval
+        = {"throughputListenerTimeInterval",
+           "1000",
+           "Time interval in milliseconds for throughput listener output.",
+           {std::make_shared<NumberValidation>()}};
+
 private:
     std::vector<NES::Configurations::BaseOption*> getOptions() override
     {
@@ -81,6 +87,7 @@ private:
             &bufferSizeInBytes,
             &logLevel,
             &queryOptimizer,
+            &throughputListenerTimeInterval
         };
     }
 };
