@@ -87,8 +87,8 @@ private:
             &bufferSizeInBytes,
             &logLevel,
             &queryOptimizer,
-            &throughputListenerTimeInterval
-        };
+            &configPath,
+            &throughputListenerTimeInterval};
     }
 };
 }
