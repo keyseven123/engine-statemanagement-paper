@@ -17,7 +17,6 @@
 #include <cstdint>
 #include <functional>
 #include <map>
-#include <memory>
 #include <optional>
 #include <vector>
 #include <SliceStore/WindowSlicesStoreInterface.hpp>
@@ -31,7 +30,6 @@
 namespace NES
 {
 
-
 /// This struct stores a slice ptr and the state. We require this information, as we have to know the state of a slice for a given window
 struct SlicesAndState
 {
@@ -39,7 +37,7 @@ struct SlicesAndState
     WindowInfoState windowState;
 };
 
-class DefaultTimeBasedSliceStore final : public WindowSlicesStoreInterface
+class DefaultTimeBasedSliceStore : public WindowSlicesStoreInterface
 {
 public:
     DefaultTimeBasedSliceStore(uint64_t windowSize, uint64_t windowSlide, uint8_t numberOfInputOrigins);
@@ -47,19 +45,26 @@ public:
     DefaultTimeBasedSliceStore(DefaultTimeBasedSliceStore&& other) noexcept;
     DefaultTimeBasedSliceStore& operator=(const DefaultTimeBasedSliceStore& other);
     DefaultTimeBasedSliceStore& operator=(DefaultTimeBasedSliceStore&& other) noexcept;
-
     ~DefaultTimeBasedSliceStore() override;
+
     std::vector<std::shared_ptr<Slice>> getSlicesOrCreate(
-        Timestamp timestamp, const std::function<std::vector<std::shared_ptr<Slice>>(SliceStart, SliceEnd)>& createNewSlice) override;
+        Timestamp timestamp,
+        WorkerThreadId workerThreadId,
+        JoinBuildSideType joinBuildSide,
+        const std::function<std::vector<std::shared_ptr<Slice>>(SliceStart, SliceEnd)>& createNewSlice) override;
     std::map<WindowInfoAndSequenceNumber, std::vector<std::shared_ptr<Slice>>>
     getTriggerableWindowSlices(Timestamp globalWatermark) override;
     std::map<WindowInfoAndSequenceNumber, std::vector<std::shared_ptr<Slice>>> getAllNonTriggeredSlices() override;
-    std::optional<std::shared_ptr<Slice>> getSliceBySliceEnd(SliceEnd sliceEnd) override;
+    std::optional<std::shared_ptr<Slice>> getSliceBySliceEnd(
+        SliceEnd sliceEnd,
+        Memory::AbstractBufferProvider* bufferProvider,
+        const Memory::MemoryLayouts::MemoryLayout* memoryLayout,
+        JoinBuildSideType joinBuildSide) override;
     void garbageCollectSlicesAndWindows(Timestamp newGlobalWaterMark) override;
     void deleteState() override;
     uint64_t getWindowSize() const override;
 
-private:
+protected:
     /// Retrieves all window identifiers that correspond to this slice
     std::vector<WindowInfo> getAllWindowInfosForSlice(const Slice& slice) const;
 

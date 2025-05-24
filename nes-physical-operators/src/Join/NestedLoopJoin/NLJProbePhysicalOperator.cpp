@@ -42,12 +42,21 @@
 namespace NES
 {
 
-NLJSlice* getNLJSliceRefFromEndProxy(OperatorHandler* ptrOpHandler, const SliceEnd sliceEnd)
+NLJSlice* getNLJSliceRefFromEndProxy(
+    OperatorHandler* ptrOpHandler,
+    Memory::AbstractBufferProvider* bufferProvider,
+    const Memory::MemoryLayouts::MemoryLayout* memoryLayout,
+    const JoinBuildSideType joinBuildSide,
+    const SliceEnd sliceEnd)
 {
     PRECONDITION(ptrOpHandler != nullptr, "op handler context should not be null");
+    PRECONDITION(ptrOpHandler != nullptr, "op handler should not be null");
+    PRECONDITION(bufferProvider != nullptr, "buffer provider should not be null!");
+    PRECONDITION(memoryLayout != nullptr, "memory layout should not be null!");
+
     const auto* opHandler = dynamic_cast<NLJOperatorHandler*>(ptrOpHandler);
 
-    auto slice = opHandler->getSliceAndWindowStore().getSliceBySliceEnd(sliceEnd);
+    const auto slice = opHandler->getSliceAndWindowStore().getSliceBySliceEnd(sliceEnd, bufferProvider, memoryLayout, joinBuildSide);
     INVARIANT(slice.has_value(), "Could not find a slice for slice end {}", sliceEnd);
 
     return dynamic_cast<NLJSlice*>(slice.value().get());
@@ -91,6 +100,41 @@ NLJProbePhysicalOperator::NLJProbePhysicalOperator(
 {
 }
 
+void NLJProbePhysicalOperator::performNLJ(
+    const Interface::PagedVectorRef& outerPagedVector,
+    const Interface::PagedVectorRef& innerPagedVector,
+    TupleBufferMemoryProvider& outerMemoryProvider,
+    TupleBufferMemoryProvider& innerMemoryProvider,
+    ExecutionContext& executionCtx,
+    const nautilus::val<Timestamp>& windowStart,
+    const nautilus::val<Timestamp>& windowEnd) const
+{
+    const auto outerKeyFields = outerMemoryProvider.getMemoryLayout()->getKeyFieldNames();
+    const auto innerKeyFields = innerMemoryProvider.getMemoryLayout()->getKeyFieldNames();
+    const auto outerFields = outerMemoryProvider.getMemoryLayout()->getSchema().getFieldNames();
+    const auto innerFields = innerMemoryProvider.getMemoryLayout()->getSchema().getFieldNames();
+
+    nautilus::val<uint64_t> outerItemPos(0);
+    for (auto outerIt = outerPagedVector.begin(outerKeyFields); outerIt != outerPagedVector.end(outerKeyFields); ++outerIt)
+    {
+        nautilus::val<uint64_t> innerItemPos(0);
+        for (auto innerIt = innerPagedVector.begin(innerKeyFields); innerIt != innerPagedVector.end(innerKeyFields); ++innerIt)
+        {
+            auto joinedKeyFields = createJoinedRecord(*outerIt, *innerIt, windowStart, windowEnd, outerKeyFields, innerKeyFields);
+            if (joinFunction.execute(joinedKeyFields, executionCtx.pipelineMemoryProvider.arena))
+            {
+                auto outerRecord = outerPagedVector.readRecord(outerItemPos, outerFields);
+                auto innerRecord = innerPagedVector.readRecord(innerItemPos, innerFields);
+                auto joinedRecord = createJoinedRecord(outerRecord, innerRecord, windowStart, windowEnd, outerFields, innerFields);
+                executeChild(executionCtx, joinedRecord);
+            }
+
+            ++innerItemPos;
+        }
+        ++outerItemPos;
+    }
+}
+
 void NLJProbePhysicalOperator::open(ExecutionContext& executionCtx, RecordBuffer& recordBuffer) const
 {
     /// As this operator functions as a scan, we have to set the execution context for this pipeline
@@ -115,42 +159,39 @@ void NLJProbePhysicalOperator::open(ExecutionContext& executionCtx, RecordBuffer
 
     /// Getting the left and right paged vector
     const auto operatorHandlerMemRef = executionCtx.getGlobalOperatorHandler(operatorHandlerId);
-    const auto sliceRefLeft = invoke(getNLJSliceRefFromEndProxy, operatorHandlerMemRef, sliceIdLeft);
-    const auto sliceRefRight = invoke(getNLJSliceRefFromEndProxy, operatorHandlerMemRef, sliceIdRight);
+    const auto sliceRefLeft = invoke(
+        getNLJSliceRefFromEndProxy,
+        operatorHandlerMemRef,
+        executionCtx.pipelineMemoryProvider.bufferProvider,
+        nautilus::val<Memory::MemoryLayouts::MemoryLayout*>(leftMemoryProvider->getMemoryLayout().get()),
+        nautilus::val<JoinBuildSideType>(JoinBuildSideType::Left),
+        sliceIdLeft);
+    const auto sliceRefRight = invoke(
+        getNLJSliceRefFromEndProxy,
+        operatorHandlerMemRef,
+        executionCtx.pipelineMemoryProvider.bufferProvider,
+        nautilus::val<Memory::MemoryLayouts::MemoryLayout*>(rightMemoryProvider->getMemoryLayout().get()),
+        nautilus::val<JoinBuildSideType>(JoinBuildSideType::Right),
+        sliceIdRight);
 
     const auto leftPagedVectorRef
         = invoke(getNLJPagedVectorProxy, sliceRefLeft, workerThreadIdForPages, nautilus::val<JoinBuildSideType>(JoinBuildSideType::Left));
     const auto rightPagedVectorRef
         = invoke(getNLJPagedVectorProxy, sliceRefRight, workerThreadIdForPages, nautilus::val<JoinBuildSideType>(JoinBuildSideType::Right));
 
-    const Interface::PagedVectorRef leftPagedVector(
-        leftPagedVectorRef, leftMemoryProvider, executionCtx.pipelineMemoryProvider.bufferProvider);
-    const Interface::PagedVectorRef rightPagedVector(
-        rightPagedVectorRef, rightMemoryProvider, executionCtx.pipelineMemoryProvider.bufferProvider);
+    const Interface::PagedVectorRef leftPagedVector(leftPagedVectorRef, leftMemoryProvider);
+    const Interface::PagedVectorRef rightPagedVector(rightPagedVectorRef, rightMemoryProvider);
+    const auto numberOfTuplesLeft = leftPagedVector.getNumberOfTuples();
+    const auto numberOfTuplesRight = rightPagedVector.getNumberOfTuples();
 
-    const auto leftKeyFields = leftMemoryProvider->getMemoryLayout()->getKeyFieldNames();
-    const auto rightKeyFields = rightMemoryProvider->getMemoryLayout()->getKeyFieldNames();
-    const auto leftFields = leftMemoryProvider->getMemoryLayout()->getSchema().getFieldNames();
-    const auto rightFields = rightMemoryProvider->getMemoryLayout()->getSchema().getFieldNames();
-
-    nautilus::val<uint64_t> leftItemPos = 0UL;
-    for (auto leftIt = leftPagedVector.begin(leftKeyFields); leftIt != leftPagedVector.end(leftKeyFields); ++leftIt)
+    /// Outer loop should have more no. tuples
+    if (numberOfTuplesLeft < numberOfTuplesRight)
     {
-        nautilus::val<uint64_t> rightItemPos = 0UL;
-        for (auto rightIt = rightPagedVector.begin(rightKeyFields); rightIt != rightPagedVector.end(rightKeyFields); ++rightIt)
-        {
-            auto joinedKeyFields = createJoinedRecord(*leftIt, *rightIt, windowStart, windowEnd, leftKeyFields, rightKeyFields);
-            if (joinFunction.execute(joinedKeyFields, executionCtx.pipelineMemoryProvider.arena))
-            {
-                auto leftRecord = leftPagedVector.readRecord(leftItemPos, leftFields);
-                auto rightRecord = rightPagedVector.readRecord(rightItemPos, rightFields);
-                auto joinedRecord = createJoinedRecord(leftRecord, rightRecord, windowStart, windowEnd);
-                executeChild(executionCtx, joinedRecord);
-            }
-
-            ++rightItemPos;
-        }
-        ++leftItemPos;
+        performNLJ(leftPagedVector, rightPagedVector, *leftMemoryProvider, *rightMemoryProvider, executionCtx, windowStart, windowEnd);
+    }
+    else
+    {
+        performNLJ(rightPagedVector, leftPagedVector, *rightMemoryProvider, *leftMemoryProvider, executionCtx, windowStart, windowEnd);
     }
 }
 

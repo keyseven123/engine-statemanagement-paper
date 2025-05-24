@@ -27,7 +27,9 @@
 #include <Runtime/AbstractBufferProvider.hpp>
 #include <Runtime/Allocator/NesDefaultMemoryAllocator.hpp>
 #include <Runtime/BufferRecycler.hpp>
+#include <Util/RollingAverage.hpp>
 #include <folly/MPMCQueue.h>
+#include <folly/Synchronized.h>
 
 namespace NES::Memory
 {
@@ -133,6 +135,7 @@ public:
     size_t getNumOfUnpooledBuffers() const override;
     size_t getAvailableBuffers() const override;
     size_t getAvailableBuffersInFixedSizePools() const;
+    size_t getSizeOfUnpooledBufferChunks() const;
 
     /**
       * @brief Create a local buffer manager that is assigned to one pipeline or thread
@@ -163,12 +166,28 @@ private:
 
     folly::MPMCQueue<detail::MemorySegment*> availableBuffers;
     std::atomic<size_t> numOfAvailableBuffers;
-    std::unordered_map<uint8_t*, std::unique_ptr<detail::MemorySegment>> unpooledBuffers;
+
+    struct UnpooledChunk
+    {
+        size_t totalSize = 0;
+        size_t usedSize = 0;
+        uint8_t* startOfChunk = nullptr;
+        std::vector<std::unique_ptr<detail::MemorySegment>> unpooledMemorySegments;
+        uint64_t activeMemorySegments = 0;
+    };
+
+    /// During initialize, we create one unpooled chunk with the buffer size
+
+    std::unordered_map<uint8_t*, UnpooledChunk> unpooledBufferChunkStorage;
+    static constexpr auto NUM_PRE_ALLOCATED_CHUNKS = 100;
+    static constexpr auto ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE = 100;
+    uint8_t* lastAllocateChunkPtr;
+    folly::Synchronized<RollingAverage<size_t>> rollingAverage;
+    mutable std::recursive_mutex unpooledBuffersMutex;
+    std::atomic<size_t> unpooledBufferChunksSize;
 
     mutable std::recursive_mutex availableBuffersMutex;
     std::condition_variable_any availableBuffersCvar;
-
-    mutable std::recursive_mutex unpooledBuffersMutex;
 
     size_t bufferSize;
     size_t numOfBuffers;

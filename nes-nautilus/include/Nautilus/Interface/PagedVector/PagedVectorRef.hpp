@@ -35,10 +35,11 @@ class PagedVectorRefIter;
 class PagedVectorRef
 {
 public:
+    /// Declaring PagedVectorRefIter a friend class such that we can access the private members
+    friend class PagedVectorRefIter;
     PagedVectorRef(
         const nautilus::val<PagedVector*>& pagedVectorRef,
-        const std::shared_ptr<MemoryProvider::TupleBufferMemoryProvider>& memoryProvider,
-        const nautilus::val<Memory::AbstractBufferProvider*>& bufferProvider);
+        const std::shared_ptr<MemoryProvider::TupleBufferMemoryProvider>& memoryProvider);
 
     /// Writes a new record to the pagedVectorRef
     /// @param record the new record to be written
@@ -52,23 +53,27 @@ public:
     readRecord(const nautilus::val<uint64_t>& pos, const std::vector<Record::RecordFieldIdentifier>& projections) const;
 
     [[nodiscard]] PagedVectorRefIter begin(const std::vector<Record::RecordFieldIdentifier>& projections) const;
-    [[nodiscard]] PagedVectorRefIter
-    at(const std::vector<Record::RecordFieldIdentifier>& projections, const nautilus::val<uint64_t>& pos) const;
     [[nodiscard]] PagedVectorRefIter end(const std::vector<Record::RecordFieldIdentifier>& projections) const;
     nautilus::val<bool> operator==(const PagedVectorRef& other) const;
+    nautilus::val<uint64_t> getNumberOfTuples() const;
 
 private:
     nautilus::val<PagedVector*> pagedVectorRef;
     std::shared_ptr<MemoryProvider::TupleBufferMemoryProvider> memoryProvider;
     nautilus::val<Memory::MemoryLayouts::MemoryLayout*> memoryLayout;
-    nautilus::val<Memory::AbstractBufferProvider*> bufferProvider;
 };
 
 class PagedVectorRefIter
 {
 public:
     explicit PagedVectorRefIter(
-        PagedVectorRef pagedVector, const std::vector<Record::RecordFieldIdentifier>& projections, const nautilus::val<uint64_t>& pos);
+        PagedVectorRef pagedVector,
+        const std::shared_ptr<MemoryProvider::TupleBufferMemoryProvider>& memoryProvider,
+        const std::vector<Record::RecordFieldIdentifier>& projections,
+        const nautilus::val<Memory::TupleBuffer*>& curPage,
+        const nautilus::val<uint64_t>& posOnPage,
+        const nautilus::val<uint64_t>& pos,
+        const nautilus::val<uint64_t>& numberOfTuplesInPagedVector);
 
     Record operator*() const;
     PagedVectorRefIter& operator++();
@@ -80,6 +85,10 @@ private:
     PagedVectorRef pagedVector;
     std::vector<Record::RecordFieldIdentifier> projections;
     nautilus::val<uint64_t> pos;
+    nautilus::val<uint64_t> numberOfTuplesInPagedVector;
+    nautilus::val<uint64_t> posOnPage;
+    nautilus::val<Memory::TupleBuffer*> curPage;
+    std::shared_ptr<MemoryProvider::TupleBufferMemoryProvider> memoryProvider;
 };
 
 }

@@ -182,7 +182,7 @@ getAggregationFunctions(const WindowedAggregationLogicalOperator& logicalOperato
     return aggregationFunctions;
 }
 
-RewriteRuleResultSubgraph LowerToPhysicalWindowedAggregation::apply(LogicalOperator logicalOperator)
+RewriteRuleResultSubgraph LowerToPhysicalWindowedAggregation::apply(LogicalOperator logicalOperator, QueryId)
 {
     PRECONDITION(logicalOperator.tryGet<WindowedAggregationLogicalOperator>(), "Expected a WindowedAggregationLogicalOperator");
     PRECONDITION(logicalOperator.getInputOriginIds().size() == 1, "Expected one origin id vector");
