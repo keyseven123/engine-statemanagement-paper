@@ -194,4 +194,16 @@ bool Schema::hasFields() const
     return not fields.empty();
 }
 
+bool Schema::containsVarSizedDataField() const
+{
+    for (const auto& attribute : fields)
+    {
+        if (attribute.dataType.isType(DataType::Type::VARSIZED))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 }
