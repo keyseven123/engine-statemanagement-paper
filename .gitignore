@@ -46,4 +46,4 @@ cxx.hpp
 target/
 Cargo.lock
 nes-plugins/Sources/RustFileSourceCbindgen/RustFileSourceImpl.hpp
-nes-plugins/Sources/RustFileSourceCbindgen/rust-example-cbindgen/include/
+nes-plugins/Sources/RustFileSourceCbindgen/rust-example-cbg/include/
