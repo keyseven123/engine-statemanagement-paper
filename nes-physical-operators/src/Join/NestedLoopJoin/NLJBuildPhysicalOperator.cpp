@@ -61,25 +61,18 @@ void NLJBuildPhysicalOperator::execute(ExecutionContext& executionCtx, Record& r
     /// Get the current slice / pagedVector that we have to insert the tuple into
     const auto timestamp = timeFunction->getTs(executionCtx, record);
     const auto operatorHandlerRef = executionCtx.getGlobalOperatorHandler(operatorHandlerId);
-    const auto threadId = executionCtx.getWorkerThreadId();
     const auto sliceReference = invoke(
-        +[](OperatorHandler* ptrOpHandler,
-            const Timestamp timestamp,
-            const WorkerThreadId workerThreadId,
-            const JoinBuildSideType joinBuildSide)
+        +[](OperatorHandler* ptrOpHandler, const Timestamp timestamp)
         {
             PRECONDITION(ptrOpHandler != nullptr, "opHandler context should not be null!");
             const auto* opHandler = dynamic_cast<NLJOperatorHandler*>(ptrOpHandler);
             const auto createFunction = opHandler->getCreateNewSlicesFunction();
-            return dynamic_cast<NLJSlice*>(
-                opHandler->getSliceAndWindowStore().getSlicesOrCreate(timestamp, workerThreadId, joinBuildSide, createFunction)[0].get());
+            return dynamic_cast<NLJSlice*>(opHandler->getSliceAndWindowStore().getSlicesOrCreate(timestamp, createFunction)[0].get());
         },
         operatorHandlerRef,
-        timestamp,
-        threadId,
-        nautilus::val<JoinBuildSideType>(joinBuildSide));
+        timestamp);
     const auto nljPagedVectorMemRef
-        = invoke(getNLJPagedVectorProxy, sliceReference, threadId, nautilus::val<JoinBuildSideType>(joinBuildSide));
+        = invoke(getNLJPagedVectorProxy, sliceReference, executionCtx.getWorkerThreadId(), nautilus::val<JoinBuildSideType>(joinBuildSide));
 
 
     /// Write record to the pagedVector

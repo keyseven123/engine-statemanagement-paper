@@ -17,14 +17,13 @@
 #include <numeric>
 #include <Identifiers/Identifiers.hpp>
 #include <Join/NestedLoopJoin/NLJSlice.hpp>
+#include <Nautilus/Interface/PagedVector/PagedVector.hpp>
 #include <SliceStore/Slice.hpp>
-#include <ErrorHandling.hpp>
 
 namespace NES
 {
 
-NLJSlice::NLJSlice(const SliceStart sliceStart, const SliceEnd sliceEnd, const uint64_t numberOfWorkerThreads)
-    : Slice(sliceStart, sliceEnd)
+NLJSlice::NLJSlice(const SliceStart sliceStart, const SliceEnd sliceEnd, const uint64_t numberOfWorkerThreads) : Slice(sliceStart, sliceEnd)
 {
     for (uint64_t i = 0; i < numberOfWorkerThreads; ++i)
     {
@@ -57,30 +56,14 @@ uint64_t NLJSlice::getNumberOfTuplesRight() const
 
 Nautilus::Interface::PagedVector* NLJSlice::getPagedVectorRefLeft(const WorkerThreadId workerThreadId) const
 {
-    return getPagedVectorRef(JoinBuildSideType::Left, workerThreadId);
+    const auto pos = workerThreadId % leftPagedVectors.size();
+    return leftPagedVectors[pos].get();
 }
 
 Nautilus::Interface::PagedVector* NLJSlice::getPagedVectorRefRight(const WorkerThreadId workerThreadId) const
 {
-    return getPagedVectorRef(JoinBuildSideType::Right, workerThreadId);
-}
-
-Nautilus::Interface::PagedVector*
-NLJSlice::getPagedVectorRef(const JoinBuildSideType joinBuildSide, const WorkerThreadId threadId) const
-{
-    switch (joinBuildSide)
-    {
-        case JoinBuildSideType::Left: {
-            const auto pos = threadId % leftPagedVectors.size();
-            return leftPagedVectors[pos].get();
-        }
-        case JoinBuildSideType::Right: {
-            const auto pos = threadId % rightPagedVectors.size();
-            return rightPagedVectors[pos].get();
-        }
-        default:
-            throw UnknownJoinBuildSide();
-    }
+    const auto pos = workerThreadId % rightPagedVectors.size();
+    return rightPagedVectors[pos].get();
 }
 
 void NLJSlice::combinePagedVectors()
@@ -111,5 +94,4 @@ void NLJSlice::combinePagedVectors()
         rightPagedVectors.erase(rightPagedVectors.begin() + 1, rightPagedVectors.end());
     }
 }
-
 }
