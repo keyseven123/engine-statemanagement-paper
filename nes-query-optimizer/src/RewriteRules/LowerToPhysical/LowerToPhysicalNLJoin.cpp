@@ -40,7 +40,6 @@
 #include <RewriteRules/LowerToPhysical/LowerToPhysicalNLJoin.hpp>
 #include <Runtime/Execution/OperatorHandler.hpp>
 #include <SliceStore/DefaultTimeBasedSliceStore.hpp>
-#include <SliceStore/FileBackedTimeBasedSliceStore.hpp>
 #include <Util/Common.hpp>
 #include <Util/Logger/Logger.hpp>
 #include <Watermark/TimeFunction.hpp>
