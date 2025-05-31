@@ -18,7 +18,6 @@
 #include <vector>
 #include <Identifiers/Identifiers.hpp>
 #include <Runtime/QueryTerminationType.hpp>
-#include <SliceStore/FileBackedTimeBasedSliceStore.hpp>
 #include <WindowBasedOperatorHandler.hpp>
 
 namespace NES
@@ -60,10 +59,6 @@ WindowBasedOperatorHandler::~WindowBasedOperatorHandler()
 void WindowBasedOperatorHandler::setWorkerThreads(const uint64_t numberOfWorkerThreads)
 {
     WindowBasedOperatorHandler::numberOfWorkerThreads = numberOfWorkerThreads;
-    if (const auto sliceStore = dynamic_cast<FileBackedTimeBasedSliceStore*>(sliceAndWindowStore.get()))
-    {
-        sliceStore->setWorkerThreads(numberOfWorkerThreads);
-    }
 }
 
 void WindowBasedOperatorHandler::start(PipelineExecutionContext& pipelineExecutionContext, uint32_t)

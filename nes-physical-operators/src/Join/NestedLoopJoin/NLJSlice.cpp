@@ -17,7 +17,6 @@
 #include <numeric>
 #include <Identifiers/Identifiers.hpp>
 #include <Join/NestedLoopJoin/NLJSlice.hpp>
-#include <Nautilus/Interface/PagedVector/FileBackedPagedVector.hpp>
 #include <SliceStore/Slice.hpp>
 #include <ErrorHandling.hpp>
 
