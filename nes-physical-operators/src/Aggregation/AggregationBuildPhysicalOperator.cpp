@@ -65,8 +65,7 @@ Interface::HashMap* getHashMapProxy(
             return createdSlices;
         });
 
-    const auto hashMap = operatorHandler->getSliceAndWindowStore().getSlicesOrCreate(
-        timestamp, workerThreadId, JoinBuildSideType::Left, wrappedCreateFunction);
+    const auto hashMap = operatorHandler->getSliceAndWindowStore().getSlicesOrCreate(timestamp, wrappedCreateFunction);
     INVARIANT(
         hashMap.size() == 1,
         "We expect exactly one slice for the given timestamp during the AggregationBuild, as we currently solely support "
