@@ -31,7 +31,6 @@ namespace NES
 struct CreateNewHashMapSliceArgs final : CreateNewSlicesArguments
 {
     using NautilusCleanupExec = nautilus::engine::CallableFunction<void, Nautilus::Interface::HashMap*>;
-
     CreateNewHashMapSliceArgs(
         std::vector<std::shared_ptr<NautilusCleanupExec>> nautilusCleanup,
         const uint64_t keySize,

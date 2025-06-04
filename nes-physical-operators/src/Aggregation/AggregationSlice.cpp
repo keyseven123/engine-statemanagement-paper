@@ -13,6 +13,7 @@
 */
 #include <Aggregation/AggregationSlice.hpp>
 
+
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -33,6 +34,7 @@ AggregationSlice::AggregationSlice(
     : HashMapSlice(sliceStart, sliceEnd, createNewHashMapSliceArgs, numberOfHashMaps, 1)
 {
 }
+
 
 Nautilus::Interface::HashMap* AggregationSlice::getHashMapPtr(const WorkerThreadId workerThreadId) const
 {

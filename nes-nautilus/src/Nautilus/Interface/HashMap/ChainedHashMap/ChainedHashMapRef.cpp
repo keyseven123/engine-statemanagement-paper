@@ -189,6 +189,7 @@ nautilus::val<ChainedHashMapEntry*> ChainedHashMapRef::findEntry(const ChainedEn
 
 nautilus::val<AbstractHashMapEntry*> ChainedHashMapRef::findEntry(const nautilus::val<AbstractHashMapEntry*>& otherEntry)
 {
+    /// Finding the entry. If chainEntry is nullptr, there does not exist a key with the same values.
     const auto chainEntry = static_cast<nautilus::val<ChainedHashMapEntry*>>(otherEntry);
     const ChainedEntryRef otherEntryRef{chainEntry, hashMapRef, fieldKeys, fieldValues};
     const auto entryRef = findEntry(otherEntryRef);
