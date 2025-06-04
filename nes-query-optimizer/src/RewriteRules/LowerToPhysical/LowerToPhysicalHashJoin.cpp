@@ -29,6 +29,7 @@
 #include <Functions/CastToTypeLogicalFunction.hpp>
 #include <Functions/FieldAccessLogicalFunction.hpp>
 #include <Functions/FieldAccessPhysicalFunction.hpp>
+#include <Functions/FieldAssignmentLogicalFunction.hpp>
 #include <Functions/FunctionProvider.hpp>
 #include <Functions/LogicalFunction.hpp>
 #include <Functions/PhysicalFunction.hpp>
@@ -36,6 +37,9 @@
 #include <Join/HashJoin/HJBuildPhysicalOperator.hpp>
 #include <Join/HashJoin/HJOperatorHandler.hpp>
 #include <Join/HashJoin/HJProbePhysicalOperator.hpp>
+#include <Join/NestedLoopJoin/NLJBuildPhysicalOperator.hpp>
+#include <Join/NestedLoopJoin/NLJOperatorHandler.hpp>
+#include <Join/NestedLoopJoin/NLJProbePhysicalOperator.hpp>
 #include <Join/StreamJoinUtil.hpp>
 #include <Nautilus/Interface/Hash/MurMur3HashFunction.hpp>
 #include <Nautilus/Interface/HashMap/ChainedHashMap/ChainedEntryMemoryProvider.hpp>
@@ -74,6 +78,12 @@ class TimestampField
 public:
     friend std::ostream& operator<<(std::ostream& os, const TimestampField& obj);
 
+    /// The multiplier is the value which converts from the underlying time value to milliseconds.
+    /// E.g. the multiplier for a timestamp field of seconds is 1000
+    [[nodiscard]] Windowing::TimeUnit getUnit() const { return unit; }
+
+    [[nodiscard]] const std::string& getName() const { return fieldName; }
+
     /// Builds the TimeFunction
     [[nodiscard]] std::unique_ptr<TimeFunction> toTimeFunction() const
     {
@@ -88,6 +98,7 @@ public:
     }
 
     static TimestampField ingestionTime() { return {"IngestionTime", Windowing::TimeUnit(1), INGESTION_TIME}; }
+    static TimestampField eventTime(std::string fieldName, const Windowing::TimeUnit& tm) { return {std::move(fieldName), tm, EVENT_TIME}; }
 
     static TimestampField eventTime(std::string fieldName, const Windowing::TimeUnit& timeUnit)
     {
@@ -105,6 +116,7 @@ private:
     }
 };
 
+
 namespace
 {
 std::tuple<TimestampField, TimestampField>
@@ -116,8 +128,22 @@ getTimestampLeftAndRight(const JoinLogicalOperator& joinOperator, const std::sha
         return {TimestampField::ingestionTime(), TimestampField::ingestionTime()};
     }
 
+    /// FIXME Once #3407 is done, we can change this to get the left and right fieldname
     auto timeStampFieldName = windowType->getTimeCharacteristic().field.name;
     auto timeStampFieldNameWithoutSourceName = timeStampFieldName.substr(timeStampFieldName.find(Schema::ATTRIBUTE_NAME_SEPARATOR));
+
+    /// Lambda function for extracting the timestamp from a schema
+    auto findTimeStampFieldName = [&](const Schema& schema)
+    {
+        for (const auto& field : schema.getFields())
+        {
+            if (field.name.find(timeStampFieldNameWithoutSourceName) != std::string::npos)
+            {
+                return field.name;
+            }
+        }
+        return std::string();
+    };
 
     /// Extracting the left and right timestamp
     const auto timeStampFieldNameLeft = joinOperator.getInputSchemas()[0].getFieldByName(timeStampFieldNameWithoutSourceName);
