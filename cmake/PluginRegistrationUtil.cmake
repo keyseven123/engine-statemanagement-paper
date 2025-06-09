@@ -73,7 +73,7 @@ function(generate_plugin_registrar current_dir current_binary_dir plugin_registr
     set(REGISTER_FUNCTION_DECLARATIONS "")
     set(REGISTER_ALL_FUNCTION_CALLS "")
     foreach (reg_func IN LISTS plugin_registry_plugin_names_final)
-        STRING(TOLOWER ${reg_func} lower_case_reg_func)
+        STRING(TOUPPER ${reg_func} lower_case_reg_func)
         list(APPEND REGISTER_FUNCTION_DECLARATIONS "${plugin_registry}RegistryReturnType Register${reg_func}${plugin_registry}(${plugin_registry}RegistryArguments)")
         list(APPEND REGISTER_ALL_FUNCTION_CALLS "registry.addEntry(\"${lower_case_reg_func}\", Register${reg_func}${plugin_registry})")
     endforeach ()

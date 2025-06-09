@@ -28,7 +28,7 @@ namespace NES
 
 /// The registry singleton allows registration of factory methods to produce a certain type.
 /// There exists multiple distinct registries for different types.
-template <typename Registrar, bool LowerCaseKey = true>
+template <typename Registrar, bool CaseSensitive = false>
 class Registry
 {
 public:
@@ -47,10 +47,10 @@ public:
         auto transformedKey = [&]()
         {
             if constexpr (
-                LowerCaseKey && std::convertible_to<typename Registrar::KeyType, std::string_view>
+                !CaseSensitive && std::convertible_to<typename Registrar::KeyType, std::string_view>
                 && std::constructible_from<typename Registrar::KeyType, std::string_view>)
             {
-                return typename Registrar::KeyType(Util::toLowerCase(static_cast<std::string_view>(key)));
+                return typename Registrar::KeyType(NES::Util::toUpperCase(static_cast<std::string_view>(key)));
             }
             return key;
         }();
@@ -106,8 +106,8 @@ class Registrar
 
 /// CRTPBase of the Registry. This allows the `instance()` method to return a concrete instance of the registry, which is useful
 /// if custom member functions are added to the concrete registry class.
-template <typename ConcreteRegistry, typename KeyTypeT, typename ReturnTypeT, typename Arguments, bool LowerCaseKey = true>
-class BaseRegistry : public Registry<Registrar<ConcreteRegistry, KeyTypeT, ReturnTypeT, Arguments>, LowerCaseKey>
+template <typename ConcreteRegistry, typename KeyTypeT, typename ReturnTypeT, typename Arguments, bool CaseSensitive = false>
+class BaseRegistry : public Registry<Registrar<ConcreteRegistry, KeyTypeT, ReturnTypeT, Arguments>, CaseSensitive>
 {
     BaseRegistry() = default;
 
