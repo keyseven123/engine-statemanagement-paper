@@ -1,0 +1,58 @@
+name: Build and profile benchmark systests
+on:
+  workflow_call:
+    inputs:
+      run_reason:
+        required: true
+        type: string
+        description: "Reason why benchmark suite is being run"
+      ref:
+        type: string
+        required: true
+        description: "ref of the branch"
+      dev_image_tag:
+        required: true
+        type: string
+        description: "Docker image tag of the benchmarking image"
+
+jobs:
+  build-and-profile:
+    runs-on: ubuntu-latest
+  #  container:
+  #    volumes:
+  #      - ccache:/ccache
+  #      - test-file-cache:/test-file-cache
+  #    env:
+  #      CCACHE_DIR: /ccache
+  #      MOLD_JOBS: 1
+  #      CONBENCH_PROJECT_COMMIT: ${{ inputs.ref }}
+  #      CONBENCH_URL: "https://bench.nebula.stream"
+  #      CONBENCH_EMAIL: ${{ secrets.CONBENCH_USR }}
+  #      CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PWD }}
+  #      CONBENCH_PROJECT_REPOSITORY: "https://github.com/${{ github.repository }}"
+  #      CONBENCH_RUN_REASON: ${{ inputs.run_reason }}
+  #      CONBENCH_MACHINE_INFO_NAME: "Github Runner"
+
+  #    options: --user root
+  #    image:
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: build systest
+        run: |
+          cmake -GNinja -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_LARGE_TESTS=ON -DExternalData_OBJECT_STORES=/test-file-cache
+          cmake --build build -j
+      - name: list dir
+        run: |
+          ls -lash
+      - name: profile systests
+        run: |
+          SYSTEST_LIST=$(find ./nes-systests/benchmark -type f -name "*.test" | sort)
+          
+          for SYSTEST in $SYSTEST_LIST; do
+            echo "Profiling $SYSTEST"
+            perf record ./build/nes-systests/systest/systest -t "$SYSTEST"
+            perf script > "$SYSTEST".perf
+          done

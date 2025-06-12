@@ -1,0 +1,8 @@
+{
+  "inputs": {
+    "run_reason": "Local test run",
+    "ref": "flamegraphs-in-conbench",
+    "dev_image_tag": "local"
+  },
+  "repository": "nebulastream/nebulastream"
+}
