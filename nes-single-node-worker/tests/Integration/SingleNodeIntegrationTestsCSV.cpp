@@ -127,7 +127,7 @@ TEST_P(SingleNodeIntegrationTest, IntegrationTestWithSourcesCSV)
     IntegrationTestUtil::removeFile(testSpecificDataFileName);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     QueryTests,
     SingleNodeIntegrationTest,
     testing::Values(

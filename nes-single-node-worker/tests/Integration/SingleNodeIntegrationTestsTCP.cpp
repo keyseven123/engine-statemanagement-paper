@@ -180,7 +180,7 @@ TEST_P(SingleNodeIntegrationTest, IntegrationTestWithSourcesTCP)
     IntegrationTestUtil::removeFile(testSpecificResultFileName);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     QueryTests,
     SingleNodeIntegrationTest,
     testing::Values(

@@ -287,7 +287,7 @@ TEST_P(PagedVectorTest, appendAllPagesMultipleVectorsWithDifferentPageSizes)
 }
 
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     PagedVectorTest,
     PagedVectorTest,
     ::testing::Values(Nautilus::Configurations::ExecutionMode::INTERPRETER, Nautilus::Configurations::ExecutionMode::COMPILER),

@@ -186,7 +186,7 @@ TEST_P(SingleNodeIntegrationTest, IntegrationTestWithSourcesMixed)
     IntegrationTestUtil::removeFile(testSpecificDataFileName);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     QueryTests,
     SingleNodeIntegrationTest,
     testing::Values(QueryTestParam{"qOneCSVSourceAndOneTCPSourceWithFilter", 1, 62, 960 /* 2*SUM(0, 1, ..., 15) */, 32}));
