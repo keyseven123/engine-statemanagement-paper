@@ -17,7 +17,7 @@ jobs:
   get-resources:
     runs-on: ubuntu-latest
     outputs:
-      number_of_jobs: ${{ steps.set-value.outputs.number_of_jobs }}
+      number_of_jobs: ${{ steps.number-of-jobs.outputs.number_of_jobs }}
     steps:
       - name: Choose a number of concurrent jobs
         id: number-of-jobs
