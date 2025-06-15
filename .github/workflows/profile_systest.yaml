@@ -36,10 +36,10 @@ jobs:
       options: --user root
     timeout-minutes: 60
     steps:
-      - name: install node
+      - name: install flamegraphs tools
         run: |
-          apt update
-          apt install npm -y
+          git clone https://github.com/brendangregg/Flamegraph.git
+          echo "Flamegraphs tools cloned!"
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
@@ -50,10 +50,16 @@ jobs:
       - name: profile benchmarks
         run: |
           SYSTEST_LIST=$(find ./nes-systests/benchmark -type f -name "*.test" | sed 's/.*\///' | sed 's/\.test$//' | sort)
-          
+          echo "Found the following tests: ${SYSTEST_LIST}"
           for SYSTEST_NAME in $SYSTEST_LIST; do
             TEST_PATH="./nes-systests/benchmark/${SYSTEST_NAME}.test"
             echo "Profiling ${TEST_PATH}"
-            perf record ./cmake-build-debug-nes/nes-systests/systest/systest -t "$TEST_PATH" --data /home/klaas/CLionProjects/nebulastream-public/nes-systests/testdata
+            perf record -g ./build/nes-systests/systest/systest -t "$TEST_PATH"
             perf script > "${SYSTEST_NAME}.perf"
+            ./Flamegraph/stackcollapse-perf.pl "${SYSTEST_NAME}.perf" > "${SYSTEST_NAME}.folded"
+            grep -v 'systest' "./${SYSTEST_NAME}.folded" | grep -v 'StatPrinter' > "${SYSTEST_NAME}.filtered.folded"
+            ./Flamegraph/flamegraph.pl "${SYSTEST_NAME}.filtered.folded" > "${SYSTEST_NAME}.svg"
           done
+      - name: upload svgs and metadata to conbench via curl
+        run: |
+          echo "Not yet Implemented :("
