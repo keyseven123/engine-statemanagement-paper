@@ -46,7 +46,7 @@ struct LoadedQueryPlan
     std::string queryName;
     Schema sinkSchema;
     SystestQueryId queryIdInTest;
-    std::unordered_map<SourceDescriptor, std::filesystem::path> sourcesToFilePaths;
+    std::unordered_map<SourceDescriptor, std::optional<std::filesystem::path>> sourcesToFilePaths;
     std::optional<ExpectedError> expectedError;
 };
 

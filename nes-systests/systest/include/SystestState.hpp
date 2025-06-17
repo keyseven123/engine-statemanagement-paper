@@ -95,7 +95,7 @@ struct SystestQuery
         SystestQueryId queryIdInFile,
         std::filesystem::path workingDir,
         const Schema& sinkSchema,
-        std::unordered_map<std::string, std::pair<std::filesystem::path, uint64_t>> sourceNamesToFilepathAndCount,
+        std::unordered_map<std::string, std::pair<std::optional<std::filesystem::path>, uint64_t>> sourceNamesToFilepathAndCount,
         std::optional<ExpectedError> expectedError);
 
     [[nodiscard]] std::filesystem::path resultFile() const;
@@ -107,7 +107,7 @@ struct SystestQuery
     SystestQueryId queryIdInFile = INVALID_SYSTEST_QUERY_ID;
     std::filesystem::path workingDir;
     Schema expectedSinkSchema;
-    std::unordered_map<std::string, std::pair<std::filesystem::path, uint64_t>> sourceNamesToFilepathAndCount;
+    std::unordered_map<std::string, std::pair<std::optional<std::filesystem::path>, uint64_t>> sourceNamesToFilepathAndCount;
     std::optional<ExpectedError> expectedError;
 };
 
@@ -248,7 +248,7 @@ private:
         const SystestQueryId queryIdInFile,
         std::filesystem::path workingDir,
         const Schema& sinkSchema,
-        std::unordered_map<std::string, std::pair<std::filesystem::path, uint64_t>> sourceNamesToFilepathAndCount,
+        std::unordered_map<std::string, std::pair<std::optional<std::filesystem::path>, uint64_t>> sourceNamesToFilepathAndCount,
         std::optional<ExpectedError> expectedError)
     {
         if (const auto it = testFileMap.find(sqlLogicTestFile); it != testFileMap.end())

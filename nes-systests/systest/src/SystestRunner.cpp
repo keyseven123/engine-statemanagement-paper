@@ -285,10 +285,18 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
         size_t tuplesProcessed = 0;
         for (const auto& [sourcePath, sourceOccurrencesInQuery] : queryToRun.sourceNamesToFilepathAndCount | std::views::values)
         {
-            bytesProcessed += (std::filesystem::file_size(sourcePath) * sourceOccurrencesInQuery);
+            if (!sourcePath.has_value() or not(std::filesystem::exists(sourcePath.value()) and sourcePath.value().has_filename()))
+            {
+                NES_ERROR("Source path is empty or does not exist.");
+                bytesProcessed = 0;
+                tuplesProcessed = 0;
+                break;
+            }
+
+            bytesProcessed += (std::filesystem::file_size(sourcePath.value()) * sourceOccurrencesInQuery);
 
             /// Counting the lines, i.e., \n in the sourcePath
-            std::ifstream inFile(sourcePath);
+            std::ifstream inFile(sourcePath.value());
             tuplesProcessed
                 += std::count(std::istreambuf_iterator(inFile), std::istreambuf_iterator<char>(), '\n') * sourceOccurrencesInQuery;
         }
