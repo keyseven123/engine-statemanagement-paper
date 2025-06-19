@@ -150,6 +150,7 @@ getStage(const std::shared_ptr<Pipeline>& pipeline, Nautilus::Configurations::Ex
     }
     options.setOption("toConsole", true);
     options.setOption("toFile", true);
+    options.setOption("mlir.enableMultithreading", false);
 
     return std::make_unique<CompiledExecutablePipelineStage>(pipeline, pipeline->getOperatorHandlers(), options);
 }

@@ -1,0 +1,19 @@
+Index: nautilus/src/nautilus/compiler/backends/mlir/MLIRCompilationBackend.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/nautilus/src/nautilus/compiler/backends/mlir/MLIRCompilationBackend.cpp b/nautilus/src/nautilus/compiler/backends/mlir/MLIRCompilationBackend.cpp
+--- a/nautilus/src/nautilus/compiler/backends/mlir/MLIRCompilationBackend.cpp	(revision 8cbc913d2ecaff5beb71ebf02cc6841992e1ca31)
++++ b/nautilus/src/nautilus/compiler/backends/mlir/MLIRCompilationBackend.cpp	(date 1750320206567)
+@@ -34,7 +34,9 @@
+ 	registerLLVMDialectTranslation(registry);
+ 
+ 	::mlir::MLIRContext context(registry);
+-	context.allowsUnregisteredDialects();
++	if (context.allowsUnregisteredDialects()) {
++		throw RuntimeException("context does not allow unregistered dialects, but we require it!");
++	}
+ 	if (not options.getOptionOrDefault("mlir.enableMultithreading", true)) {
+ 		context.disableMultithreading();
+ 	}
