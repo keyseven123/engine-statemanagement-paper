@@ -25,7 +25,7 @@
 #include <EmitPhysicalOperator.hpp>
 #include <PhysicalOperator.hpp>
 #include <RewriteRuleRegistry.hpp>
-#include <ScanPhysicalOperator.hpp>
+#include <InputFormatters/FormatScanPhysicalOperator.hpp>
 
 namespace NES
 {
@@ -39,7 +39,7 @@ RewriteRuleResultSubgraph LowerToPhysicalProjection::apply(LogicalOperator proje
 
     auto scanLayout = std::make_shared<Memory::MemoryLayouts::RowLayout>(bufferSize, inputSchema);
     auto scanMemoryProvider = std::make_shared<Interface::MemoryProvider::RowTupleBufferMemoryProvider>(scanLayout);
-    auto scan = ScanPhysicalOperator(scanMemoryProvider, outputSchema.getFieldNames());
+    auto scan = FormatScanPhysicalOperator(scanMemoryProvider, outputSchema.getFieldNames());
     auto scanWrapper = std::make_shared<PhysicalOperatorWrapper>(
         scan, outputSchema, outputSchema, std::nullopt, std::nullopt, PhysicalOperatorWrapper::PipelineLocation::SCAN);
 
