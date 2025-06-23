@@ -28,6 +28,7 @@
 #include <PhysicalOperator.hpp>
 #include <RewriteRuleRegistry.hpp>
 #include "InputFormatters/InputFormatterProvider.hpp"
+#include "Operators/Sources/SourceDescriptorLogicalOperator.hpp"
 
 namespace NES
 {
@@ -39,9 +40,30 @@ RewriteRuleResultSubgraph LowerToPhysicalProjection::apply(LogicalOperator proje
     auto outputSchema = projectionLogicalOperator.getOutputSchema();
     auto bufferSize = conf.pageSize.getValue();
 
-    auto inputFormatterTaskPipeline = InputFormatters::InputFormatterProvider::provideInputFormatterTask(
-        OriginId(OriginId::INITIAL), inputSchema, ParserConfig{.parserType = "Native", .tupleDelimiter = "", .fieldDelimiter = ""});
-    auto scan = FormatScanPhysicalOperator(outputSchema.getFieldNames(), std::move(inputFormatterTaskPipeline), bufferSize);
+    // LogicalOperator
+    const auto sourceOperators
+        = projectionLogicalOperator.getChildren()
+        | std::views::filter([](const auto& childOperator)
+                             { return childOperator.template tryGet<SourceDescriptorLogicalOperator>().has_value(); })
+        | std::views::transform(
+              [](const auto& sourceChildOperator)
+              { return sourceChildOperator.template tryGet<SourceDescriptorLogicalOperator>().value().getSourceDescriptor(); })
+        | std::ranges::to<std::vector>();
+    const bool isFirstOperatorAfterSource = not(sourceOperators.empty());
+    auto inputFormatterTaskPipeline = [isFirstOperatorAfterSource, &inputSchema, &sourceOperators]()
+    {
+        if (isFirstOperatorAfterSource)
+        {
+            // Todo: how to handle multiple sources? --> should all have the same format, otherwise they should not have the same projection
+            // -> could add invariant
+            return InputFormatters::InputFormatterProvider::provideInputFormatterTask(
+                OriginId(OriginId::INITIAL), inputSchema, sourceOperators.front().getParserConfig());
+        }
+        return InputFormatters::InputFormatterProvider::provideInputFormatterTask(
+            OriginId(OriginId::INITIAL), inputSchema, ParserConfig{.parserType = "Native", .tupleDelimiter = "", .fieldDelimiter = ""});
+    }();
+    auto scan = FormatScanPhysicalOperator(
+        outputSchema.getFieldNames(), std::move(inputFormatterTaskPipeline), bufferSize, isFirstOperatorAfterSource);
     auto scanWrapper = std::make_shared<PhysicalOperatorWrapper>(
         scan, outputSchema, outputSchema, std::nullopt, std::nullopt, PhysicalOperatorWrapper::PipelineLocation::SCAN);
 
