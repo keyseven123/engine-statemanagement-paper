@@ -2,7 +2,7 @@
 # description: Simple Iris inference
 # groups: [Inference]
 
-Source streamVarsized VARSIZED data
+Source streamVarsized VARSIZED data INLINE
 aaaaaaaaaaaaaaaa
 
 SINK classificationVarsized VARSIZED streamVarsized$data VARSIZED streamVarsized$flower
@@ -18,7 +18,8 @@ INTO classificationVarsized
 aaaaaaaaaaaaaaaa,virginica
 
 
-SourceCSV streamFloat FLOAT32 p1 FLOAT32 p2 FLOAT32 p3 FLOAT32 p4 TESTDATA/small/iris.csv
+Source streamFloat FLOAT32 p1 FLOAT32 p2 FLOAT32 p3 FLOAT32 p4 FILE
+TESTDATA/small/iris.csv
 
 SINK classification VARSIZED streamFloat$flower
 

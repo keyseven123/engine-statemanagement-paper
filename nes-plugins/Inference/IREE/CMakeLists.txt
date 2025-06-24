@@ -12,5 +12,5 @@
 
 add_subdirectory(src)
 
-add_plugin(iris_label LogicalFunction nes-functions IrisLabelLogicalFunction.cpp)
-add_plugin(iris_label ExecutableFunction nes-execution IrisLabelExecutableFunction.cpp)
+add_plugin(iris_label LogicalFunction nes-logical-operators IrisLabelLogicalFunction.cpp)
+add_plugin(iris_label PhysicalFunction nes-physical-operators IrisLabelExecutableFunction.cpp)

@@ -13,21 +13,25 @@
 */
 
 #include <memory>
+#include <Functions/ConstantValuePhysicalFunction.hpp>
+#include <Functions/ConstantValueVariableSizePhysicalFunction.hpp>
+#include <Functions/PhysicalFunction.hpp>
+#include <Nautilus/DataTypes/VarVal.hpp>
+#include <Nautilus/Interface/Record.hpp>
+#include <folly/Function.h>
+#include <ExecutionContext.hpp>
+#include <PhysicalFunctionRegistry.hpp>
 
-#include <Execution/Functions/ExecutableFunctionConstantValueVariableSize.hpp>
-#include <Functions/NodeFunction.hpp>
-#include <ExecutableFunctionRegistry.hpp>
-
-namespace NES::Runtime::Execution::Functions
+namespace NES
 {
 
-struct IrisLabelExecutableFunction : Function
+struct IrisLabelPhysicalFunction final : PhysicalFunctionConcept
 {
     [[nodiscard]] VarVal execute(const Record& record, ArenaRef& arena) const override
     {
-        auto setosaVal = setosa->execute(record, arena);
-        auto versicolorVal = versicolor->execute(record, arena);
-        auto virginicaVal = virginica->execute(record, arena);
+        auto setosaVal = setosa.execute(record, arena);
+        auto versicolorVal = versicolor.execute(record, arena);
+        auto virginicaVal = virginica.execute(record, arena);
 
         if (setosaVal >= versicolorVal && setosaVal >= virginicaVal)
         {
@@ -43,33 +47,32 @@ struct IrisLabelExecutableFunction : Function
         }
     }
 
-    IrisLabelExecutableFunction(std::unique_ptr<Function> setosa, std::unique_ptr<Function> versicolor, std::unique_ptr<Function> virginica)
+    IrisLabelPhysicalFunction(PhysicalFunction setosa, PhysicalFunction versicolor, PhysicalFunction virginica)
         : setosa(std::move(setosa)), versicolor(std::move(versicolor)), virginica(std::move(virginica))
     {
     }
 
-    std::unique_ptr<Function> setosa;
-    std::unique_ptr<Function> versicolor;
-    std::unique_ptr<Function> virginica;
+    PhysicalFunction setosa;
+    PhysicalFunction versicolor;
+    PhysicalFunction virginica;
 
-    ExecutableFunctionConstantValueVariableSize setosaConstantValue{"setosa"};
-    ExecutableFunctionConstantValueVariableSize versicolorConstantValue{"versicolor"};
-    ExecutableFunctionConstantValueVariableSize virginicaConstantValue{"virginica"};
+    ConstantValueVariableSizePhysicalFunction setosaConstantValue{"setosa"};
+    ConstantValueVariableSizePhysicalFunction versicolorConstantValue{"versicolor"};
+    ConstantValueVariableSizePhysicalFunction virginicaConstantValue{"virginica"};
 };
 
 }
 
-namespace NES::Runtime::Execution::Functions::ExecutableFunctionGeneratedRegistrar
+namespace NES::PhysicalFunctionGeneratedRegistrar
 {
-/// declaration of register functions for 'ExecutableFunctions'
-ExecutableFunctionRegistryReturnType Registeriris_labelExecutableFunction(ExecutableFunctionRegistryArguments arguments)
+PhysicalFunctionRegistryReturnType Registeriris_labelPhysicalFunction(PhysicalFunctionRegistryArguments arguments)
 {
     if (arguments.childFunctions.size() != 3)
     {
         throw TypeInferenceException("Function Expects 3 Arguments");
     }
 
-    return std::make_unique<IrisLabelExecutableFunction>(
-        std::move(arguments.childFunctions[0]), std::move(arguments.childFunctions[1]), std::move(arguments.childFunctions[2]));
+    return PhysicalFunction(IrisLabelPhysicalFunction(
+        std::move(arguments.childFunctions[0]), std::move(arguments.childFunctions[1]), std::move(arguments.childFunctions[2])));
 }
 }

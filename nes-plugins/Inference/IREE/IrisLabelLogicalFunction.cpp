@@ -13,94 +13,79 @@
 */
 
 #include <memory>
-#include <Functions/NodeFunction.hpp>
+
 #include <LogicalFunctionRegistry.hpp>
-#include <Common/DataTypes/DataTypeProvider.hpp>
-#include <Common/DataTypes/Float.hpp>
+#include <Functions/LogicalFunction.hpp>
+#include "DataTypes/DataTypeProvider.hpp"
+#include "Functions/LogicalFunction.hpp"
+#include "Serialization/DataTypeSerializationUtil.hpp"
 
 namespace NES
 {
 
-class IrisLabelLogicalFunction : public NodeFunction
+class IrisLabelLogicalFunction : public LogicalFunctionConcept
 {
+    LogicalFunction setosa;
+    LogicalFunction versicolor;
+    LogicalFunction virginica;
+
 public:
-    IrisLabelLogicalFunction() : NodeFunction(DataTypeProvider::provideDataType("VARSIZED"), "iris_label") { }
-
-    void
-    setChildren(std::shared_ptr<NodeFunction> setosa, std::shared_ptr<NodeFunction> versicolor, std::shared_ptr<NodeFunction> virginica)
+    IrisLabelLogicalFunction(LogicalFunction setosa, LogicalFunction versicolor, LogicalFunction virginica)
+        : setosa(std::move(setosa)), versicolor(std::move(versicolor)), virginica(std::move(virginica))
     {
-        addChildWithEqual(setosa);
-        addChildWithEqual(versicolor);
-        addChildWithEqual(virginica);
     }
+    [[nodiscard]] std::string explain(ExplainVerbosity) const override { return "IRIS_LABEL"; }
+    [[nodiscard]] DataType getDataType() const override { return DataTypeProvider::provideDataType(DataType::Type::VARSIZED); }
+    [[nodiscard]] LogicalFunction withDataType(const DataType&) const override { return *this; }
+    [[nodiscard]] LogicalFunction withInferredDataType(const Schema& schema) const override
+    {
+        auto copy = IrisLabelLogicalFunction(
+            setosa.withInferredDataType(schema), setosa.withInferredDataType(schema), setosa.withInferredDataType(schema));
 
-    ~IrisLabelLogicalFunction() noexcept override = default;
-    bool validateBeforeLowering() const override
-    {
-        return std::ranges::all_of(
-            children, [](const auto& child) { return Util::instanceOf<NES::Float>(Util::as<NodeFunction>(child)->getStamp()); });
-    }
-    std::shared_ptr<NodeFunction> deepCopy() override
-    {
-        auto copy = std::make_shared<IrisLabelLogicalFunction>();
-        copy->setChildren(
-            Util::as<NodeFunction>(children.at(0)), Util::as<NodeFunction>(children.at(1)), Util::as<NodeFunction>(children.at(2)));
+        if (copy.setosa.getDataType().type != DataType::Type::FLOAT32 || copy.versicolor.getDataType().type != DataType::Type::FLOAT32
+            || copy.virginica.getDataType().type != DataType::Type::FLOAT32)
+        {
+            throw TypeInferenceException("IrisLabel expects Float32 as input");
+        }
+
         return copy;
     }
-    bool equal(const std::shared_ptr<Node>& rhs) const override
+    [[nodiscard]] std::vector<LogicalFunction> getChildren() const override { return {setosa, versicolor, virginica}; }
+    [[nodiscard]] LogicalFunction withChildren(const std::vector<LogicalFunction>& children) const override
     {
-        if (auto other = std::dynamic_pointer_cast<IrisLabelLogicalFunction>(rhs))
+        PRECONDITION(children.size() == 3, "IrisLabel expects 3 children");
+        return IrisLabelLogicalFunction(children.at(0), children.at(1), children.at(2));
+    }
+
+    [[nodiscard]] std::string_view getType() const override { return "iris_label"; }
+    [[nodiscard]] SerializableFunction serialize() const override
+    {
+        SerializableFunction serializedFunction;
+        serializedFunction.set_function_type("iris_label");
+        serializedFunction.add_children()->CopyFrom(setosa.serialize());
+        serializedFunction.add_children()->CopyFrom(versicolor.serialize());
+        serializedFunction.add_children()->CopyFrom(virginica.serialize());
+        DataTypeSerializationUtil::serializeDataType(getDataType(), serializedFunction.mutable_data_type());
+        return serializedFunction;
+    }
+
+    [[nodiscard]] bool operator==(const LogicalFunctionConcept& rhs) const override
+    {
+        if (auto castedRhs = dynamic_cast<const IrisLabelLogicalFunction*>(&rhs))
         {
-            return std::ranges::equal(children, other->children, [](const auto& lhs, const auto& rhs) { return lhs->equal(rhs); });
+            return castedRhs->setosa == this->setosa && castedRhs->versicolor == this->versicolor
+                && castedRhs->virginica == this->virginica;
         }
         return false;
     }
-
-    void inferStamp(const Schema& schema) override
-    {
-        std::ranges::for_each(children, [&](const auto& child) { Util::as<NodeFunction>(child)->inferStamp(schema); });
-
-        const auto allFloat = std::ranges::all_of(
-            children, [](const auto& child) { return Util::instanceOf<NES::Float>(Util::as<NodeFunction>(child)->getStamp()); });
-
-        if (allFloat)
-        {
-            this->setStamp(DataTypeProvider::provideDataType("VARSIZED"));
-        }
-        else
-        {
-            throw TypeInferenceException("Expected all three parameters to be floating types");
-        }
-    }
-
-protected:
-    [[nodiscard]] std::ostream& toQueryPlanString(std::ostream& os) const override
-    {
-        fmt::println(os, "IRIS_LABEL({},{},{})", *children.at(0), *children.at(1), *children.at(2));
-        return os;
-    }
-
-    [[nodiscard]] std::ostream& toDebugString(std::ostream& os) const override
-    {
-        fmt::println(os, "IRIS_LABEL()");
-        return os;
-    }
 };
 
+LogicalFunctionRegistryReturnType
+LogicalFunctionGeneratedRegistrar::Registeriris_labelLogicalFunction(LogicalFunctionRegistryArguments arguments)
+{
+    PRECONDITION(
+        arguments.children.size() == 3, "IrisLabelLogicalFunction requires exactly two children, but got {}", arguments.children.size());
+    return IrisLabelLogicalFunction(arguments.children[0], arguments.children[1], arguments.children[2]);
 }
 
-namespace NES::LogicalFunctionGeneratedRegistrar
-{
-/// declaration of register functions for 'LogicalFunctions'
-LogicalFunctionRegistryReturnType Registeriris_labelLogicalFunction(LogicalFunctionRegistryArguments arguments)
-{
-    if (arguments.childFunctions.size() != 3)
-    {
-        throw TypeInferenceException("Function Expects 3 Arguments");
-    }
-
-    auto function = std::make_shared<IrisLabelLogicalFunction>();
-    function->setChildren(arguments.childFunctions[0], arguments.childFunctions[1], arguments.childFunctions[2]);
-    return function;
-}
 }
