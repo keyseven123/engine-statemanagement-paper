@@ -40,7 +40,7 @@ public:
     [[nodiscard]] LogicalFunction withInferredDataType(const Schema& schema) const override
     {
         auto copy = IrisLabelLogicalFunction(
-            setosa.withInferredDataType(schema), setosa.withInferredDataType(schema), setosa.withInferredDataType(schema));
+            setosa.withInferredDataType(schema), versicolor.withInferredDataType(schema), virginica.withInferredDataType(schema));
 
         if (copy.setosa.getDataType().type != DataType::Type::FLOAT32 || copy.versicolor.getDataType().type != DataType::Type::FLOAT32
             || copy.virginica.getDataType().type != DataType::Type::FLOAT32)
