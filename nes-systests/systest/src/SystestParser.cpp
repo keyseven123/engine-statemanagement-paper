@@ -318,6 +318,7 @@ void SystestParser::parse()
                 {
                     onModelCallback(std::move(model));
                 }
+                break;
             }
             case TokenType::LOGICAL_SOURCE: {
                 auto [logicalSource, attachSourceOpt] = expectSystestLogicalSource();
