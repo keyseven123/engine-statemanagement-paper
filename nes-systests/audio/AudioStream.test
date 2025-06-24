@@ -1,0 +1,38 @@
+# name: AudioStream.test
+# description: Audio stream queries for demonstration purpose
+# groups: [Audio]
+
+
+Source audio_source UINT64 timestamp UINT16 value INLINE
+0, -432
+6, 430
+12, -427
+18, 432
+18, -432
+25, 432
+
+SINK audio_sink UINT64 audio_source$timestamp UINT16 audio_source$value
+
+SELECT * FROM audio_source INTO audio_sink
+----
+0, -432
+6, 430
+12, -427
+18, 432
+18, -432
+25, 432
+
+
+
+# For large tests we usually don't store the input data inline but use an external file.
+# By default the CMake build does not download large files, this has to be explicitly enabled via
+# the -DENABLE_LARGE_TESTS=ON option during the CMake configuration.
+
+Source audio_source_file UINT64 timestamp UINT16 value FILE
+TESTDATA/large/raw_audio_data.csv
+
+# There is no Sink definition has we are using the CHECKSUM sink, which will count the number of received values
+# and calculate a checksum.
+SELECT * FROM audio_source_file INTO CHECKSUM
+----
+16000,123480943
