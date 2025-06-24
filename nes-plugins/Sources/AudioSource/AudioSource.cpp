@@ -44,8 +44,7 @@
 #include <ErrorHandling.hpp>
 #include <SourceRegistry.hpp>
 #include <SourceValidationRegistry.hpp>
-#include <Common/PhysicalTypes/DefaultPhysicalTypeFactory.hpp>
-#include "Util/Ranges.hpp"
+#include <Util/Ranges.hpp>
 
 namespace NES::Sources
 {
@@ -56,10 +55,6 @@ AudioSource::AudioSource(const SourceDescriptor& sourceDescriptor)
     , sampleRate(sourceDescriptor.getFromConfig(ConfigParametersAudio::SAMPLE_RATE))
     , sampleWidth(sourceDescriptor.getFromConfig(ConfigParametersAudio::SAMPLE_WIDTH))
 {
-    /// init physical types
-    const std::vector<std::string> schemaKeys;
-    const DefaultPhysicalTypeFactory defaultPhysicalTypeFactory{};
-
     NES_TRACE("AudioSource::AudioSource: Init AudioSource.");
 }
 
@@ -262,12 +257,6 @@ size_t AudioSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, NES::
     }
 }
 
-
-NES::Configurations::DescriptorConfig::Config AudioSource::validateAndFormat(std::unordered_map<std::string, std::string> config)
-{
-    return Configurations::DescriptorConfig::validateAndFormat<ConfigParametersAudio>(std::move(config), name());
-}
-
 void AudioSource::close()
 {
     NES_DEBUG("AudioSource::close: trying to close connection.");
@@ -278,6 +267,11 @@ void AudioSource::close()
     }
 }
 
+NES::Configurations::DescriptorConfig::Config AudioSource::validateAndFormat(std::unordered_map<std::string, std::string> config)
+{
+    return Configurations::DescriptorConfig::validateAndFormat<ConfigParametersAudio>(std::move(config), name());
+}
+
 SourceValidationRegistryReturnType
 SourceValidationGeneratedRegistrar::RegisterAudioSourceValidation(SourceValidationRegistryArguments sourceConfig)
 {
@@ -286,39 +280,21 @@ SourceValidationGeneratedRegistrar::RegisterAudioSourceValidation(SourceValidati
 
 SourceRegistryReturnType SourceGeneratedRegistrar::RegisterAudioSource(SourceRegistryArguments sourceRegistryArguments)
 {
-    auto schema = sourceRegistryArguments.sourceDescriptor.schema;
-    if (schema->getFieldCount() != 2)
+    const auto schema = sourceRegistryArguments.sourceDescriptor.getLogicalSource().getSchema();
+    if (schema->getNumberOfFields() != 2)
     {
         throw DifferentFieldTypeExpected("Audio Source expected a schema of (Timestamp: UINT64, value: FLOAT32)");
     }
 
-    auto timestampField = sourceRegistryArguments.sourceDescriptor.schema->getFieldByIndex(0);
-    auto valueField = sourceRegistryArguments.sourceDescriptor.schema->getFieldByIndex(1);
+    const auto timestampField = schema->getFieldAt(0);
+    const auto valueField = schema->getFieldAt(1);
 
-    if (auto integerType = Util::as_if<Integer>(timestampField->getDataType()))
-    {
-        if (integerType->getIsSigned())
-        {
-            throw DifferentFieldTypeExpected("Audio Source expected a schema of (Timestamp: UINT64, value: FLOAT32)");
-        }
-        if (integerType->getBits() != 64)
-        {
-            throw DifferentFieldTypeExpected("Audio Source expected a schema of (Timestamp: UINT64, value: FLOAT32)");
-        }
-    }
-    else
+    if (!timestampField.dataType.isType(DataType::Type::UINT64))
     {
         throw DifferentFieldTypeExpected("Audio Source expected a schema of (Timestamp: UINT64, value: FLOAT32)");
     }
 
-    if (auto floatValue = Util::as_if<Float>(valueField->getDataType()))
-    {
-        if (floatValue->getBits() != 32)
-        {
-            throw DifferentFieldTypeExpected("Audio Source expected a schema of (Timestamp: UINT64, value: FLOAT32)");
-        }
-    }
-    else
+    if (!valueField.dataType.isType(DataType::Type::FLOAT32))
     {
         throw DifferentFieldTypeExpected("Audio Source expected a schema of (Timestamp: UINT64, value: FLOAT32)");
     }
