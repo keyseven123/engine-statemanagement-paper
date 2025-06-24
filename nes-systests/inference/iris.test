@@ -183,7 +183,7 @@ virginica
 virginica
 
 
-SINK classificationThreeSeparate FLOAT32 streamFloat$setosa FLOAT32 streamFloat$versicolor FLOAT32 streamFloat$virginica
+SINK classificationThreeSeparate FLOAT32 setosa FLOAT32 versicolor FLOAT32 virginica
 
 SELECT setosa, versicolor, virginica
 FROM (SELECT INFER_MODEL(iris4, (p1,p2,p3,p4)) FROM streamFloat)
