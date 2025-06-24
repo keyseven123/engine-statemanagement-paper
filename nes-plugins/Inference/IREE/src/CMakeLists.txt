@@ -10,15 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_plugin_as_library(IREE ExecutableOperator nes-execution-registry iree_inference_plugin_library
+add_plugin_as_library(Inference RewriteRule nes-query-optimizer iree_inference_plugin_library LowerToPhysicalIreeInference.cpp
         IREEInferenceOperator.cpp
         IREEInferenceOperatorHandler.cpp
         IREEAdapter.cpp
         IREERuntimeWrapper.cpp
 )
-
-add_plugin_as_library(Sequence RewriteRule nes-query-optimizer LowerToPhysicalIreeInference.cpp)
-
 find_package(IREERuntime CONFIG REQUIRED)
 target_include_directories(iree_inference_plugin_library PRIVATE ../include)
 target_include_directories(iree_inference_plugin_library SYSTEM PRIVATE ${_IREE_COMPILER_API})

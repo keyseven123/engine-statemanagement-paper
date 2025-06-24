@@ -48,7 +48,7 @@ SerializableOperator LogicalInferModelOperator::serialize() const
 {
     SerializableLogicalOperator proto;
 
-    proto.set_operator_type("INFER_MODEL");
+    proto.set_operator_type("Inference");
     auto* traitSetProto = proto.mutable_trait_set();
     for (const auto& trait : getTraitSet())
     {
@@ -109,10 +109,10 @@ LogicalOperator LogicalInferModelOperator::withInferredSchema(std::vector<Schema
 
     if (inputFields.size() != model.getInputs().size())
     {
-        throw CannotInferSchema("Model expects {} inputs, but received {}", inputFields.size(), model.getInputs().size());
+        throw CannotInferSchema("Model expects {} inputs, but received {}", copy.inputFields.size(), model.getInputs().size());
     }
 
-    for (const auto& [field, expectedType] : std::views::zip(inputFields, model.getInputs()))
+    for (const auto& [field, expectedType] : std::views::zip(copy.inputFields, model.getInputs()))
     {
         if (field.getDataType() != expectedType)
         {

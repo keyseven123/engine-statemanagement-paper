@@ -32,6 +32,6 @@ namespace NES::InferModel
 
 std::string LogicalInferModelNameOperator::explain(ExplainVerbosity) const
 {
-    return fmt::format("INFER_MODEL(opId: {}, modelName: {})", id, modelName);
+    return fmt::format("INFER_MODEL_NAME(opId: {}, modelName: {})", id, modelName);
 }
 }

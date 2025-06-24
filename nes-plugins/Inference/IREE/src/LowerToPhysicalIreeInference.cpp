@@ -9,6 +9,7 @@
 #include "../include/IREEInferenceOperatorHandler.hpp"
 
 #include <LogicalInferModelOperator.hpp>
+#include <RewriteRuleRegistry.hpp>
 
 struct LowerToPhysicalIREEInferenceOperator : NES::AbstractRewriteRule
 {
@@ -57,3 +58,9 @@ struct LowerToPhysicalIREEInferenceOperator : NES::AbstractRewriteRule
 private:
     NES::Configurations::QueryOptimizerConfiguration conf;
 };
+
+std::unique_ptr<NES::AbstractRewriteRule>
+NES::RewriteRuleGeneratedRegistrar::RegisterInferenceRewriteRule(NES::RewriteRuleRegistryArguments arguments)
+{
+    return std::make_unique<LowerToPhysicalIREEInferenceOperator>(arguments.conf);
+}

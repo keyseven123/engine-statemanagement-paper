@@ -62,7 +62,7 @@ public:
         }
         return false;
     }
-    [[nodiscard]] std::string_view getName() const noexcept override { return "INFER_MODEL"; }
+    [[nodiscard]] std::string_view getName() const noexcept override { return "Inference"; }
     [[nodiscard]] SerializableOperator serialize() const override;
     [[nodiscard]] TraitSet getTraitSet() const override { return {}; }
     [[nodiscard]] std::vector<Schema> getInputSchemas() const override { return {inputSchema}; }

@@ -37,9 +37,9 @@ void ModelInferenceCompilationRule::apply(LogicalPlan& queryPlan)
     {
         auto name = modelNameOperator.getModelName();
         auto model = catalog->load(name);
-        INVARIANT(
-            replaceOperator(queryPlan, modelNameOperator, InferModel::LogicalInferModelOperator(model, modelNameOperator.getInputFields())),
-            "Should have replaced something");
+        USED_IN_DEBUG auto shouldReplace = replaceOperator(
+            queryPlan, modelNameOperator, InferModel::LogicalInferModelOperator(model, modelNameOperator.getInputFields()));
+        queryPlan = std::move(shouldReplace.value());
     }
 
     NES_DEBUG("ModelInferenceCompilationRule: Plan after\n{}", queryPlan);
