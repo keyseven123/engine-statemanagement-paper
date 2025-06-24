@@ -22,6 +22,7 @@ target_include_directories(iree_inference_plugin_library SYSTEM PRIVATE ${_IREE_
 
 target_link_libraries(iree_inference_plugin_library PRIVATE
         iree_runtime_runtime
-        nes-execution
+        nes-physical-operators
+        nes-query-optimizer
         nes-runtime
 )
