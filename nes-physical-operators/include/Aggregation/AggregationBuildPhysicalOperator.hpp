@@ -51,6 +51,7 @@ public:
         std::unique_ptr<TimeFunction> timeFunction,
         std::vector<std::shared_ptr<AggregationPhysicalFunction>> aggregationFunctions,
         HashMapOptions hashMapOptions);
+    void setup(ExecutionContext& executionCtx, const nautilus::engine::NautilusEngine& engine) const override;
     void execute(ExecutionContext& ctx, Record& record) const override;
 
 private:

@@ -11,7 +11,6 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-
 #include <Phases/LowerToCompiledQueryPlanPhase.hpp>
 
 #include <algorithm>
@@ -25,6 +24,7 @@
 #include <Configuration/WorkerConfiguration.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <InputFormatters/InputFormatterProvider.hpp>
+#include <InputFormatters/InputFormatterTask.hpp>
 #include <Pipelines/CompiledExecutablePipelineStage.hpp>
 #include <Sources/SourceDescriptor.hpp>
 #include <Util/DumpMode.hpp>
