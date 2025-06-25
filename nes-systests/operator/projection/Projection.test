@@ -11,11 +11,22 @@ Source stream UINT64 id FLOAT64 value UINT64 timestamp
 6,20.3,20000
 7,21.3,21000
 
-SINK sinkId UINT64 stream$id FLOAT64 stream$value
+SINK sinkFloatValue UINT64 stream$id FLOAT64 stream$value
 
-# 0: [id]
-SELECT id, value FROM stream WHERE id < UINT64(4) INTO sinkId
+SELECT id, value FROM stream WHERE id < UINT64(4) INTO sinkFloatValue
 ----
 1 1.3
 2 1.3
 3 1.3
+
+
+Source streamWithText UINT64 id VARSIZED value UINT64 timestamp
+1,test1,1000
+4,test2,1002
+12,test1,1001
+
+SINK sinkTextValue UINT64 streamWithText$id VARSIZED streamWithText$value
+
+SELECT id, value FROM streamWithText WHERE id < UINT64(4) INTO sinkTextValue
+----
+1 test1
