@@ -34,6 +34,7 @@
 #include <Functions/LogicalFunction.hpp>
 #include <Functions/PhysicalFunction.hpp>
 #include <Iterators/BFSIterator.hpp>
+#include <Join/HashJoin/HJBuildCachePhysicalOperator.hpp>
 #include <Join/HashJoin/HJBuildPhysicalOperator.hpp>
 #include <Join/HashJoin/HJOperatorHandler.hpp>
 #include <Join/HashJoin/HJProbePhysicalOperator.hpp>
@@ -352,11 +353,11 @@ RewriteRuleResultSubgraph LowerToPhysicalHashJoin::apply(LogicalOperator logical
     auto leftHashMapOptions = createHashMapOptions(leftJoinFields, newLeftInputSchema, conf);
     auto rightHashMapOptions = createHashMapOptions(rightJoinFields, newRightInputSchema, conf);
 
-    /// Creating the left and right hash join build operator
+    /// Creating the hash join probe
     auto handlerId = getNextOperatorHandlerId();
-    const HJBuildPhysicalOperator leftBuildOperator{
+    HJBuildPhysicalOperator leftBuildOperator{
         handlerId, JoinBuildSideType::Left, timeStampFieldLeft.toTimeFunction(), leftMemoryProvider, leftHashMapOptions};
-    const HJBuildPhysicalOperator rightBuildOperator{
+    HJBuildPhysicalOperator rightBuildOperator{
         handlerId, JoinBuildSideType::Right, timeStampFieldRight.toTimeFunction(), rightMemoryProvider, rightHashMapOptions};
 
     /// Creating the hash join probe
@@ -378,22 +379,63 @@ RewriteRuleResultSubgraph LowerToPhysicalHashJoin::apply(LogicalOperator logical
     auto handler = std::make_shared<HJOperatorHandler>(inputOriginIds, outputOriginId, std::move(sliceAndWindowStore));
 
 
-    /// Building operator wrapper for the two builds and the probe.
-    auto leftBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(
-        std::move(leftBuildOperator),
-        newLeftInputSchema,
-        outputSchema,
-        handlerId,
-        handler,
-        PhysicalOperatorWrapper::PipelineLocation::EMIT);
-
-    auto rightBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(
-        std::move(rightBuildOperator),
-        newRightInputSchema,
-        outputSchema,
-        handlerId,
-        handler,
-        PhysicalOperatorWrapper::PipelineLocation::EMIT);
+    /// Creating the left and right hash join build operator
+    std::shared_ptr<PhysicalOperatorWrapper> leftBuildWrapper = nullptr;
+    std::shared_ptr<PhysicalOperatorWrapper> rightBuildWrapper = nullptr;
+    switch (conf.sliceCacheConfiguration.sliceCacheType.getValue())
+    {
+        case NES::Configurations::SliceCacheType::NONE:
+            leftBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(
+                HJBuildPhysicalOperator{
+                    handlerId, JoinBuildSideType::Left, timeStampFieldLeft.toTimeFunction(), leftMemoryProvider, leftHashMapOptions},
+                newLeftInputSchema,
+                outputSchema,
+                handlerId,
+                handler,
+                PhysicalOperatorWrapper::PipelineLocation::EMIT);
+            rightBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(
+                HJBuildPhysicalOperator{
+                    handlerId, JoinBuildSideType::Right, timeStampFieldRight.toTimeFunction(), rightMemoryProvider, rightHashMapOptions},
+                newRightInputSchema,
+                outputSchema,
+                handlerId,
+                handler,
+                PhysicalOperatorWrapper::PipelineLocation::EMIT);
+            break;
+        case NES::Configurations::SliceCacheType::TWO_QUEUES:
+        case NES::Configurations::SliceCacheType::LRU:
+        case NES::Configurations::SliceCacheType::FIFO:
+        case NES::Configurations::SliceCacheType::SECOND_CHANCE:
+            NES::Configurations::SliceCacheOptions sliceCacheOptions{
+                conf.sliceCacheConfiguration.sliceCacheType.getValue(), conf.sliceCacheConfiguration.numberOfEntriesSliceCache.getValue()};
+            leftBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(
+                HJBuildCachePhysicalOperator{
+                    handlerId,
+                    JoinBuildSideType::Left,
+                    timeStampFieldLeft.toTimeFunction(),
+                    leftMemoryProvider,
+                    leftHashMapOptions,
+                    sliceCacheOptions},
+                newLeftInputSchema,
+                outputSchema,
+                handlerId,
+                handler,
+                PhysicalOperatorWrapper::PipelineLocation::EMIT);
+            rightBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(
+                HJBuildCachePhysicalOperator{
+                    handlerId,
+                    JoinBuildSideType::Right,
+                    timeStampFieldRight.toTimeFunction(),
+                    rightMemoryProvider,
+                    rightHashMapOptions,
+                    sliceCacheOptions},
+                newRightInputSchema,
+                outputSchema,
+                handlerId,
+                handler,
+                PhysicalOperatorWrapper::PipelineLocation::EMIT);
+            break;
+    }
 
     auto probeWrapper = std::make_shared<PhysicalOperatorWrapper>(
         std::move(probeOperator),

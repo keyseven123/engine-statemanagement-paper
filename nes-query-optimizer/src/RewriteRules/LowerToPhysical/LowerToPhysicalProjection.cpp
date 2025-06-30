@@ -11,6 +11,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
+#include <RewriteRules/LowerToPhysical/LowerToPhysicalProjection.hpp>
 
 #include <RewriteRules/LowerToPhysical/LowerToPhysicalProjection.hpp>
 
@@ -26,6 +27,9 @@
 #include <RewriteRules/AbstractRewriteRule.hpp>
 #include <Util/PlanRenderer.hpp>
 #include <MapPhysicalOperator.hpp>
+#include <Runtime/Execution/OperatorHandler.hpp>
+#include <EmitOperatorHandler.hpp>
+#include <EmitPhysicalOperator.hpp>
 #include <PhysicalOperator.hpp>
 #include <RewriteRuleRegistry.hpp>
 #include <ScanPhysicalOperator.hpp>
@@ -38,7 +42,7 @@ RewriteRuleResultSubgraph LowerToPhysicalProjection::apply(LogicalOperator proje
     auto projection = projectionLogicalOperator.get<ProjectionLogicalOperator>();
     auto inputSchema = projectionLogicalOperator.getInputSchemas()[0];
     auto outputSchema = projectionLogicalOperator.getOutputSchema();
-    auto bufferSize = conf.pageSize.getValue();
+    auto bufferSize = conf.operatorBufferSize.getValue();
 
     auto scanLayout = std::make_shared<Memory::MemoryLayouts::RowLayout>(bufferSize, inputSchema);
     auto scanMemoryProvider = std::make_shared<Interface::MemoryProvider::RowTupleBufferMemoryProvider>(scanLayout);

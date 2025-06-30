@@ -18,10 +18,12 @@
 #include <memory>
 #include <vector>
 #include <Aggregation/AggregationOperatorHandler.hpp>
+#include <Aggregation/AggregationSlice.hpp>
 #include <Aggregation/Function/AggregationPhysicalFunction.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <Nautilus/Interface/HashMap/HashMap.hpp>
 #include <Runtime/Execution/OperatorHandler.hpp>
+#include <SliceCache/SliceCache.hpp>
 #include <Time/Timestamp.hpp>
 #include <Watermark/TimeFunction.hpp>
 #include <Engine.hpp>
@@ -31,19 +33,25 @@
 namespace NES
 {
 class AggregationBuildPhysicalOperator;
+std::shared_ptr<AggregationSlice> getAggregationSliceProxy(
+    const AggregationOperatorHandler* operatorHandler, Timestamp timestamp, const AggregationBuildPhysicalOperator* buildOperator);
 Interface::HashMap* getAggHashMapProxy(
     const AggregationOperatorHandler* operatorHandler,
     Timestamp timestamp,
     WorkerThreadId workerThreadId,
     const AggregationBuildPhysicalOperator* buildOperator);
 
-class AggregationBuildPhysicalOperator final : public WindowBuildPhysicalOperator
+class AggregationBuildPhysicalOperator : public WindowBuildPhysicalOperator
 {
 public:
-    friend Interface::HashMap* getAggHashMapProxy(
+    friend std::shared_ptr<AggregationSlice> getAggregationSliceProxy(
+        const AggregationOperatorHandler* operatorHandler, Timestamp timestamp, const AggregationBuildPhysicalOperator* buildOperator);
+
+    friend int8_t* createAndAddAggregationSliceToCache(
+        SliceCacheEntry* sliceCacheEntry,
         const AggregationOperatorHandler* operatorHandler,
-        Timestamp timestamp,
-        WorkerThreadId workerThreadId,
+        const Timestamp timestamp,
+        const WorkerThreadId workerThreadId,
         const AggregationBuildPhysicalOperator* buildOperator);
 
     AggregationBuildPhysicalOperator(
@@ -51,10 +59,11 @@ public:
         std::unique_ptr<TimeFunction> timeFunction,
         std::vector<std::shared_ptr<AggregationPhysicalFunction>> aggregationFunctions,
         HashMapOptions hashMapOptions);
+    ~AggregationBuildPhysicalOperator() override = default;
     void setup(ExecutionContext& executionCtx, const nautilus::engine::NautilusEngine& engine) const override;
     void execute(ExecutionContext& ctx, Record& record) const override;
 
-private:
+protected:
     /// The aggregation function is a shared_ptr, because it is used in the aggregation build and in the getSliceCleanupFunction()
     std::vector<std::shared_ptr<AggregationPhysicalFunction>> aggregationPhysicalFunctions;
     HashMapOptions hashMapOptions;

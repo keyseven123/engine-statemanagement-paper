@@ -53,6 +53,10 @@ public:
     getCreateNewSlicesFunction(const CreateNewSlicesArguments& newSlicesArguments) const override;
 
 
+    void allocateSliceCacheEntries(
+        const uint64_t sizeOfEntry, const uint64_t numberOfEntries, Memory::AbstractBufferProvider* bufferProvider) override;
+    const int8_t* getStartOfSliceCacheEntries(const StartSliceCacheEntriesArgs& startSliceCacheEntriesArgs) const override;
+
 protected:
     void triggerSlices(
         const std::map<WindowInfoAndSequenceNumber, std::vector<std::shared_ptr<Slice>>>& slicesAndWindowInfo,

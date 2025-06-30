@@ -13,23 +13,17 @@
 */
 
 #pragma once
+#include <memory>
+#include <Configurations/Worker/SliceCacheConfiguration.hpp>
+#include <SliceCache/SliceCache.hpp>
+#include <val.hpp>
 
-#include <utility>
-#include <Operators/LogicalOperator.hpp>
-#include <RewriteRules/AbstractRewriteRule.hpp>
-#include <QueryExecutionConfiguration.hpp>
-
-namespace NES
+namespace NES::Util
 {
 
-struct LowerToPhysicalWindowedAggregation final : AbstractRewriteRule
-{
-    explicit LowerToPhysicalWindowedAggregation(QueryExecutionConfiguration conf) : conf(std::move(conf)) { }
-
-    RewriteRuleResultSubgraph apply(LogicalOperator logicalOperator) override;
-
-private:
-    QueryExecutionConfiguration conf;
-};
+std::unique_ptr<SliceCache> createSliceCache(
+    const Configurations::SliceCacheOptions& sliceCacheOptions,
+    nautilus::val<OperatorHandler*> globalOperatorHandler,
+    const nautilus::val<int8_t*>& startOfSliceEntries);
 
 }
