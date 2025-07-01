@@ -99,8 +99,6 @@ public:
     }
 
     static TimestampField ingestionTime() { return {"IngestionTime", Windowing::TimeUnit(1), INGESTION_TIME}; }
-    static TimestampField eventTime(std::string fieldName, const Windowing::TimeUnit& tm) { return {std::move(fieldName), tm, EVENT_TIME}; }
-
     static TimestampField eventTime(std::string fieldName, const Windowing::TimeUnit& timeUnit)
     {
         return {std::move(fieldName), timeUnit, EVENT_TIME};
@@ -355,12 +353,6 @@ RewriteRuleResultSubgraph LowerToPhysicalHashJoin::apply(LogicalOperator logical
 
     /// Creating the hash join probe
     auto handlerId = getNextOperatorHandlerId();
-    HJBuildPhysicalOperator leftBuildOperator{
-        handlerId, JoinBuildSideType::Left, timeStampFieldLeft.toTimeFunction(), leftMemoryProvider, leftHashMapOptions};
-    HJBuildPhysicalOperator rightBuildOperator{
-        handlerId, JoinBuildSideType::Right, timeStampFieldRight.toTimeFunction(), rightMemoryProvider, rightHashMapOptions};
-
-    /// Creating the hash join probe
     auto joinSchema = JoinSchema(newLeftInputSchema, newRightInputSchema, outputSchema);
     auto probeOperator = HJProbePhysicalOperator(
         handlerId,
