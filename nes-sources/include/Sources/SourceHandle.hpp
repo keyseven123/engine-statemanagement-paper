@@ -49,6 +49,9 @@ public:
     bool start(SourceReturnType::EmitFunction&& emitFunction) const;
     void stop() const;
 
+    /// If applicable, setups the source. This function is called after the source has been lowered
+    bool setup();
+
     /// Tries to stop the source within a given timeout.
     [[nodiscard]] SourceReturnType::TryStopResult tryStop(std::chrono::milliseconds timeout) const;
 

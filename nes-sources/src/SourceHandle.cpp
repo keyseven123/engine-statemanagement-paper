@@ -48,7 +48,10 @@ void SourceHandle::stop() const
 {
     this->sourceThread->stop();
 }
-
+bool SourceHandle::setup()
+{
+    return this->sourceThread->setup();
+}
 SourceReturnType::TryStopResult SourceHandle::tryStop(const std::chrono::milliseconds timeout) const
 {
     return this->sourceThread->tryStop(timeout);

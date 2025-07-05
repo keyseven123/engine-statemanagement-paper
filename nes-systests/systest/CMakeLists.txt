@@ -96,17 +96,18 @@ if (ENABLE_LARGE_TESTS)
     set(numberOfEntriesSliceCaches 10 100) # We want to reduce the no. large scale tests
     foreach (sliceCache IN LISTS sliceCaches)
         foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
-            set(joinStrategy HASH_JOIN) # We simply test here with a hash join, as a NLJ does not finish in 2h
+            set(joinStrategy HASH_JOIN) # We simp<ly test here with a hash join, as a NLJ does not finish in 2h
             ExternalData_Add_Test(TEST_DATA_LARGE
                     NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}
-                    COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize} --data ${LARGE_DATA} --groups large -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=2000000 --worker.queryOptimizer.joinStrategy=${joinStrategy}  --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+                    COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize} --data ${LARGE_DATA} --groups large File
+                    --exclude-groups Memory -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
 
             # Running here the Nexmark.test queries with NLJ to test it for larger data sets but the input data size
             # is still small enough to finish the test in minutes.
             set(joinStrategy NESTED_LOOP_JOIN)
             ExternalData_Add_Test(TEST_DATA_LARGE
                     NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}
-                    COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize} --data ${LARGE_DATA} --groups NestedLoopJoin -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=2000000 --worker.queryOptimizer.joinStrategy=${joinStrategy}  --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+                    COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize} --data ${LARGE_DATA} --groups NestedLoopJoin --exclude-groups Memory -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
         endforeach ()
     endforeach ()
 endif ()

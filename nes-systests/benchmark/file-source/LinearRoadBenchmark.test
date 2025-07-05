@@ -1,10 +1,9 @@
 # name: milestone/LinearRoadBenchmark.test
 # description: LinearRoadBenchmark from https://www.cs.brandeis.edu/~linearroad/linear-road.pdf
-# groups: [milestone, benchmark, large]
+# groups: [milestone, benchmark, large, File]
 
 # Source definitions
-Source lrb UINT64 creationTS INT16 vehicle FLOAT32 speed INT16 highway INT16 lane INT16 direction INT32 position
-Attach TCP CSV lrb FILE
+Source lrb UINT64 creationTS INT16 vehicle FLOAT32 speed INT16 highway INT16 lane INT16 direction INT32 position FILE
 TESTDATA/large/lrb/linear_road_benchmark_560K.csv
 
 SINK q1Checksum TYPE Checksum UINT64 lrb$start UINT64 lrb$end INT16 lrb$highway INT16 lrb$direction INT32 positionDiv5280 FLOAT64 lrb$avgSpeed

@@ -131,6 +131,7 @@ SourceImplementationTermination dataSourceThreadRoutine(
             /// The source read in raw bytes, thus we don't know the number of tuples yet.
             /// The InputFormatterTask expects that the source set the number of bytes this way and uses it to determine the number of tuples.
             emptyBuffer.setUsedMemorySize(numReadBytes);
+            // emit(emptyBuffer, false);
             emit(emptyBuffer, true);
         }
 
@@ -219,6 +220,11 @@ bool SourceThread::start(SourceReturnType::EmitFunction&& emitFunction)
         localBufferManager->createFixedSizeBufferPool(numOfLocalBuffers));
     thread = std::move(sourceThread);
     return true;
+}
+
+bool SourceThread::setup()
+{
+    return sourceImplementation->setup();
 }
 
 void SourceThread::stop()

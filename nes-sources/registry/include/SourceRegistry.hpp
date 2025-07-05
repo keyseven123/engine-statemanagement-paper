@@ -29,6 +29,7 @@ using SourceRegistryReturnType = std::unique_ptr<Source>;
 struct SourceRegistryArguments
 {
     SourceDescriptor sourceDescriptor;
+    size_t bufferSizeInBytes;
 };
 
 class SourceRegistry : public BaseRegistry<SourceRegistry, std::string, SourceRegistryReturnType, SourceRegistryArguments>

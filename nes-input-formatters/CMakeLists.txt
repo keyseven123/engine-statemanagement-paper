@@ -26,7 +26,10 @@ target_link_libraries(nes-input-formatters PUBLIC nes-memory nes-executable PRIV
 target_include_directories(nes-input-formatters PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include/nebulastream/>
-        PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/private>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/private>)
+
+        # For this PoC it is fine that we remove the PRIVATE here
+        # PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/private>)
 
 
 if (NES_ENABLE_PRECOMPILED_HEADERS)

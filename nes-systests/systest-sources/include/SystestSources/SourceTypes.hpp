@@ -29,6 +29,7 @@ namespace NES
 {
 
 static constexpr std::string_view SYSTEST_FILE_PATH_PARAMETER = "filePath";
+static constexpr std::string_view SYSTEST_BUFFER_SIZE_PARAMETER = "bufferSize";
 
 struct InlineGeneratorConfiguration
 {
@@ -40,7 +41,8 @@ enum class TestDataIngestionType : uint8_t
 {
     INLINE,
     FILE,
-    GENERATOR
+    GENERATOR,
+    MEMORY
 };
 
 struct SystestAttachSource
