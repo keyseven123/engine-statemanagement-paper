@@ -86,6 +86,7 @@ class UnpooledChunksManager
 
 public:
     explicit UnpooledChunksManager(std::shared_ptr<std::pmr::memory_resource> memoryResource);
+    UnpooledChunksManager() = delete;
     size_t getNumberOfUnpooledBuffers() const;
     Memory::TupleBuffer
     getUnpooledBuffer(size_t neededSize, size_t alignment, const std::shared_ptr<Memory::BufferRecycler>& bufferRecycler);
