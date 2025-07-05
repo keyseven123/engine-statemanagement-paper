@@ -34,7 +34,8 @@ struct ExecutableQueryPlan
     static std::unique_ptr<ExecutableQueryPlan> instantiate(
         CompiledQueryPlan& compiledQueryPlan,
         const std::shared_ptr<Memory::AbstractPoolProvider>& poolProvider,
-        int numberOfBuffersInSourceLocalPools);
+        int numberOfBuffersInSourceLocalPools,
+        size_t bufferSizeInBytes);
 
     ExecutableQueryPlan(
         QueryId queryId, std::vector<std::shared_ptr<ExecutablePipeline>> pipelines, std::vector<SourceWithSuccessor> instantiatedSources);

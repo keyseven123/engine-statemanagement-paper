@@ -75,6 +75,7 @@ public:
     [[nodiscard]] WorkerId getWorkerId() const;
     [[nodiscard]] PhysicalSourceId getPhysicalSourceId() const;
     [[nodiscard]] int32_t getBuffersInLocalPool() const;
+    [[nodiscard]] uint64_t getBufferSize() const;
 
     [[nodiscard]] SerializableSourceDescriptor serialize() const;
     [[nodiscard]] std::string explain(ExplainVerbosity verbosity) const;

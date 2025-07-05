@@ -37,6 +37,12 @@ public:
     /// @return the number of bytes read
     virtual size_t fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, const std::stop_token& stopToken) = 0;
 
+    /// If applicable, setups the source. This function is called after the source has been lowered
+    virtual bool setup()
+    {
+        return true;
+    }
+
     /// If applicable, opens a connection, e.g., a socket connection to get ready for data consumption.
     virtual void open() = 0;
     /// If applicable, closes a connection, e.g., a socket connection.
