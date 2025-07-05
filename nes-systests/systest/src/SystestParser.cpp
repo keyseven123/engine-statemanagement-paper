@@ -559,6 +559,19 @@ std::pair<SystestParser::SystestLogicalSource, std::optional<SystestAttachSource
                         .fileDataPath = expectFilePath(),
                         .serverThreads = nullptr};
                 }
+                case TestDataIngestionType::MEMORY: {
+                    return SystestAttachSource{
+                        .sourceType = "Memory",
+                        .sourceConfigurationPath = std::filesystem::path(TEST_CONFIGURATION_DIR) / "sources/memory_default.yaml",
+                        .inputFormatterType = "NoOp",
+                        .inputFormatterConfigurationPath
+                        = std::filesystem::path(TEST_CONFIGURATION_DIR) / "inputFormatters/memory_default.yaml",
+                        .logicalSourceName = source.name,
+                        .testDataIngestionType = dataIngestionType.value(),
+                        .tuples = {},
+                        .fileDataPath = expectFilePath(),
+                        .serverThreads = nullptr};
+                }
                 case TestDataIngestionType::GENERATOR: {
                     return SystestAttachSource{
                         .sourceType = "Generator",
@@ -599,6 +612,10 @@ SystestAttachSource SystestParser::expectAttachSource()
             return attachSource;
         }
         case TestDataIngestionType::FILE: {
+            attachSource.fileDataPath = {expectFilePath()};
+            return attachSource;
+        }
+        case TestDataIngestionType::MEMORY: {
             attachSource.fileDataPath = {expectFilePath()};
             return attachSource;
         }

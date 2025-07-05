@@ -564,6 +564,7 @@ std::vector<LoadedQueryPlan> SystestStarterGlobals::SystestBinder::loadFromSLTFi
                         }
                         throw CannotLoadConfig("An InlineData source must have tuples, but tuples was null.");
                     }
+                    case TestDataIngestionType::MEMORY:
                     case TestDataIngestionType::FILE: {
                         return Sources::SourceDataProvider::provideFileDataSource(
                             initialPhysicalSourceConfig, attachSource, systestStarterGlobals.getTestDataDir());

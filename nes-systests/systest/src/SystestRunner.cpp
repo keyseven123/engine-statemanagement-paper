@@ -231,7 +231,7 @@ std::vector<RunningQuery> serializeExecutionResults(const std::vector<RunningQue
         }
         const auto executionTimeInSeconds = queryRan.getElapsedTime().count();
         resultJson.push_back({
-            {"query name", queryRan.query.testName},
+            {"query name", fmt::format("{}_{}", queryRan.query.testName, queryRan.query.queryIdInFile)},
             {"time", executionTimeInSeconds},
             {"bytesPerSecond", static_cast<double>(queryRan.bytesProcessed.value_or(NAN)) / executionTimeInSeconds},
             {"tuplesPerSecond", static_cast<double>(queryRan.tuplesProcessed.value_or(NAN)) / executionTimeInSeconds},
