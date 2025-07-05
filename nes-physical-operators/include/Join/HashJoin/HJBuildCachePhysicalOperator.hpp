@@ -52,7 +52,6 @@ public:
 private:
     /// This might not be the best place to store it, but it is an easy way to use them in this PoC branch
     NES::Configurations::SliceCacheOptions sliceCacheOptions;
-
 };
 
 }

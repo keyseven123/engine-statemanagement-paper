@@ -327,8 +327,10 @@ RewriteRuleResultSubgraph LowerToPhysicalHashJoin::apply(LogicalOperator logical
         = getJoinFieldExtensionsLeftRight(join.getRightSchema(), join.getLeftSchema(), logicalJoinFunction);
     auto [newLeftInputSchema, leftMapOperators] = addMapOperators(join.getRightSchema(), leftJoinFields);
     auto [newRightInputSchema, rightMapOperators] = addMapOperators(join.getLeftSchema(), rightJoinFields);
-    auto leftMemoryProvider = TupleBufferMemoryProvider::create(conf.numberOfRecordsPerKey.getValue() * newLeftInputSchema.getSizeOfSchemaInBytes(), newLeftInputSchema);
-    auto rightMemoryProvider = TupleBufferMemoryProvider::create(conf.numberOfRecordsPerKey.getValue() * newRightInputSchema.getSizeOfSchemaInBytes(), newRightInputSchema);
+    auto leftMemoryProvider = TupleBufferMemoryProvider::create(
+        conf.numberOfRecordsPerKey.getValue() * newLeftInputSchema.getSizeOfSchemaInBytes(), newLeftInputSchema);
+    auto rightMemoryProvider = TupleBufferMemoryProvider::create(
+        conf.numberOfRecordsPerKey.getValue() * newRightInputSchema.getSizeOfSchemaInBytes(), newRightInputSchema);
     auto leftHashMapOptions = createHashMapOptions(leftJoinFields, newLeftInputSchema, conf);
     auto rightHashMapOptions = createHashMapOptions(rightJoinFields, newRightInputSchema, conf);
 
