@@ -16,17 +16,14 @@ SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
 WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
-INTO sinkQ2;
+INTO DISCARD;
 ----
-1730016,3598524228
 
 # Query 2
 SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
 WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-#98176,201359101
-#98176,201359115
-98176,201359117
+

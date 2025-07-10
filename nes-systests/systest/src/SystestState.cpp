@@ -500,6 +500,10 @@ std::vector<LoadedQueryPlan> SystestStarterGlobals::SystestBinder::loadFromSLTFi
     auto [checksumSinkPair, success] = sinkNamesToSchema.emplace("CHECKSUM", Schema{Schema::MemoryLayoutType::ROW_LAYOUT});
     checksumSinkPair->second.addField("S$Count", DataTypeProvider::provideDataType(DataType::Type::UINT64));
     checksumSinkPair->second.addField("S$Checksum", DataTypeProvider::provideDataType(DataType::Type::UINT64));
+    auto [discardSinkPair, _] = sinkNamesToSchema.emplace("DISCARD", Schema{Schema::MemoryLayoutType::ROW_LAYOUT});
+    discardSinkPair->second.addField("S$Count", DataTypeProvider::provideDataType(DataType::Type::UINT64));
+    discardSinkPair->second.addField("S$Checksum", DataTypeProvider::provideDataType(DataType::Type::UINT64));
+
 
     parser.registerOnResultTuplesCallback(
         [&](std::vector<std::string>&& resultTuples, const SystestQueryId correspondingQueryId)
@@ -673,6 +677,11 @@ std::vector<LoadedQueryPlan> SystestStarterGlobals::SystestBinder::loadFromSLTFi
                 auto validatedSinkConfig
                     = Sinks::SinkDescriptor::validateAndFormatConfig("Checksum", {std::make_pair("filePath", resultFile)});
                 sink = std::make_shared<Sinks::SinkDescriptor>("Checksum", std::move(validatedSinkConfig), false);
+            }
+            else if (sinkName == "DISCARD")
+            {
+                auto validatedSinkConfig = Sinks::SinkDescriptor::validateAndFormatConfig("Discard", {std::make_pair("filePath", resultFile)});
+                sink = std::make_shared<Sinks::SinkDescriptor>("Discard", std::move(validatedSinkConfig), false);
             }
             else
             {

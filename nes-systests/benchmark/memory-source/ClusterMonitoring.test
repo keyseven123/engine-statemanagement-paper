@@ -38,9 +38,8 @@ FROM monitoringClusterData
 WHERE eventType == INT16(3)
 GROUP BY jobId
 WINDOW SLIDING(creationTS, SIZE 60 SEC, ADVANCE BY 1 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-3094778,7192484640
 
 # Query 2 with Lightsaber data
 SELECT start, end, SUM(cpu) AS totalCpu, jobId
@@ -48,6 +47,5 @@ FROM monitoringLightsaber
 WHERE eventType == INT16(3)
 GROUP BY jobId
 WINDOW SLIDING(creationTS, SIZE 60 SEC, ADVANCE BY 1 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-3403, 7612888

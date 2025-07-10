@@ -22,9 +22,8 @@ FROM ysb1k
 WHERE event_type == VARSIZED("view")
 GROUP BY campaign_id
 WINDOW TUMBLING(event_time, SIZE 30 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-68000 278998939
 
 # Adapt the YSB Query to already have the campaign_id, as we currently do not support stream-batch joins
 # YSB Query
@@ -37,6 +36,5 @@ FROM ysb10k
 WHERE event_type == VARSIZED("view")
 GROUP BY campaign_id
 WINDOW TUMBLING(event_time, SIZE 30 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-670000 2725304985

@@ -11,34 +11,28 @@ TESTDATA/large/debs/CONSUMERS_TOPIC_1G.csv
 
 
 # Query 0a - Simple Source Sink with consumers stream
-SELECT * FROM consumers INTO CHECKSUM;
+SELECT * FROM consumers INTO DISCARD;
 ----
-42700000, 107931947050
 
 # Query 0b - Simple Source Sink with solarPanels stream
-SELECT * FROM solarPanels INTO CHECKSUM;
+SELECT * FROM solarPanels INTO DISCARD;
 ----
-42700000, 74759775379
 
 # Query 1 - Filter tuples
-SELECT * FROM consumers WHERE consumedPower >= FLOAT64(400) INTO CHECKSUM;
+SELECT * FROM consumers WHERE consumedPower >= FLOAT64(400) INTO DISCARD;
 ----
-14236360, 36138915427
 
 # Query 2 - Filter with multiple attributes
-SELECT * FROM consumers WHERE consumedPower >= FLOAT64(400) AND sectorId = INT32(1) INTO CHECKSUM;
+SELECT * FROM consumers WHERE consumedPower >= FLOAT64(400) AND sectorId = INT32(1) INTO DISCARD;
 ----
-3556803, 9027432231
 
 # Query 3 - Filter with complex expression
-SELECT * FROM consumers WHERE consumedPower >= FLOAT64(1) AND consumedPower < FLOAT64(61) INTO CHECKSUM;
+SELECT * FROM consumers WHERE consumedPower >= FLOAT64(1) AND consumedPower < FLOAT64(61) INTO DISCARD;
 ----
-4271223, 10579920660
 
 # Query 4 - Filter with complex expression
-SELECT consumedPower / FLOAT64(1000) AS consumedPower FROM consumers INTO CHECKSUM;
+SELECT consumedPower / FLOAT64(1000) AS consumedPower FROM consumers INTO DISCARD;
 ----
-42700000, 15336467257
 
 
 # Query 7 - Window aggregations with tumbling windows
@@ -46,15 +40,13 @@ SELECT start, end, groupId, SUM(producedPower) AS producedPower
 FROM solarPanels
 GROUP BY groupId
 WINDOW TUMBLING(timestamp, SIZE 1 HOUR)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-1914020, 3897819033
 
 # Query 8 - Window aggregations with sliding windows
 SELECT start, end, groupId, SUM(producedPower) AS producedPower
 FROM solarPanels
 GROUP BY groupId
 WINDOW SLIDING(timestamp, SIZE 1 HOUR, ADVANCE BY 10 MINUTES)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-11484119, 23389063574

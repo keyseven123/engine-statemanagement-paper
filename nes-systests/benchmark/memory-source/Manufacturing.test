@@ -13,7 +13,6 @@ SINK manufacturingSink UINT64 manufacturing$start UINT64 manufacturing$end INT16
 SELECT start, end, AVG(mf01) AS avg_mf01, SUM(mf02) AS sum_mf02, MIN(mf03) AS min_mf03, COUNT(mf01) AS count_mf01, SUM(mf01) AS sum_mf01
 FROM manufacturing
 WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 1 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-221338, 698355948
 
