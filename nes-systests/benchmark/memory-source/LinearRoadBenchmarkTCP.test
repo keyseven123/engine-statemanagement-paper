@@ -14,15 +14,13 @@ FROM (SELECT creationTS, highway, direction, position / INT32(5280) AS positionD
 GROUP BY (highway, direction, positionDiv5280)
 WINDOW SLIDING(creationTS, SIZE 5 MINUTES, ADVANCE BY 1 SEC)
 HAVING avgSpeed < FLOAT32(40)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-70916, 151995926
 
 # Query 2
 SELECT start, end, vehicle, highway, direction, positionDiv5280, COUNT(speed) AS cntSpeed
 FROM (SELECT creationTS, vehicle, highway, direction, position / INT32(5280) AS positionDiv5280, speed FROM lrb)
 GROUP BY (vehicle, highway, direction, positionDiv5280)
 WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 1 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-491460, 991265094

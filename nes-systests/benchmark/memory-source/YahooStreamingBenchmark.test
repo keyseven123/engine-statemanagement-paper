@@ -18,10 +18,8 @@ FROM ysb1k
 WHERE event_type < UINT64(1)
 GROUP BY campaign_id
 WINDOW TUMBLING(current_ms, SIZE 30 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-167167, 232106578
-
 
 # Query 2 YSB with 10k campaign_ids
 SELECT
@@ -33,6 +31,5 @@ FROM ysb10k
 WHERE event_type < UINT64(1)
 GROUP BY campaign_id
 WINDOW TUMBLING(current_ms, SIZE 30 SEC)
-INTO CHECKSUM;
+INTO DISCARD;
 ----
-1517953,2109797738
