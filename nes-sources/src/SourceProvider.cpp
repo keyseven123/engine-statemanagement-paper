@@ -32,10 +32,10 @@ std::unique_ptr<SourceHandle> SourceProvider::lower(
     const SourceDescriptor& sourceDescriptor,
     std::shared_ptr<Memory::AbstractPoolProvider> bufferPool,
     const int defaultNumberOfBuffersInLocalPool,
-    const size_t bufferSizeInBytes)
+    const std::shared_ptr<Memory::AbstractBufferProvider>& bufferProvider)
 {
     /// Todo #241: Get the new source identfier from the source descriptor and pass it to SourceHandle.
-    auto sourceArguments = NES::Sources::SourceRegistryArguments(sourceDescriptor, bufferSizeInBytes);
+    auto sourceArguments = NES::Sources::SourceRegistryArguments(sourceDescriptor, bufferProvider);
     if (auto source = SourceRegistry::instance().create(sourceDescriptor.getSourceType(), sourceArguments))
     {
         /// The source-specific configuration of numberOfBuffersInLocalPool takes priority.

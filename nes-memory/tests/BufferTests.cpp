@@ -20,6 +20,8 @@
 #include <Runtime/TupleBuffer.hpp>
 #include <gtest/gtest.h>
 
+#include "ErrorHandling.hpp"
+
 namespace NES::Memory
 {
 
