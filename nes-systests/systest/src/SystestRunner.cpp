@@ -268,6 +268,8 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
         ranQueries.emplace_back(runningQueryPtr);
         submitter.startQuery(queryId);
         const auto summary = submitter.finishedQueries().at(0);
+        submitter.unregisterQuery(runningQueryPtr->queryId);
+        submitter.waitForQueryTermination(runningQueryPtr->queryId);
 
         if (summary.runs.empty() or summary.runs.back().error.has_value())
         {

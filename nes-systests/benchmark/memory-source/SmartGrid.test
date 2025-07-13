@@ -8,11 +8,11 @@
 
 # Source definitions
 Source smartGrid UINT64 creationTS FLOAT32 value FLOAT32 property INT16 plugId INT16 householdId INT16 houseId MEMORY
-TESTDATA/smartgrid/smartgrid-data_974K.csv
+TESTDATA/large/smartgrid/smartgrid-data_974K.csv
 
 
 # Query 1
-SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
+SELECT start, end, AVG(value) AS avg_value
 FROM smartGrid
 WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
 INTO DISCARD;

@@ -8,9 +8,6 @@ TESTDATA/large/ysb/ysb1k_more_data_3GB.csv
 Source ysb10k VARSIZED user_id VARSIZED page_id VARSIZED campaign_id VARSIZED ad_id VARSIZED ad_type VARSIZED event_type UINT64 event_time VARSIZED ip_address MEMORY
 TESTDATA/large/ysb/ysb10k_more_data_3GB.csv
 
-SINK printSink UINT64 ysb1k$campaign
-
-
 # Adapt the YSB Query to already have the campaign_id, as we currently do not support stream-batch joins
 # YSB Query
 SELECT

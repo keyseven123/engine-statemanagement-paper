@@ -64,7 +64,7 @@ std::unique_ptr<ExecutableQueryPlan> ExecutableQueryPlan::instantiate(
     CompiledQueryPlan& compiledQueryPlan,
     const std::shared_ptr<Memory::AbstractPoolProvider>& poolProvider,
     int numberOfBuffersInSourceLocalPools,
-    size_t bufferSizeInBytes)
+    const std::shared_ptr<Memory::AbstractBufferProvider>& bufferProvider)
 {
     std::vector<SourceWithSuccessor> instantiatedSources;
 
@@ -89,7 +89,7 @@ std::unique_ptr<ExecutableQueryPlan> ExecutableQueryPlan::instantiate(
     {
         std::ranges::copy(instantiatedSinksWithSourcePredecessor[id], std::back_inserter(successors));
         instantiatedSources.emplace_back(
-            NES::Sources::SourceProvider::lower(id, descriptor, poolProvider, numberOfBuffersInSourceLocalPools, bufferSizeInBytes),
+            NES::Sources::SourceProvider::lower(id, descriptor, poolProvider, numberOfBuffersInSourceLocalPools, bufferProvider),
             std::move(successors));
     }
 

@@ -38,7 +38,7 @@ public:
         const SourceDescriptor& sourceDescriptor,
         std::shared_ptr<NES::Memory::AbstractPoolProvider> bufferPool,
         int defaultNumberOfBuffersInLocalPool,
-        size_t bufferSizeInBytes);
+        const std::shared_ptr<Memory::AbstractBufferProvider>& bufferProvider);
 
     static bool contains(const std::string& sourceType);
 

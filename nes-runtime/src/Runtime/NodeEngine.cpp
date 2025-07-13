@@ -107,7 +107,7 @@ void NodeEngine::startQuery(QueryId queryId)
     {
         systemEventListener->onEvent(StartQuerySystemEvent(queryId));
         queryEngine->start(
-            ExecutableQueryPlan::instantiate(*qep, bufferManager, numberOfBuffersInSourceLocalPools, bufferManager->getBufferSize()));
+            ExecutableQueryPlan::instantiate(*qep, bufferManager, numberOfBuffersInSourceLocalPools, bufferManager));
     }
     else
     {
