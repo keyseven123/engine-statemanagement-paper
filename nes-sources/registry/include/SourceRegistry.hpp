@@ -20,6 +20,7 @@
 #include <Sources/Source.hpp>
 #include <Sources/SourceDescriptor.hpp>
 #include <Util/Registry.hpp>
+#include <Runtime/AbstractBufferProvider.hpp>
 
 namespace NES::Sources
 {
@@ -28,7 +29,7 @@ using SourceRegistryReturnType = std::unique_ptr<Source>;
 struct SourceRegistryArguments
 {
     SourceDescriptor sourceDescriptor;
-    size_t bufferSizeInBytes;
+    std::shared_ptr<Memory::AbstractBufferProvider> bufferProvider;
 };
 
 class SourceRegistry : public BaseRegistry<SourceRegistry, std::string, SourceRegistryReturnType, SourceRegistryArguments>

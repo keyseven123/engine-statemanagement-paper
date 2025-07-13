@@ -57,7 +57,7 @@ public:
     void open() override { }
     void close() override { }
     void recyclePooledBuffer(Memory::detail::MemorySegment*) override { INVARIANT(false, "This method should not be called!"); }
-    void recycleUnpooledBuffer(Memory::detail::MemorySegment*) override { INVARIANT(false, "This method should not be called!"); }
+    void recycleUnpooledBuffer(Memory::detail::MemorySegment*, const Memory::ThreadIdCopyLastChunkPtr&) override { INVARIANT(false, "This method should not be called!"); }
 
     /// validates and formats a string to string configuration
     static NES::Configurations::DescriptorConfig::Config validateAndFormat(std::unordered_map<std::string, std::string> config);
