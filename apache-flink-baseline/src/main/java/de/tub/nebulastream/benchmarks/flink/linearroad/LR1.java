@@ -43,7 +43,7 @@ public class LR1 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        List<LRRecord> records = LRRecord.loadFromCsv("/tmp/data/linear_road_benchmark_560K.csv", numOfRecords);
+        List<LRRecord> records = LRRecord.loadFromCsv("/tmp/data/linear_road_benchmark_5GB.csv", numOfRecords);
         WatermarkStrategy<LRRecord> strategy = WatermarkStrategy
                 .<LRRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.creationTS);
@@ -52,7 +52,7 @@ public class LR1 {
              .assignTimestampsAndWatermarks(strategy)
              .name("LR1_Source");
 
-        dataStream.flatMap(new ThroughputLogger<LRRecord>(LRRecord.RECORD_SIZE_IN_BYTE, 1000));
+        dataStream.flatMap(new ThroughputLogger<LRRecord>(LRRecord.RECORD_SIZE_IN_BYTE, 100_000));
 
         dataStream
                 .map(value -> {
