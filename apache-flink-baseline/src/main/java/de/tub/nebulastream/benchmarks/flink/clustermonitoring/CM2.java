@@ -32,9 +32,7 @@ public class CM2 {
         ParameterTool params = ParameterTool.fromArgs(args);
         final long latencyTrackingInterval = params.getLong("latencyTrackingInterval", 0);
         final int parallelism = params.getInt("parallelism", 1);
-        final int maxParallelism = params.getInt("maxParallelism", 16);
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
-        final int runtime = params.getInt("runtime", 10);
 
         LOG.info("Arguments: {}", params);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -88,7 +86,6 @@ public class CM2 {
                         return aLong + acc1;
                     }
                 })
-                .setMaxParallelism(maxParallelism)
                 .name("WindowOperator")
                 .sinkTo(new DiscardingSink<Double>() {
                 });
