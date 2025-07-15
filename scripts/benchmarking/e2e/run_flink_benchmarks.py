@@ -50,14 +50,14 @@ queries = {
 }
 
 needed_data_sets = {
-    "CM1": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_974K.csv"],
-    "CM2": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_974K.csv"],
-    "LRB1": ["https://bench.nebula.stream/data/lrb/linear_road_benchmark_560K.csv"],
-    "LRB2": ["https://bench.nebula.stream/data/lrb/linear_road_benchmark_560K.csv"],
+    "CM1": ["https://bench.nebula.stream/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
+    "CM2": ["https://bench.nebula.stream/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
+    "LRB1": ["https://bench.nebula.stream/data/lrb/linear_road_benchmark_5GB.csv"],
+    "LRB2": ["https://bench.nebula.stream/data/lrb/linear_road_benchmark_5GB.csv"],
     "MA": ["https://bench.nebula.stream/data/manufacturing/manufacturing_1G.csv"],
-    "SG1": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_974K.csv"],
-    "SG2": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_974K.csv"],
-    "SG3": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_974K.csv"],
+    "SG1": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_6GB.csv"],
+    "SG2": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_6GB.csv"],
+    "SG3": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_6GB.csv"],
     "YSB1k": ["https://bench.nebula.stream/data/ysb/ysb1k_more_data_3GB.csv"],
     "YSB10k": ["https://bench.nebula.stream/data/ysb/ysb10k_more_data_3GB.csv"],
     "NM1-5": ["https://bench.nebula.stream/data/nexmark/bid_more_data_6GB.csv"],
@@ -66,7 +66,7 @@ needed_data_sets = {
 }
 
 
-num_of_records = [50 * 1000 * 1000]  # [10000, 1000000, 10000000]
+num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
 parallelisms = ["1", "2", "4", "8", "16"] #["1", "4"]
 
 local_data_folder = "/tmp/data"
@@ -110,16 +110,16 @@ def download_data_sets():
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
-        for dataset_name, urls in needed_data_sets.items():
-            for url in urls:
-                file_name = os.path.basename(url)
-                local_file_path = os.path.join(local_data_folder, file_name)
-                if not os.path.isfile(local_file_path):
-                    print(f"File {file_name} not found. Scheduling download...")
-                    future = executor.submit(download_file_with_progress, url, local_file_path)
-                    futures.append(future)
-                else:
-                    print(f"File {file_name} already exists at {local_file_path}")
+        needed_urls = set([item for value in needed_data_sets.values() for item in value])
+        for url in needed_urls:
+            file_name = os.path.basename(url)
+            local_file_path = os.path.join(local_data_folder, file_name)
+            if not os.path.isfile(local_file_path):
+                print(f"File {file_name} not found. Scheduling download...")
+                future = executor.submit(download_file_with_progress, url, local_file_path)
+                futures.append(future)
+            else:
+                print(f"File {file_name} already exists at {local_file_path}")
 
         # Wait for all futures to complete
         concurrent.futures.wait(futures)
