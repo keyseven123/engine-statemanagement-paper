@@ -169,8 +169,7 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
             'bufferSizeInBytes', 'pageSize'
         ])
         for result in benchmark_results:
-            result['query_name'] = f"{result.pop('query name', '')}"
-            result['query_name'] = allQueries[query]
+            result['query_name'] = query
             writer.writerow({**result, **config})
         print(f"Results for config {config} written to CSV.")
 
