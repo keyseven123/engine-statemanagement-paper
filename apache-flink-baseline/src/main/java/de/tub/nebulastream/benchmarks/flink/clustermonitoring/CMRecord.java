@@ -9,9 +9,10 @@ import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import java.io.Serializable;
 
 @JsonPropertyOrder({ "creationTS", "jobId", "taskId", "machineId", "eventType", "userId", "category", "priority", "cpu", "ram", "disk", "constraints" })
-public class CMRecord {
+public class CMRecord implements Serializable {
 
     public long creationTS;
     public long jobId;
@@ -26,40 +27,44 @@ public class CMRecord {
     public float disk;
     public boolean constraints;
 
+    @Override
+    public String toString() {
+        return "YourClassName{" +
+               "creationTS=" + creationTS +
+               ", jobId=" + jobId +
+               ", taskId=" + taskId +
+               ", machineId=" + machineId +
+               ", eventType=" + eventType +
+               ", userId=" + userId +
+               ", category=" + category +
+               ", priority=" + priority +
+               ", cpu=" + cpu +
+               ", ram=" + ram +
+               ", disk=" + disk +
+               ", constraints=" + constraints +
+               '}';
+    }
+
+
     public static final int RECORD_SIZE_IN_BYTE = 54;
 
+    public static CsvSchema schema = CsvSchema.builder()
+          .addColumn("creationTS", CsvSchema.ColumnType.NUMBER)
+          .addColumn("jobId", CsvSchema.ColumnType.NUMBER)
+          .addColumn("taskId", CsvSchema.ColumnType.NUMBER)
+          .addColumn("machineId", CsvSchema.ColumnType.NUMBER)
+          .addColumn("eventType", CsvSchema.ColumnType.NUMBER)
+          .addColumn("userId", CsvSchema.ColumnType.NUMBER)
+          .addColumn("category", CsvSchema.ColumnType.NUMBER)
+          .addColumn("priority", CsvSchema.ColumnType.NUMBER)
+          .addColumn("cpu", CsvSchema.ColumnType.NUMBER)
+          .addColumn("ram", CsvSchema.ColumnType.NUMBER)
+          .addColumn("disk", CsvSchema.ColumnType.NUMBER)
+          .addColumn("constraints", CsvSchema.ColumnType.BOOLEAN)
+          .build();
 
-    public CMRecord() {
-    }
 
-    public static List<CMRecord> loadFromCsv(String filePath, long numOfRecords) throws Exception {
-        CsvMapper csvMapper = new CsvMapper();
-
-        CsvSchema schema = CsvSchema.builder()
-                .addColumn("creationTS", CsvSchema.ColumnType.NUMBER)
-                .addColumn("jobId", CsvSchema.ColumnType.NUMBER)
-                .addColumn("taskId", CsvSchema.ColumnType.NUMBER)
-                .addColumn("machineId", CsvSchema.ColumnType.NUMBER)
-                .addColumn("eventType", CsvSchema.ColumnType.NUMBER)
-                .addColumn("userId", CsvSchema.ColumnType.NUMBER)
-                .addColumn("category", CsvSchema.ColumnType.NUMBER)
-                .addColumn("priority", CsvSchema.ColumnType.NUMBER)
-                .addColumn("cpu", CsvSchema.ColumnType.NUMBER)
-                .addColumn("ram", CsvSchema.ColumnType.NUMBER)
-                .addColumn("disk", CsvSchema.ColumnType.NUMBER)
-                .addColumn("constraints", CsvSchema.ColumnType.BOOLEAN)
-                .build();
-
-        MappingIterator<CMRecord> mappingIterator = csvMapper
-               .readerFor(CMRecord.class)
-               .with(schema)
-               .readValues(new File(filePath));
-
-        return StreamSupport.stream(((Iterable<CMRecord>) () -> mappingIterator).spliterator(), false)
-               .limit(numOfRecords)
-               .collect(Collectors.toList());
-
-    }
+    public CMRecord() {}
 }
 
 

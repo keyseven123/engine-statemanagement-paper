@@ -12,7 +12,11 @@ import org.apache.flink.util.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
+import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
+import de.tub.nebulastream.benchmarks.flink.util.MemorySource;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +39,7 @@ public class LR2 {
         final long latencyTrackingInterval = params.getLong("latencyTrackingInterval", 0);
         final int parallelism = params.getInt("parallelism", 1);
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
+        final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
 
         LOG.info("Arguments: {}", params);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -43,32 +48,29 @@ public class LR2 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        List<LRRecord> records = LRRecord.loadFromCsv("/tmp/data/linear_road_benchmark_5GB.csv", numOfRecords);
+        MemorySource<LRRecord> source = new MemorySource<LRRecord>("/tmp/data/linear_road_benchmark_5GB.csv", numOfRecords, LRRecord.class, LRRecord.schema);
         WatermarkStrategy<LRRecord> strategy = WatermarkStrategy
                 .<LRRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
-                .withTimestampAssigner((event, timestamp) -> event.creationTS);
-        DataStream<LRRecord> dataStream = env
-             .fromCollection(records)
-                .assignTimestampsAndWatermarks(strategy)
-             .name("LR2_Source");
+                .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
+        DataStream<LRRecord> sourceStream = env
+            .fromSource(source, strategy, "LR_Source")
+            .returns(TypeExtractor.getForClass(LRRecord.class))
+            .setParallelism(1);
 
-        dataStream.flatMap(new ThroughputLogger<LRRecord>(LRRecord.RECORD_SIZE_IN_BYTE, 100_000));
 
-        dataStream
-                .map(new MapFunction<LRRecord, LRRecord>() {
-                    @Override
-                    public LRRecord map(LRRecord value) throws Exception {
-                        value.position = (int) (value.position / 5280);
-                        return value;
-                    }
+        sourceStream
+            .flatMap(new ThroughputLogger<LRRecord>(500))
+            .map(value -> {
+                    value.position = (int) (value.position / 5280);
+                    return value;
                 })
-                .keyBy(new KeySelector<LRRecord, Tuple4<Short, Short,Short,Integer>>() {
+                .keyBy(new KeySelector<LRRecord, Tuple4<Integer, Short, Short, Integer>>() {
                     @Override
-                    public Tuple4<Short, Short, Short, Integer> getKey(LRRecord value) throws Exception {
+                    public Tuple4<Integer, Short, Short, Integer> getKey(LRRecord value) throws Exception {
                        return new Tuple4<>(value.vehicle, value.highway, value.direction, value.position);
                     }
                 })
-                .window(SlidingProcessingTimeWindows.of(Duration.ofSeconds(30), Duration.ofSeconds(1)))
+                .window(SlidingEventTimeWindows.of(Duration.ofSeconds(30), Duration.ofSeconds(1)))
                 .aggregate(new AggregateFunction<LRRecord, Long, Long>() {
                     @Override
                     public Long createAccumulator() {
@@ -94,7 +96,14 @@ public class LR2 {
                 .sinkTo(new DiscardingSink<Long>() {
                 });
 
-        env.execute("LR2");
+        JobClient jobClient = env.executeAsync("LR2");
+
+        // Sleep maxRuntimeInSeconds seconds and then cancel
+        LOG.info("Started flink job");
+        Thread.sleep(maxRuntimeInSeconds * 1000);
+        jobClient.cancel().thenRun(() ->
+            LOG.info("Job cancelled after {} seconds.", maxRuntimeInSeconds)
+        );
 
     }
 }

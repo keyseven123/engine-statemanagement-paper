@@ -35,34 +35,33 @@ queries = {
     "CM2": "clustermonitoring.CM2",
     "LRB1": "linearroad.LR1",
     "LRB2": "linearroad.LR2",
-    "MA": "manufacturingequipment.ME1",
+    "MA": "manufacturingequipment.MA",
     "SG1": "smartgrid.SG1",
     "SG2": "smartgrid.SG2",
     "SG3": "smartgrid.SG3",
     "YSB1k": "ysb.YSB1k",
     "YSB10k": "ysb.YSB10k",
-    # "multiquery_ysb": "multiquery.ysb.YSB",
-    "NM1": "nexmark.NE1",
-    "NM2": "nexmark.NE2",
-    "NM5": "nexmark.NE5",
-    "NM8": "nexmark.NE8",
-    "NM8_Variant": "nexmark.NE8_Variant"
+    "NM1": "nexmark.NM1",
+    "NM2": "nexmark.NM2",
+    "NM5": "nexmark.NM5",
+    "NM8": "nexmark.NM8",
+    "NM8_Variant": "nexmark.NM8_Variant"
 }
 
 needed_data_sets = {
-    "CM1": ["https://bench.nebula.stream/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
-    "CM2": ["https://bench.nebula.stream/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
-    "LRB1": ["https://bench.nebula.stream/data/lrb/linear_road_benchmark_5GB.csv"],
-    "LRB2": ["https://bench.nebula.stream/data/lrb/linear_road_benchmark_5GB.csv"],
-    "MA": ["https://bench.nebula.stream/data/manufacturing/manufacturing_1G.csv"],
-    "SG1": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_6GB.csv"],
-    "SG2": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_6GB.csv"],
-    "SG3": ["https://bench.nebula.stream/data/smartgrid/smartgrid-data_6GB.csv"],
-    "YSB1k": ["https://bench.nebula.stream/data/ysb/ysb1k_more_data_3GB.csv"],
-    "YSB10k": ["https://bench.nebula.stream/data/ysb/ysb10k_more_data_3GB.csv"],
-    "NM1-5": ["https://bench.nebula.stream/data/nexmark/bid_more_data_6GB.csv"],
-    "NM8": ["https://bench.nebula.stream/data/nexmark/auction_more_data_707MB.csv",
-            "https://bench.nebula.stream/data/nexmark/person_more_data_840MB.csv"]
+    "CM1": ["/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
+    "CM2": ["/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
+    "LRB1": ["/data/lrb/linear_road_benchmark_5GB.csv"],
+    "LRB2": ["/data/lrb/linear_road_benchmark_5GB.csv"],
+    "MA": ["/data/manufacturing/manufacturing_1G.csv"],
+    "SG1": ["/data/smartgrid/smartgrid-data_6GB.csv"],
+    "SG2": ["/data/smartgrid/smartgrid-data_6GB.csv"],
+    "SG3": ["/data/smartgrid/smartgrid-data_6GB.csv"],
+    "YSB1k": ["/data/ysb/ysb1k_more_data_3GB.csv"],
+    "YSB10k": ["/data/ysb/ysb10k_more_data_3GB.csv"],
+    "NM1-5": ["/data/nexmark/bid_more_data_6GB.csv"],
+    "NM8": ["/data/nexmark/auction_more_data_707MB.csv",
+            "/data/nexmark/person_more_data_840MB.csv"]
 }
 
 
