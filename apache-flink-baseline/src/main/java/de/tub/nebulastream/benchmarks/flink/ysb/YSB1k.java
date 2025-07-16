@@ -1,8 +1,8 @@
 package de.tub.nebulastream.benchmarks.flink.ysb;
 
 import de.tub.nebulastream.benchmarks.flink.utils.ThroughputLogger;
-import de.tub.nebulastream.benchmarks.flink.nexmark.NEBidRecord;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -19,7 +19,11 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import de.tub.nebulastream.benchmarks.flink.util.MemorySource;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +39,9 @@ import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.formats.csv.CsvReaderFormat;
 import org.apache.flink.connector.file.src.FileSource;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.streaming.api.functions.sink.v2.DiscardingSink;
 import java.io.File;
 import java.util.List;
@@ -48,8 +55,10 @@ public class YSB1k {
         final long latencyTrackingInterval = params.getLong("latencyTrackingInterval", 0);
         final int parallelism = params.getInt("parallelism", 1);
         final long numOfRecords = params.getLong("numOfRecords", 10_000);
+        final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
 
         LOG.info("Arguments: {}", params);
+
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
@@ -57,32 +66,37 @@ public class YSB1k {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        List<YSBRecord> records = YSBRecord.loadFromCsv("/tmp/data/ysb1k_more_data_3GB.csv", numOfRecords);
+        MemorySource<YSBRecord> source = new MemorySource<YSBRecord>("/tmp/data/ysb1k_more_data_3GB.csv", numOfRecords, YSBRecord.class, YSBRecord.schema);
         WatermarkStrategy<YSBRecord> strategy = WatermarkStrategy
-                .<YSBRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
-                .withTimestampAssigner((event, timestamp) -> event.event_time);
-        DataStream<YSBRecord> dataStream = env
-             .fromCollection(records)
-             .assignTimestampsAndWatermarks(strategy)
-             .name("YSB1k_Source");
+             .<YSBRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
+             .withTimestampAssigner((event, timestamp) -> event.event_time / 1000);
+        DataStream<YSBRecord> sourceStream = env
+                    .fromSource(source, strategy, "YSB1k_Source")
+                    .returns(TypeExtractor.getForClass(YSBRecord.class))
+                    .setParallelism(1);
 
-        dataStream.flatMap(new ThroughputLogger<YSBRecord>(YSBRecord.RECORD_SIZE_IN_BYTE, 1_000_000));
+        sourceStream
+            .flatMap(new ThroughputLogger<YSBRecord>(500))
+            .filter(new FilterFunction<YSBRecord>() {
+                @Override
+                public boolean filter(YSBRecord value) throws Exception {
+                    return "view".equals(value.event_type);
+                }
+            })
+            .keyBy((KeySelector<YSBRecord, String>) r -> r.campaign_id)
+            .window(TumblingEventTimeWindows.of(Duration.ofSeconds(30)))
+            .aggregate(new WindowingLogic())
+            .sinkTo(new DiscardingSink<Long>() {
+            })
+            .name("YSB1k Pipeline");
 
-        dataStream.filter(new FilterFunction<YSBRecord>() {
-                    @Override
-                    public boolean filter(YSBRecord value) throws Exception {
-                        return value.event_type == "view";
-                    }
-                })
-                .keyBy((KeySelector<YSBRecord, String>) r -> r.campaign_id)
-                .window(TumblingProcessingTimeWindows.of(Duration.ofSeconds(30)))
-                .aggregate(new WindowingLogic())
-                .name("WindowOperator")
-                .sinkTo(new DiscardingSink<Long>() {
-                });
-
-        env.execute("YSB");
-
+        // Sleep maxRuntimeInSeconds seconds and then cancel
+        JobClient jobClient = env.executeAsync("YSB1k");
+        LOG.info("Started flink job");
+        Thread.sleep(maxRuntimeInSeconds * 1000);
+        jobClient.cancel().thenRun(() ->
+            LOG.info("Job cancelled after {} seconds.", maxRuntimeInSeconds)
+        );
     }
 
 
@@ -99,11 +113,13 @@ public class YSB1k {
 
         @Override
         public Long getResult(Long acc) {
+            System.out.println("YSBRecord in getResult");
             return acc;
         }
 
         @Override
         public Long merge(Long a, Long b) {
+            System.out.println("YSBRecord in merge");
             return a + b;
         }
     }

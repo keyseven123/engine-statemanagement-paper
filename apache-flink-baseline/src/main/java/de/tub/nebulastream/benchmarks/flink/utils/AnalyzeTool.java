@@ -33,41 +33,34 @@ public class AnalyzeTool {
     public static Result analyze(String file) throws FileNotFoundException {
         Scanner sc = new Scanner(new File(file));
 
-        String l;
-        Pattern throughputPattern = Pattern.compile(".*That's ([0-9.]+) elements\\/second\\/core.*");
-        Pattern hostPattern = Pattern.compile(".*Worker: ([0-9.]+).*");
+        Pattern throughputLinePattern = Pattern.compile(
+            ".*Thread: (\\d+) has received .*? (\\d+) tuples in the last (\\d+) ms.*"
+        );
 
-                SummaryStatistics throughputs = new SummaryStatistics();
-        String currentHost = null;
-        Map<String, DescriptiveStatistics> perHostLat = new HashMap<String, DescriptiveStatistics>();
-        Map<String, SummaryStatistics> perHostThr = new HashMap<String, SummaryStatistics>();
+        SummaryStatistics globalStats = new SummaryStatistics();
+        Map<String, SummaryStatistics> perThreadStats = new HashMap<>();
 
-        while( sc.hasNextLine()) {
-            l = sc.nextLine();
-            // ---------- host ---------------
-            Matcher hostMatcher = hostPattern.matcher(l);
-            if(hostMatcher.matches()) {
-                currentHost = hostMatcher.group(1);
-            }
+        while (sc.hasNextLine()) {
+            String line = sc.nextLine();
 
+            Matcher matcher = throughputLinePattern.matcher(line);
+            if (matcher.matches()) {
+                String threadId = matcher.group(1);
+                long tuplesInWindow = Long.parseLong(matcher.group(2));
+                long timeMs = Long.parseLong(matcher.group(3));
 
-            // ---------- throughput ---------------
-            Matcher tpMatcher = throughputPattern.matcher(l);
-            if(tpMatcher.matches()) {
-                double eps = Double.valueOf(tpMatcher.group(1));
-                throughputs.addValue(eps);
-                //	System.out.println("epts = "+eps);
+                if (timeMs > 0) {
+                    double throughput = (tuplesInWindow / (double) timeMs) * 1000.0;
+                    globalStats.addValue(throughput);
 
-                SummaryStatistics perHost = perHostThr.get(currentHost);
-                if(perHost == null) {
-                    perHost = new SummaryStatistics();
-                    perHostThr.put(currentHost, perHost);
+                    perThreadStats
+                        .computeIfAbsent(threadId, k -> new SummaryStatistics())
+                        .addValue(throughput);
                 }
-                perHost.addValue(eps);
             }
         }
 
-        return new Result(throughputs, perHostThr);
+        return new Result(globalStats, perThreadStats);
     }
 
     public static void main(String[] args) throws IOException {
