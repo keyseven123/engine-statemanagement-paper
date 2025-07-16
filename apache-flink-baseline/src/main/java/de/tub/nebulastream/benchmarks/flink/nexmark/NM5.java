@@ -1,7 +1,7 @@
 package de.tub.nebulastream.benchmarks.flink.nexmark;
 
 import de.tub.nebulastream.benchmarks.flink.utils.ThroughputLogger;
-import de.tub.nebulastream.benchmarks.flink.nexmark.NEBidRecord;
+import de.tub.nebulastream.benchmarks.flink.nexmark.NMBidRecord;
 import org.apache.flink.api.common.functions.FlatJoinFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple;
@@ -17,8 +17,12 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
+import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import de.tub.nebulastream.benchmarks.flink.util.MemorySource;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.slf4j.Logger;
@@ -34,9 +38,9 @@ import java.io.File;
 import java.time.Duration;
 import java.util.List;
 
-public class NE5 {
+public class NM5 {
 
-    private static final Logger LOG = LoggerFactory.getLogger(NE5.class);
+    private static final Logger LOG = LoggerFactory.getLogger(NM5.class);
 
     /**
      * SELECT start, end, start, end, auctionId, num, start, end, max_tmp
@@ -44,7 +48,7 @@ public class NE5 {
      * FROM bid
      * GROUP BY auctionId
      * WINDOW SLIDING(timestamp, SIZE 10 SEC, ADVANCE BY 2 SEC))
-     * INNER JOIN (SELECT auctionId, MAX(num_ids) AS max_tmp, start, end
+     * INNMR JOIN (SELECT auctionId, MAX(num_ids) AS max_tmp, start, end
      * FROM
      * (SELECT auctionId, COUNT(auctionId) AS num_ids, start
      * FROM bid
@@ -60,41 +64,43 @@ public class NE5 {
         final long latencyTrackingInterval = params.getLong("latencyTrackingInterval", 0);
         final int parallelism = params.getInt("parallelism", 1);
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
+        final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
 
 
         LOG.info("Arguments: {}", params);
 
-        List<NEBidRecord> records = NEBidRecord.loadFromCsv("/tmp/data/bid_more_data_6GB.csv", numOfRecords);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
         env.getConfig().enableObjectReuse();
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        WatermarkStrategy<NEBidRecord> strategy = WatermarkStrategy
-                .<NEBidRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1))
-                .withTimestampAssigner((event, timestamp) -> event.timestamp);
-        DataStream<NEBidRecord> dataStream = env
-                .fromCollection(records)
-                .assignTimestampsAndWatermarks(strategy)
-                .name("NE5_Source");
+        WatermarkStrategy<NMBidRecord> strategy = WatermarkStrategy
+                .<NMBidRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1))
+                .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
+        MemorySource<NMBidRecord> source = new MemorySource<NMBidRecord>("/tmp/data/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
+        DataStream<NMBidRecord> sourceStream = env
+            .fromSource(source, strategy, "Bid_Source")
+            .returns(TypeExtractor.getForClass(NMBidRecord.class))
+            .setParallelism(1);
 
-        dataStream.flatMap(new ThroughputLogger<NEBidRecord>(NEBidRecord.RECORD_SIZE_IN_BYTE, 1_000_000));
+
+        DataStream<NMBidRecord> dataStream = sourceStream.flatMap(new ThroughputLogger<NMBidRecord>(500));
 
         // auctionId, num, start, end
         DataStream<Tuple4<Integer, Integer, Long, Long>> countStream =
-                dataStream.keyBy(new KeySelector<NEBidRecord, Integer>() {
+                dataStream.keyBy(new KeySelector<NMBidRecord, Integer>() {
                             @Override
-                            public Integer getKey(NEBidRecord rec) throws Exception {
+                            public Integer getKey(NMBidRecord rec) throws Exception {
                                 return rec.auctionId;
                             }
                         })
-                        .window(SlidingProcessingTimeWindows.of(Duration.ofSeconds(10), Duration.ofSeconds(2))) // WINDOW SLIDING(timestamp, SIZE 10 SEC, ADVANCE BY 2 SEC)
-                        .process(new ProcessWindowFunction<NEBidRecord, Tuple4<Integer, Integer, Long, Long>, Integer, TimeWindow>() {
+                        .window(SlidingEventTimeWindows.of(Duration.ofSeconds(10), Duration.ofSeconds(2))) // WINDOW SLIDING(timestamp, SIZE 10 SEC, ADVANCE BY 2 SEC)
+                        .process(new ProcessWindowFunction<NMBidRecord, Tuple4<Integer, Integer, Long, Long>, Integer, TimeWindow>() {
                             @Override
-                            public void process(Integer key, Context context, Iterable<NEBidRecord> recs, Collector<Tuple4<Integer, Integer, Long, Long>> out) {
+                            public void process(Integer key, Context context, Iterable<NMBidRecord> recs, Collector<Tuple4<Integer, Integer, Long, Long>> out) {
                                 int count = 0;
-                                for (NEBidRecord bid : recs) {
+                                for (NMBidRecord bid : recs) {
                                     count++;
                                 }
                                 out.collect(new Tuple4<>(key, count, context.window().getStart(), context.window().getEnd()));
@@ -110,7 +116,7 @@ public class NE5 {
                                 return countRec.f0; // auctionId
                             }
                         })
-                        .window(TumblingProcessingTimeWindows.of(Duration.ofSeconds(2))) // WINDOW TUMBLING(start, SIZE 2 SEC)
+                        .window(TumblingEventTimeWindows.of(Duration.ofSeconds(2))) // WINDOW TUMBLING(start, SIZE 2 SEC)
                         .process(new ProcessWindowFunction<Tuple4<Integer, Integer, Long, Long>, Tuple4<Integer, Integer, Long, Long>, Integer, TimeWindow>() {
                             @Override
                             public void process(Integer key, Context context, Iterable<Tuple4<Integer, Integer, Long, Long>> recs, Collector<Tuple4<Integer, Integer, Long, Long>> out) {
@@ -138,7 +144,7 @@ public class NE5 {
                         return maxRec.f0;
                     }
                 }) // join on auctionId
-                .window(TumblingProcessingTimeWindows.of(Duration.ofSeconds(2)))
+                .window(TumblingEventTimeWindows.of(Duration.ofSeconds(2)))
                 .apply(new FlatJoinFunction<Tuple4<Integer, Integer, Long, Long>, Tuple4<Integer, Integer, Long, Long>, Tuple5<Integer, Integer, Long, Long, Integer>>() {
                     @Override
                     public void join(Tuple4<Integer, Integer, Long, Long> countRec, Tuple4<Integer, Integer, Long, Long> maxRec, Collector<Tuple5<Integer, Integer, Long, Long, Integer>> out) throws Exception {
@@ -150,7 +156,13 @@ public class NE5 {
                 .sinkTo(new DiscardingSink<Tuple5<Integer, Integer, Long, Long, Integer>>() {
                 });
 
-        env.execute("NE5");
+        // Sleep maxRuntimeInSeconds seconds and then cancel
+        JobClient jobClient = env.executeAsync("NM5");
+        LOG.info("Started flink job");
+        Thread.sleep(maxRuntimeInSeconds * 1000);
+        jobClient.cancel().thenRun(() ->
+            LOG.info("Job cancelled after {} seconds.", maxRuntimeInSeconds)
+        );
 
     }
 }

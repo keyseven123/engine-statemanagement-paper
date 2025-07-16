@@ -9,11 +9,12 @@ import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import java.io.Serializable;
 
 @JsonPropertyOrder({ "creationTS", "vehicle", "speed", "highway", "lane", "direction", "position" })
-public class LRRecord {
+public class LRRecord implements Serializable {
     public long creationTS;
-    public short vehicle;
+    public int vehicle;
     public float speed;
     public short highway;
     public short lane;
@@ -22,31 +23,28 @@ public class LRRecord {
 
     public static final int RECORD_SIZE_IN_BYTE = 22;
 
-
-    public LRRecord() {
+    @Override
+    public String toString() {
+        return "LRRecord{" +
+                "creationTS=" + creationTS +
+                ", vehicle=" + vehicle +
+                ", speed=" + speed +
+                ", highway=" + highway +
+                ", lane=" + lane +
+                ", direction=" + direction +
+                ", position=" + position +
+                '}';
     }
 
-    public static List<LRRecord> loadFromCsv(String filePath, long numOfRecords) throws Exception {
-            CsvMapper csvMapper = new CsvMapper();
+    public static CsvSchema schema = CsvSchema.builder()
+                        .addColumn("creationTS", CsvSchema.ColumnType.NUMBER)
+                        .addColumn("vehicle", CsvSchema.ColumnType.NUMBER)
+                        .addColumn("speed", CsvSchema.ColumnType.NUMBER)
+                        .addColumn("highway", CsvSchema.ColumnType.NUMBER)
+                        .addColumn("lane", CsvSchema.ColumnType.NUMBER)
+                        .addColumn("direction", CsvSchema.ColumnType.NUMBER)
+                        .addColumn("position", CsvSchema.ColumnType.NUMBER)
+                        .build();
 
-            CsvSchema schema = CsvSchema.builder()
-                    .addColumn("creationTS", CsvSchema.ColumnType.NUMBER)
-                    .addColumn("vehicle", CsvSchema.ColumnType.NUMBER)
-                    .addColumn("speed", CsvSchema.ColumnType.NUMBER)
-                    .addColumn("highway", CsvSchema.ColumnType.NUMBER)
-                    .addColumn("lane", CsvSchema.ColumnType.NUMBER)
-                    .addColumn("direction", CsvSchema.ColumnType.NUMBER)
-                    .addColumn("position", CsvSchema.ColumnType.NUMBER)
-                    .build();
-
-            MappingIterator<LRRecord> mappingIterator = csvMapper
-                   .readerFor(LRRecord.class)
-                   .with(schema)
-                   .readValues(new File(filePath));
-
-            return StreamSupport.stream(((Iterable<LRRecord>) () -> mappingIterator).spliterator(), false)
-                   .limit(numOfRecords)
-                   .collect(Collectors.toList());
-
-        }
+    public LRRecord() {}
 }

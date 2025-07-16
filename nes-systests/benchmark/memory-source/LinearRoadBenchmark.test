@@ -4,7 +4,7 @@
 # groups: [milestone, benchmark, large, Memory]
 
 # Source definitions
-Source lrb UINT64 creationTS INT16 vehicle FLOAT32 speed INT16 highway INT16 lane INT16 direction INT32 position MEMORY
+Source lrb UINT64 creationTS INT32 vehicle FLOAT32 speed INT16 highway INT16 lane INT16 direction INT32 position MEMORY
 TESTDATA/large/lrb/linear_road_benchmark_5GB.csv
 
 
