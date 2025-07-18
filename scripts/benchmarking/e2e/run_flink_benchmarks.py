@@ -66,7 +66,8 @@ needed_data_sets = {
 
 
 num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
-parallelisms = ["1", "2", "4", "8", "16"] #["1", "4"]
+parallelisms =  ["1", "2", "4", "8", "16"] #["1", "4"]
+MAX_RUNTIME_PER_JOB = 10 # in seconds
 
 local_data_folder = "/tmp/data"
 csv_folder = "results"
@@ -139,14 +140,14 @@ def prepare():
     subprocess.run([os.path.join(flink, "bin", "stop-cluster.sh")], check=True)
 
 
-def run_flink_job(query, parallelism, num_records):
+def run_flink_job(query, parallelism, num_records, max_runtime_per_job):
     # Start Flink cluster
     subprocess.run([os.path.join(flink, "bin", "start-cluster.sh")], check=True)
     # Start query
     print(f"Now running query {query} with {parallelism} threads.")
     subprocess.run(
         [os.path.join(flink, "bin", "flink"), "run", "--class", f"de.tub.nebulastream.benchmarks.flink.{query}",
-         jar_path, "--parallelism", parallelism, "--numOfRecords", f"{num_records}", "-Xmx32768m"])  # continue even if it fails
+         jar_path, "--parallelism", parallelism, "--numOfRecords", f"{num_records}", "-Xmx41456m", "--maxRuntime ", str(max_runtime_per_job)])  # continue even if it fails
     # Stop Flink cluster
     subprocess.run([os.path.join(flink, "bin", "stop-cluster.sh")], check=True)
 
@@ -232,11 +233,11 @@ def main():
             for parallelism in parallelisms:
                 for num_records in num_of_records:
                     if "YSB" in query_name:
-                        # If we go above 10M for YSB, we require more RAM than we have
-                        num_records = 10 * 1000 * 1000
+                        # If we go above 5M for YSB, we require more RAM than we have on the mchine
+                        num_records = 5 * 1000 * 1000
 
                     prepare()
-                    run_flink_job(query_class, parallelism, num_records)
+                    run_flink_job(query_class, parallelism, num_records, MAX_RUNTIME_PER_JOB)
                     analyze_logs(query_name, parallelism)
                     write_to_csv(query_name, num_records)
 

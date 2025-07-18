@@ -179,7 +179,7 @@ if __name__ == "__main__":
     check_repository_root()
 
     # Create folder
-    # create_folder_and_remove_if_exists(build_dir)
+    create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
     compile_nebulastream()
@@ -201,7 +201,6 @@ if __name__ == "__main__":
     no_queries = len(allQueries)
     for queryIdx, query in enumerate(allQueries):
         workerConfigIdx = 0
-        print(query)
 
         combinations = itertools.product(allExecutionModes, allNumberOfWorkerThreads,
                                          allNumberOfBuffersInGlobalBufferManagers, allJoinStrategies,
