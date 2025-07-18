@@ -19,7 +19,7 @@ include(ExternalData)
 set(ExternalData_URL_TEMPLATES
         "https://bench.nebula.stream/data/md5sums/%(algo)_%(hash)"
 )
-set(ExternalData_TIMEOUT_ABSOLUTE 2400)
+set(ExternalData_TIMEOUT_ABSOLUTE 4800)
 
 get_source(nes-systest-lib SLT_SOURCE_FILES)
 
