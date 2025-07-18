@@ -108,21 +108,43 @@ def download_data_sets():
     if not os.path.exists(local_data_folder):
         os.makedirs(local_data_folder)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures = []
-        needed_urls = set([item for value in needed_data_sets.values() for item in value])
-        for url in needed_urls:
-            file_name = os.path.basename(url)
-            local_file_path = os.path.join(local_data_folder, file_name)
-            if not os.path.isfile(local_file_path):
+    # Download the mapping file
+    datasets_base_url = "https://tubcloud.tu-berlin.de/s/28Tr2wTd73Ggeed/download?files"
+    mapping_url = f"{datasets_base_url}=mapping.txt"
+    mapping_response = requests.get(mapping_url)
+    if mapping_response.status_code != 200:
+        raise Exception(f"Failed to download mapping file: {mapping_response.status_code}")
+
+    # Parse the mapping file
+    mapping = {}
+    for line in mapping_response.text.splitlines():
+        # Split each line into original file name and MD5 name
+        parts = line.strip().split(" --> ")
+        if len(parts) == 2:
+            original_name = parts[0].strip()
+            md5_name = parts[1].strip()
+            # Remove the .md5 extension if present
+            if original_name.endswith('.md5'):
+                original_name = original_name[:-4]
+            mapping[original_name] = md5_name
+
+    # Check and download files
+    needed_files = set([item for value in needed_data_sets.values() for item in value])
+    for file_name in needed_files:
+        base_name = os.path.basename(file_name)
+        md5_name = mapping.get(file_name, None)
+        if md5_name:
+            local_file_path = os.path.join(local_data_folder, base_name)
+            if not os.path.exists(local_file_path):
+                # Construct the download URL for the file
+                download_url = f"{datasets_base_url}={md5_name}"
                 print(f"File {file_name} not found. Scheduling download...")
-                future = executor.submit(download_file_with_progress, url, local_file_path)
-                futures.append(future)
+                download_file_with_progress(download_url, local_file_path)
             else:
                 print(f"File {file_name} already exists at {local_file_path}")
-
-        # Wait for all futures to complete
-        concurrent.futures.wait(futures)
+        else:
+            print(f"No MD5 mapping found for {file_name}")
+            exit(1)
 
 def download_flink():
     flink_url = f"https://dlcdn.apache.org/flink/{flink}/{flink}-bin-scala_2.12.tgz"
