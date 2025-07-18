@@ -17,7 +17,7 @@ add_subdirectory(checksum)
 include(${CMAKE_SOURCE_DIR}/cmake/CodeCoverage.cmake)
 include(ExternalData)
 set(ExternalData_URL_TEMPLATES
-        "https://bench.nebula.stream/data/md5sums/%(algo)_%(hash)"
+        "https://tubcloud.tu-berlin.de/s/28Tr2wTd73Ggeed/download?files=%(algo)_%(hash)"
 )
 set(ExternalData_TIMEOUT_ABSOLUTE 4800)
 
