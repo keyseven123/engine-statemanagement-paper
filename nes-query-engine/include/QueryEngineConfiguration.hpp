@@ -19,6 +19,7 @@
 #include <vector>
 #include <Configurations/BaseConfiguration.hpp>
 #include <Configurations/BaseOption.hpp>
+#include <Configurations/Enums/EnumOption.hpp>
 #include <Configurations/ScalarOption.hpp>
 #include <Configurations/Validation/ConfigurationValidation.hpp>
 
@@ -31,6 +32,12 @@ class QueryEngineConfiguration final : public NES::Configurations::BaseConfigura
     static std::shared_ptr<NES::Configurations::ConfigurationValidation> taskQueueSizeValidator();
 
 public:
+    enum class TaskAssignments : uint8_t
+    {
+        WORK_STEALING,
+        WORK_DEALING
+    };
+
     QueryEngineConfiguration() = default;
     QueryEngineConfiguration(const std::string& name, const std::string& description) : BaseConfiguration(name, description) { }
 
@@ -40,8 +47,13 @@ public:
         = {"taskQueueSize", "10000", "Size of the bounded task queue used within the QueryEngine", {taskQueueSizeValidator()}};
     NES::Configurations::UIntOption admissionQueueSize
         = {"admissionQueueSize", "1000", "Size of the bounded admission queue used within the QueryEngine", {taskQueueSizeValidator()}};
+    NES::Configurations::EnumOption<TaskAssignments> taskAssignments
+        = {"taskAssignment", TaskAssignments::WORK_STEALING, "Task assignment used within the QueryEngine"};
 
 protected:
-    std::vector<BaseOption*> getOptions() override { return {&numberOfWorkerThreads, &taskQueueSize, &admissionQueueSize}; }
+    std::vector<BaseOption*> getOptions() override
+    {
+        return {&numberOfWorkerThreads, &taskQueueSize, &admissionQueueSize, &taskAssignments};
+    }
 };
 }
