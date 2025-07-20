@@ -47,6 +47,7 @@ std::unique_ptr<NodeEngine> NodeEngineBuilder::build()
     auto queryLog = std::make_shared<QueryLog>();
 
 
+
     auto queryEngine
         = std::make_unique<QueryEngine>(workerConfiguration.queryEngineConfiguration, statisticEventListener, queryLog, bufferManager);
 
