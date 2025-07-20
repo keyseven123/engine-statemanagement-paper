@@ -61,7 +61,9 @@ target_include_directories(systest PUBLIC $<INSTALL_INTERFACE:/include/nebulastr
 # We want to run different systests with and w/o slice caches for different no. entries
 # We simply run the tests for LRU and SECOND_CHANCE, as they have showcased the best trade-off between accuracy and throughput
 set(sliceCaches NONE LRU SECOND_CHANCE)
-set(taskAssignments WORK_STEALING WORK_DEALING)
+set(resourceAssignmentsFixQueues WORK_STEALING) #set(resourceAssignmentsFixQueues WORK_STEALING WORK_DEALING_ROUND_ROBIN)
+set(resourceAssignmentsDynamicQueues WORK_DEALING_NEW_QUEUE_AND_THREAD)
+set(resourceAssignmentCombined ${resourceAssignmentsDynamicQueues} ${resourceAssignmentsFixQueues})
 
 # Add code coverage if enabled
 if (CODE_COVERAGE)
@@ -71,9 +73,9 @@ if (CODE_COVERAGE)
     add_dependencies(ccov-run-systest_interpreter_coverage test-data)
     add_dependencies(ccov-run-systest_interpreter_coverage_Hash_Join test-data)
 
-    foreach (taskAssignment IN LISTS taskAssignments)
+    foreach (resourceAssignment IN LISTS resourceAssignmentCombined)
         foreach (sliceCache IN LISTS sliceCaches)
-            target_code_coverage(systest COVERAGE_TARGET_NAME systest_interpreter_coverage_${sliceCache}_${taskAssignment} PUBLIC AUTO ALL ARGS -n 20 --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/interpreter_${sliceCache}_cc --data ${TEST_DATA_PATH} -- --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskQueueSize=100000 --worker.queryEngine.taskAssignment=${taskAssignment} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+            target_code_coverage(systest COVERAGE_TARGET_NAME systest_interpreter_coverage_${sliceCache}_${resourceAssignment} PUBLIC AUTO ALL ARGS -n 20 --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/interpreter_${sliceCache}_cc --data ${TEST_DATA_PATH} -- --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskQueueSize=100000 --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
             # Make sure to fetch ExternalData before running the ccov targets
             add_dependencies(ccov-run-systest_interpreter_coverage_${sliceCache} TEST_DATA)
         endforeach ()
@@ -82,11 +84,11 @@ endif (CODE_COVERAGE)
 
 # If we are running code coverage, we need to ONLY run the interpreter tests, as otherwise, the code coverage will be 100% for all operators as the compiler traces all branches and operations.
 set(joinStrategies NESTED_LOOP_JOIN HASH_JOIN)
-foreach (taskAssignment IN LISTS taskAssignments)
+foreach (resourceAssignment IN LISTS resourceAssignmentCombined)
     foreach (joinStrategy IN LISTS joinStrategies)
         ExternalData_Add_Test(TEST_DATA
-                NAME systest_interpreter_${joinStrategy}_${taskAssignment}
-                COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/interpreter_${joinStrategy}_${taskAssignment} --exclude-groups large --data ${SMALL_DATA} -- --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskQueueSize=100000 --worker.queryEngine.taskAssignment=${taskAssignment} --worker.queryOptimizer.joinStrategy=${joinStrategy})
+                NAME systest_interpreter_${joinStrategy}_${resourceAssignment}
+                COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/interpreter_${joinStrategy}_${resourceAssignment} --exclude-groups large --data ${SMALL_DATA} -- --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskQueueSize=100000 --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryOptimizer.joinStrategy=${joinStrategy})
     endforeach ()
 endforeach ()
 if (NOT CODE_COVERAGE)
@@ -99,21 +101,21 @@ endif (NOT CODE_COVERAGE)
 if (ENABLE_LARGE_TESTS)
     message(STATUS "Large scale tests enabled")
     set(numberOfEntriesSliceCaches 10 100) # We want to reduce the no. large scale tests
-    foreach (taskAssignment IN LISTS taskAssignments)
+    foreach (resourceAssignment IN LISTS resourceAssignmentCombined)
         foreach (sliceCache IN LISTS sliceCaches)
             foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
                 set(joinStrategy HASH_JOIN) # We simp<ly test here with a hash join, as a NLJ does not finish in 2h
                 ExternalData_Add_Test(TEST_DATA_LARGE
-                        NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}_${taskAssignment}
-                        COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${taskAssignment} --data ${LARGE_DATA} --groups large File
-                        --exclude-groups Memory -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.taskAssignment=${taskAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+                        NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
+                        COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${LARGE_DATA} --groups large File
+                        --exclude-groups Memory -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
 
                 # Running here the Nexmark.test queries with NLJ to test it for larger data sets but the input data size
                 # is still small enough to finish the test in minutes.
                 set(joinStrategy NESTED_LOOP_JOIN)
                 ExternalData_Add_Test(TEST_DATA_LARGE
-                        NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}_${taskAssignment}
-                        COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${taskAssignment} --data ${LARGE_DATA} --groups NestedLoopJoin --exclude-groups Memory -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.taskAssignment=${taskAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+                        NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
+                        COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${LARGE_DATA} --groups NestedLoopJoin --exclude-groups Memory -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
             endforeach ()
         endforeach ()
     endforeach ()
@@ -141,34 +143,32 @@ if (NOT CODE_COVERAGE)
     set(workerThreads 1 2 4 8)
     set(numberOfEntriesSliceCaches 2 10 100)
     set(joinStrategies NESTED_LOOP_JOIN HASH_JOIN)
-    foreach (taskAssignment IN LISTS taskAssignments)
-        foreach (workerThreads IN LISTS workerThreads)
-            foreach (sliceCache IN LISTS sliceCaches)
-                foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
-                    foreach (joinStrategy IN LISTS joinStrategies)
-                        ExternalData_Add_Test(TEST_DATA
-                                NAME systest_join_${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_${taskAssignment}_interpreter
-                                COMMAND systest -n 6 --groups Join --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${joinStrategy}_${taskAssignment}_${sliceCache}_${cacheSize}_interpreter_join --data ${SMALL_DATA}
-                                --
-                                --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskAssignment=${taskAssignment} --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
-                        ExternalData_Add_Test(TEST_DATA
-                                NAME systest_join_${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_${taskAssignment}_compiler
-                                COMMAND systest -n 6 --groups Join --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${joinStrategy}_${taskAssignment}_${sliceCache}_${cacheSize}_compiler_join --data ${SMALL_DATA}
-                                --
-                                --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.taskAssignment=${taskAssignment} --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
-                    endforeach ()
+    foreach (workerThreads IN LISTS workerThreads)
+        foreach (sliceCache IN LISTS sliceCaches)
+            foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
+                foreach (joinStrategy IN LISTS joinStrategies)
                     ExternalData_Add_Test(TEST_DATA
-                            NAME systest_agg_${workerThreads}_${sliceCache}_${cacheSize}_${taskAssignment}_interpreter
-                            COMMAND systest -n 6 --groups Aggregation --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${sliceCache}_${taskAssignment}_${cacheSize}_interpreter_aggregation --data ${SMALL_DATA}
+                            NAME systest_join_${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_interpreter
+                            COMMAND systest -n 6 --groups Join --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_interpreter_join --data ${SMALL_DATA}
                             --
-                            --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskAssignment=${taskAssignment} --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+                            --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=INTERPRETER --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
                     ExternalData_Add_Test(TEST_DATA
-                            NAME systest_agg_${workerThreads}_${sliceCache}_${cacheSize}_${taskAssignment}_compiler
-                            COMMAND systest -n 6 --groups Aggregation --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${sliceCache}_${taskAssignment}_${cacheSize}_compiler_aggregation --data ${SMALL_DATA}
+                            NAME systest_join_${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_compiler
+                            COMMAND systest -n 6 --groups Join --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_compiler_join --data ${SMALL_DATA}
                             --
-                            --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.taskAssignment=${taskAssignment} --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
-
+                            --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=COMPILER --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
                 endforeach ()
+                ExternalData_Add_Test(TEST_DATA
+                        NAME systest_agg_${workerThreads}_${sliceCache}_${cacheSize}_interpreter
+                        COMMAND systest -n 6 --groups Aggregation --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${sliceCache}_${cacheSize}_interpreter_aggregation --data ${SMALL_DATA}
+                        --
+                        --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=INTERPRETER --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+                ExternalData_Add_Test(TEST_DATA
+                        NAME systest_agg_${workerThreads}_${sliceCache}_${cacheSize}_compiler
+                        COMMAND systest -n 6 --groups Aggregation --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${workerThreads}_${sliceCache}_${cacheSize}_compiler_aggregation --data ${SMALL_DATA}
+                        --
+                        --worker.queryEngine.numberOfWorkerThreads=${workerThreads} --worker.queryOptimizer.executionMode=COMPILER --worker.numberOfBuffersInGlobalBufferManager=20000 --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+
             endforeach ()
         endforeach ()
     endforeach ()

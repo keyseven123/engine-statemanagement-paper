@@ -32,10 +32,11 @@ class QueryEngineConfiguration final : public BaseConfiguration
     static std::shared_ptr<ConfigurationValidation> taskQueueSizeValidator();
 
 public:
-    enum class TaskAssignments : uint8_t
+    enum class ResourceAssignment : uint8_t
     {
         WORK_STEALING,
-        WORK_DEALING
+        WORK_DEALING_ROUND_ROBIN,
+        WORK_DEALING_NEW_QUEUE_AND_THREAD
     };
 
     QueryEngineConfiguration() = default;
@@ -48,13 +49,13 @@ public:
         = {"taskQueueSize", "10000", "Size of the bounded task queue used within the QueryEngine", {taskQueueSizeValidator()}};
     UIntOption admissionQueueSize
         = {"admissionQueueSize", "1000", "Size of the bounded admission queue used within the QueryEngine", {taskQueueSizeValidator()}};
-    NES::Configurations::EnumOption<TaskAssignments> taskAssignments
-        = {"taskAssignment", TaskAssignments::WORK_STEALING, "Task assignment used within the QueryEngine"};
+    NES::Configurations::EnumOption<ResourceAssignment> resourceAssignments
+        = {"resourceAssignment", ResourceAssignment::WORK_STEALING, "Task assignment used within the QueryEngine"};
 
 protected:
     std::vector<BaseOption*> getOptions() override
     {
-        return {&numberOfWorkerThreads, &taskQueueSize, &admissionQueueSize, &taskAssignments};
+        return {&numberOfWorkerThreads, &taskQueueSize, &admissionQueueSize, &resourceAssignments};
     }
 };
 }

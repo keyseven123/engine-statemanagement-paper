@@ -11,14 +11,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-#include <InternalTaskQueue.hpp>
+#include <TaskQueuePerThread.hpp>
 
-#include <folly/MPMCQueue.h>
-#include <Task.hpp>
-
-namespace NES
-{
-
-thread_local std::optional<std::reference_wrapper<folly::MPMCQueue<Task>>> InternalTaskQueue::ownQueue = {};
-
+namespace NES {
 }
