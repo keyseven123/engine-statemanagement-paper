@@ -245,6 +245,7 @@ file(GLOB NES_DIRECTORIES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "nes-*")
 foreach (NES_DIR ${NES_DIRECTORIES})
     add_subdirectory(${NES_DIR})
 endforeach ()
+add_subdirectory(scripts/benchmarking/work-dealing/tcp-server)
 
 # Other configurations
 project_enable_format()
