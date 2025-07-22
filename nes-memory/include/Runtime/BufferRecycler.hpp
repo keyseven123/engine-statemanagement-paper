@@ -25,8 +25,8 @@ class MemorySegment;
 /// Stores necessary information for the recycle unpooled buffer callback
 struct ThreadIdCopyLastChunkPtr
 {
-    ThreadIdCopyLastChunkPtr(std::thread::id threadId, uint8_t* lastChunkPtr)
-        : threadId(std::move(threadId)), lastChunkPtr(lastChunkPtr)
+    ThreadIdCopyLastChunkPtr(std::thread::id threadId, uint8_t* lastChunkPtr, size_t alignment)
+        : threadId(std::move(threadId)), lastChunkPtr(lastChunkPtr), alignment(alignment)
     {
     }
     ThreadIdCopyLastChunkPtr(ThreadIdCopyLastChunkPtr&& other) = default;
@@ -43,12 +43,14 @@ struct ThreadIdCopyLastChunkPtr
     }
     std::thread::id threadId;
     uint8_t* lastChunkPtr;
+    size_t alignment;
 };
 
 ///@brief Interface for buffer recycling mechanism
 class BufferRecycler
 {
 public:
+    virtual ~BufferRecycler() = default;
     /// @brief Interface method for pooled buffer recycling
     /// @param buffer the buffer to recycle
     virtual void recyclePooledBuffer(detail::MemorySegment* buffer) = 0;

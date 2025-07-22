@@ -65,7 +65,7 @@ struct ThreadLocalChunks
 };
 
 /// Stores and tracks all memory chunks for unpooled / variable sized buffers
-class UnpooledChunksManager
+class UnpooledChunksManager final : public std::enable_shared_from_this<UnpooledChunksManager>, public Memory::BufferRecycler
 {
     static constexpr auto NUM_PRE_ALLOCATED_CHUNKS = 10;
     static constexpr auto ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE = 100;
@@ -79,15 +79,20 @@ class UnpooledChunksManager
     /// Returns two pointers wrapped in a pair
     /// std::get<0>: the key that is being used in the unordered_map of a ChunkControlBlock
     /// std::get<1>: pointer to the memory address that is large enough for neededSize
-    std::pair<uint8_t*, uint8_t*> allocateSpace(std::thread::id threadId, size_t neededSize, size_t alignment);
+    std::pair<uint8_t*, uint8_t*> allocateSpace(size_t neededSize, size_t alignment);
 
-    std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> getThreadLocalChunk(std::thread::id threadId);
+    /// Gets the thread local chunk for the current threadId
+    std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> getThreadLocalChunkForCurrentThread();
+    std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> getThreadLocalChunkFromOtherThread(std::thread::id threadId);
 
+    void recyclePooledBuffer(Memory::detail::MemorySegment* buffer) override;
+    void
+    recycleUnpooledBuffer(Memory::detail::MemorySegment* buffer, const Memory::ThreadIdCopyLastChunkPtr& threadCopyLastChunkPtr) override;
 public:
     explicit UnpooledChunksManager(std::shared_ptr<std::pmr::memory_resource> memoryResource);
+    ~UnpooledChunksManager() override = default;
     size_t getNumberOfUnpooledBuffers() const;
-    Memory::TupleBuffer
-    getUnpooledBuffer(size_t neededSize, size_t alignment, const std::shared_ptr<Memory::BufferRecycler>& bufferRecycler);
+    Memory::TupleBuffer getUnpooledBuffer(size_t neededSize, size_t alignment);
 };
 
 }
