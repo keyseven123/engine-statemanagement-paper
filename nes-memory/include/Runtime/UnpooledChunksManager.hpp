@@ -46,7 +46,7 @@ class UnpooledChunksManager
     /// Helper struct that stores necessary information for accessing unpooled chunks
     /// Instead of allocating the exact needed space, we allocate a chunk of a space calculated by a rolling average of the last n sizes.
     /// Thus, we (pre-)allocate potentially multiple buffers. At least, there is a high chance that one chunk contains multiple tuple buffers
-    struct UnpooledChunk
+    struct ThreadLocalChunks
     {
         struct ChunkControlBlock
         {
@@ -67,7 +67,7 @@ class UnpooledChunksManager
             }
         };
 
-        explicit UnpooledChunk(uint64_t windowSize);
+        explicit ThreadLocalChunks(uint64_t windowSize);
         void emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
         std::unordered_map<uint8_t*, ChunkControlBlock> chunks;
         uint8_t* lastAllocateChunkKey;
@@ -75,14 +75,14 @@ class UnpooledChunksManager
     };
 
     /// UnpooledBufferData is a shared_ptr, as we pass a shared_ptr to anyone that requires access to an unpooled buffer chunk
-    folly::Synchronized<std::unordered_map<std::thread::id, std::shared_ptr<folly::Synchronized<UnpooledChunk>>>> allLocalUnpooledBuffers;
+    folly::Synchronized<std::unordered_map<std::thread::id, std::shared_ptr<folly::Synchronized<ThreadLocalChunks>>>> allThreadLocalChunks;
 
     /// Returns two pointers wrapped in a pair
     /// std::get<0>: the key that is being used in the unordered_map of a ChunkControlBlock
     /// std::get<1>: pointer to the memory address that is large enough for neededSize
     std::pair<uint8_t*, uint8_t*> allocateSpace(std::thread::id threadId, size_t neededSize, size_t alignment);
 
-    std::shared_ptr<folly::Synchronized<UnpooledChunk>> getChunk(std::thread::id threadId);
+    std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> getThreadLocalChunk(std::thread::id threadId);
 
 public:
     explicit UnpooledChunksManager(std::shared_ptr<std::pmr::memory_resource> memoryResource);
@@ -93,4 +93,4 @@ public:
 
 }
 
-FMT_OSTREAM(NES::UnpooledChunksManager::UnpooledChunk::ChunkControlBlock);
+FMT_OSTREAM(NES::UnpooledChunksManager::ThreadLocalChunks::ChunkControlBlock);
