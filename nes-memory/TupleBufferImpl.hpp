@@ -21,7 +21,7 @@
 #include <vector>
 #include <Identifiers/Identifiers.hpp>
 #include <Time/Timestamp.hpp>
-#include <TaggedPointer.hpp>
+#include "TaggedPointer.hpp"
 #ifdef NES_DEBUG_TUPLE_BUFFER_LEAKS
     #include <deque>
     #include <mutex>
@@ -33,6 +33,7 @@
 namespace NES
 {
 class UnpooledChunksManager;
+struct ThreadLocalChunks;
 }
 
 namespace NES::Memory
@@ -107,6 +108,8 @@ public:
     [[nodiscard]] bool isLastChunk() const noexcept;
     void setLastChunk(bool lastChunk);
     [[nodiscard]] OriginId getOriginId() const noexcept;
+    void setCombinedVarSized(bool combinedVarSized);
+    [[nodiscard]] bool isCombinedVarSized() const noexcept;
     void setOriginId(OriginId originId);
     void setCreationTimestamp(Timestamp timestamp);
     [[nodiscard]] Timestamp getCreationTimestamp() const noexcept;
@@ -126,6 +129,7 @@ private:
     SequenceNumber sequenceNumber = INVALID_SEQ_NUMBER;
     ChunkNumber chunkNumber = INVALID_CHUNK_NUMBER;
     bool lastChunk = true;
+    bool combinedVarSized = false;
     Timestamp creationTimestamp = Timestamp(Timestamp::INITIAL_VALUE);
     OriginId originId = INVALID_ORIGIN_ID;
     std::vector<MemorySegment*> children;
@@ -186,6 +190,7 @@ class MemorySegment
     friend class NES::Memory::FixedSizeBufferPool;
     friend class NES::Memory::BufferManager;
     friend class NES::UnpooledChunksManager;
+    friend struct NES::ThreadLocalChunks;
     friend class NES::Memory::detail::BufferControlBlock;
 
     enum class MemorySegmentType : uint8_t

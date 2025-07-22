@@ -257,7 +257,7 @@ public:
         if (WorkerThread::id == INVALID<WorkerThreadId>)
         {
             /// Non-WorkerThread
-            admissionQueue->accessQueueForWriting(qid, WorkerThread::id)->blockingWrite(std::move(task));
+            admissionQueue->accessQueueForWriting(qid, WorkerThread::id).blockingWrite(std::move(task));
             ENGINE_LOG_DEBUG("Task written to AdmissionQueue");
             return true;
         }
@@ -272,7 +272,7 @@ public:
             case PipelineExecutionContext::ContinuationPolicy::REPEAT:
             case PipelineExecutionContext::ContinuationPolicy::NEVER:
                 if (not internalTaskQueue->accessQueueForWriting(qid, WorkerThread::id)
-                            ->tryWriteUntil(std::chrono::high_resolution_clock::now() + std::chrono::seconds(1), std::move(task)))
+                            .tryWriteUntil(std::chrono::high_resolution_clock::now() + std::chrono::seconds(1), std::move(task)))
                 {
                     node->pendingTasks.fetch_sub(1);
                     ENGINE_LOG_DEBUG("TaskQueue is full, could not write within 1 second.");
@@ -301,7 +301,7 @@ public:
     {
         PRECONDITION(ThreadPool::WorkerThread::id == INVALID<WorkerThreadId>, "This should only be called from a non-worker thread");
         admissionQueue->accessQueueForWriting(id, WorkerThread::id)
-            ->blockingWrite(
+            .blockingWrite(
                 FailSourceTask{
                     id,
                     std::move(source),
@@ -315,7 +315,7 @@ public:
     {
         PRECONDITION(ThreadPool::WorkerThread::id == INVALID<WorkerThreadId>, "This should only be called from a non-worker thread");
         admissionQueue->accessQueueForWriting(id, WorkerThread::id)
-            ->blockingWrite(
+            .blockingWrite(
                 StopSourceTask{
                     id,
                     std::move(source),
@@ -396,7 +396,7 @@ private:
     {
         PRECONDITION(ThreadPool::WorkerThread::id != INVALID<WorkerThreadId>, "This should only be called from a worker thread");
         if (not internalTaskQueue->accessQueueForWriting(queryId, WorkerThread::id)
-                    ->write(std::move(task))) /// NOLINT no move will happen if tryWriteUntil has failed
+                    .write(std::move(task))) /// NOLINT no move will happen if tryWriteUntil has failed
         {
             doTaskInPlace(std::move(task)); /// NOLINT no move will happen
         }
@@ -416,11 +416,11 @@ private:
 
 
         if (not internalTaskQueue->accessQueueForWriting(queryId, WorkerThread::id)
-                    ->writeIfNotFull(std::move(task))) /// NOLINT no move will happen if writeIfNotFull has failed
+                    .writeIfNotFull(std::move(task))) /// NOLINT no move will happen if writeIfNotFull has failed
         {
             /// The order below is important. We want to make sure that we pick up a next task before we write the current task into the queue.
             Task nextTask;
-            const auto hasNextTask = internalTaskQueue->accessQueueForWriting(queryId, WorkerThread::id)->read(nextTask);
+            const auto hasNextTask = internalTaskQueue->accessQueueForWriting(queryId, WorkerThread::id).read(nextTask);
             addTaskOrDoNextTask(queryId, std::move(task), stackLevel + 1); /// NOLINT no move will happen if tryWriteUntil has failed
             if (hasNextTask)
             {
@@ -601,7 +601,7 @@ bool ThreadPool::WorkerThread::operator()(PendingPipelineStopTask pendingPipelin
         if (pendingPipelineStop.attempts >= 2)
         {
             Task admissionTask;
-            if (pool.admissionQueue->accessQueueForReading(pendingPipelineStop.queryId, WorkerThread::id)->read(admissionTask))
+            if (pool.admissionQueue->accessQueueForReading(pendingPipelineStop.queryId, WorkerThread::id).read(admissionTask))
             {
                 pool.addTaskOrDoItInPlace(pendingPipelineStop.queryId, std::move(admissionTask));
             }
@@ -722,14 +722,14 @@ void ThreadPool::addThread(const QueryId& queryId)
                     = internalTaskQueue->size(queryId, WorkerThread::id) < ((static_cast<ssize_t>(numberOfThreads())) * 3);
                 if (shallPickTaskFromAdmissionQueue)
                 {
-                    if (admissionQueue->accessQueueForReading(queryId, WorkerThread::id)->read(task))
+                    if (admissionQueue->accessQueueForReading(queryId, WorkerThread::id).read(task))
                     {
                         ENGINE_LOG_TRACE(
                             "Task picked from AdmissionQueue and shallPickTaskFromAdmissionQueue={}", shallPickTaskFromAdmissionQueue);
                         addTaskOrDoItInPlace(queryId, std::move(task));
                     }
                 }
-                if (not internalTaskQueue->accessQueueForReading(queryId, WorkerThread::id)->read(task))
+                if (not internalTaskQueue->accessQueueForReading(queryId, WorkerThread::id).read(task))
                 {
                     continue;
                 }
@@ -752,7 +752,7 @@ void ThreadPool::addThread(const QueryId& queryId)
             while (true)
             {
                 Task task;
-                if (not internalTaskQueue->accessQueueForReading(queryId, WorkerThread::id)->readIfNotEmpty(task))
+                if (not internalTaskQueue->accessQueueForReading(queryId, WorkerThread::id).readIfNotEmpty(task))
                 {
                     break;
                 }
@@ -827,7 +827,7 @@ void QueryEngine::stop(QueryId queryId)
 {
     ENGINE_LOG_INFO("Stopping Query: {}", queryId);
     threadPool->admissionQueue->accessQueueForWriting(queryId, WorkerThreadId{WorkerThreadId::INVALID})
-        ->blockingWrite(StopQueryTask{queryId, queryCatalog, {}, {}});
+        .blockingWrite(StopQueryTask{queryId, queryCatalog, {}, {}});
 }
 
 /// NOLINTNEXTLINE Intentionally non-const
@@ -842,7 +842,7 @@ void QueryEngine::start(std::unique_ptr<ExecutableQueryPlan> executableQueryPlan
     }
 
     threadPool->admissionQueue->accessQueueForWriting(executableQueryPlan->queryId, WorkerThreadId{WorkerThreadId::INVALID})
-        ->blockingWrite(StartQueryTask{executableQueryPlan->queryId, std::move(executableQueryPlan), queryCatalog, {}, {}});
+        .blockingWrite(StartQueryTask{executableQueryPlan->queryId, std::move(executableQueryPlan), queryCatalog, {}, {}});
 }
 
 QueryEngine::~QueryEngine()

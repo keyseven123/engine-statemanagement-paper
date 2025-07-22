@@ -271,5 +271,15 @@ ChunkNumber TupleBuffer::getChunkNumber() const noexcept
     return controlBlock->getChunkNumber();
 }
 
+void TupleBuffer::setCombinedVarSized(const bool combinedVarSized) const
+{
+    controlBlock->setCombinedVarSized(combinedVarSized);
+}
+
+bool TupleBuffer::isCombinedVarSized() const noexcept
+{
+    return controlBlock->isCombinedVarSized();
+}
+
 
 }

@@ -23,6 +23,7 @@
 #include <string>
 #include <DataTypes/Schema.hpp>
 #include <MemoryLayout/MemoryLayout.hpp>
+#include <Nautilus/Interface/MemoryProvider/TupleBufferMemoryProvider.hpp>
 #include <Runtime/TupleBuffer.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -74,19 +75,27 @@ std::string CSVFormat::tupleBufferToFormattedCSVString(Memory::TupleBuffer tbuff
     for (size_t i = 0; i < numberOfTuples; i++)
     {
         auto tuple = buffer.subspan(i * formattingContext.schemaSizeInBytes, formattingContext.schemaSizeInBytes);
+        uint64_t countVarSized = 0;
         auto fields = std::views::iota(static_cast<size_t>(0), formattingContext.offsets.size())
             | std::views::transform(
-                          [&formattingContext, &tuple, &tbuffer, copyOfEscapeStrings = escapeStrings](const auto& index)
+                          [&formattingContext, &tuple, &tbuffer, copyOfEscapeStrings = escapeStrings, &countVarSized](const auto& index)
                           {
                               const auto physicalType = formattingContext.physicalTypes[index];
                               if (physicalType.type == DataType::Type::VARSIZED)
                               {
                                   auto childIdx = *reinterpret_cast<const uint32_t*>(&tuple[formattingContext.offsets[index]]);
+                                  auto stringPtr
+                                      = Nautilus::Interface::MemoryProvider::loadAssociatedVarSizedValue(std::addressof(tbuffer), childIdx, countVarSized);
+                                  const auto stringSize = *reinterpret_cast<const uint32_t*>(stringPtr);
+                                  std::string varSizedData(stringSize, '\0');
+                                  std::memcpy(varSizedData.data(), stringPtr + sizeof(uint32_t), stringSize);
+                                  countVarSized += 1;
+
                                   if (copyOfEscapeStrings)
                                   {
-                                      return "\"" + Memory::MemoryLayouts::readVarSizedData(tbuffer, childIdx) + "\"";
+                                      return "\"" + varSizedData + "\"";
                                   }
-                                  return Memory::MemoryLayouts::readVarSizedData(tbuffer, childIdx);
+                                  return varSizedData;
                               }
                               return physicalType.formattedBytesToString(&tuple[formattingContext.offsets[index]]);
                           });
