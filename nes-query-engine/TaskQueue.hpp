@@ -29,8 +29,8 @@ class TaskQueue
 public:
     virtual ~TaskQueue() = default;
     virtual ssize_t size(const QueryId& queryId, const WorkerThreadId& threadId) = 0;
-    virtual std::shared_ptr<detail::Queue> accessQueueForReading(const QueryId& queryId, const WorkerThreadId& threadId) = 0;
-    virtual std::shared_ptr<detail::Queue> accessQueueForWriting(const QueryId& queryId, const WorkerThreadId&) = 0;
+    virtual detail::Queue& accessQueueForReading(const QueryId& queryId, const WorkerThreadId& threadId) = 0;
+    virtual detail::Queue& accessQueueForWriting(const QueryId& queryId, const WorkerThreadId&) = 0;
     virtual void addedQuery(const QueryId& queryId, const WorkerThreadId& newWorkerThreadId) = 0;
 };
 

@@ -22,11 +22,15 @@ namespace NES
 
 class RoundRobinTaskQueue final : public TaskQueue
 {
-    std::vector<std::shared_ptr<detail::Queue>> taskQueues;
+    std::vector<detail::Queue> taskQueues;
     std::atomic<uint64_t> nextQueueForWriting = 0;
 
 
-    std::shared_ptr<detail::Queue> getOwnQueue(const WorkerThreadId& threadId) { return taskQueues[threadId % taskQueues.size()]; }
+    detail::Queue& getOwnQueue(const WorkerThreadId& threadId)
+    {
+        thread_local auto pos = threadId % taskQueues.size();
+        return taskQueues[pos];
+    }
 
 public:
     RoundRobinTaskQueue(const size_t numberOfQueues, const size_t taskQueueSize)
@@ -34,13 +38,13 @@ public:
         taskQueues.reserve(numberOfQueues);
         for (size_t i = 0; i < numberOfQueues; ++i)
         {
-            taskQueues.emplace_back(std::make_shared<detail::Queue>(taskQueueSize));
+            taskQueues.emplace_back(detail::Queue{taskQueueSize});
         }
     }
 
-    ssize_t size(const QueryId&, const WorkerThreadId& threadId) override { return getOwnQueue(threadId)->size(); }
-    std::shared_ptr<detail::Queue> accessQueueForReading(const QueryId&, const WorkerThreadId& threadId) override { return getOwnQueue(threadId); }
-    std::shared_ptr<detail::Queue> accessQueueForWriting(const QueryId&, const WorkerThreadId&) override
+    ssize_t size(const QueryId&, const WorkerThreadId& threadId) override { return getOwnQueue(threadId).size(); }
+    detail::Queue& accessQueueForReading(const QueryId&, const WorkerThreadId& threadId) override { return getOwnQueue(threadId); }
+    detail::Queue& accessQueueForWriting(const QueryId&, const WorkerThreadId&) override
     {
         const auto queuePos = nextQueueForWriting % taskQueues.size();
         ++nextQueueForWriting;

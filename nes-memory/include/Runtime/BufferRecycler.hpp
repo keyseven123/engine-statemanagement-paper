@@ -14,13 +14,10 @@
 
 #pragma once
 #include <thread>
+#include "../../TupleBufferImpl.hpp"
 
 namespace NES::Memory
 {
-namespace detail
-{
-class MemorySegment;
-}
 
 /// Stores necessary information for the recycle unpooled buffer callback
 struct ThreadIdCopyLastChunkPtr
@@ -49,6 +46,7 @@ struct ThreadIdCopyLastChunkPtr
 class BufferRecycler
 {
 public:
+    virtual ~BufferRecycler() = default;
     /// @brief Interface method for pooled buffer recycling
     /// @param buffer the buffer to recycle
     virtual void recyclePooledBuffer(detail::MemorySegment* buffer) = 0;
