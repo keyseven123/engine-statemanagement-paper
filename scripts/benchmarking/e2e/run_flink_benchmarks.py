@@ -12,20 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import os
 import shutil
 import subprocess
 import argparse
 import csv
 import requests
-import concurrent.futures
+import socket
 
 from urllib.request import urlretrieve
-
-
-parser = argparse.ArgumentParser(description="Script for running Flink benchmarks")
-parser.add_argument("--flink_version", default="2.0.0", help="Flink version to download (default: 2.0.0)")
-args = parser.parse_args()
 
 flink = "flink-2.0.0"
 jar_path = os.path.join("target", "bench-flink_2.0-0.1-SNAPSHOT.jar")
@@ -64,12 +60,29 @@ needed_data_sets = {
             "/data/nexmark/person_more_data_840MB.csv"]
 }
 
-
 num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
-parallelisms =  ["1", "2", "4", "8", "16"] #["1", "4"]
-MAX_RUNTIME_PER_JOB = 10 # in seconds
+parallelisms = ["1", "2", "4", "8", "16"]  # ["1", "4"]
+MAX_RUNTIME_PER_JOB = 10  # in seconds
 
-local_data_folder = "/tmp/data"
+
+def get_tmp_data_dir():
+    # Get the hostname
+    hostname = socket.gethostname()
+
+    # Determine the vcpkg directory based on the hostname
+    if hostname == "tower-en717":
+        data_dir = "/tmp/data"
+    elif hostname == "hare":
+        data_dir = "/data/tmp_data"
+    elif hostname == "mif-ws":
+        data_dir = "/tmp/data"
+    else:
+        raise ValueError(f"Unknown hostname: {hostname}. Cannot determine vcpkg directory.")
+
+    return data_dir
+
+
+local_data_folder = get_tmp_data_dir()
 csv_folder = "results"
 csv_path = os.path.join(csv_folder, "all_queries.csv")
 
@@ -79,6 +92,8 @@ csv_fieldnames = [
     "numOfRecords",
     "tuplesPerSecond"
 ]
+
+
 def download_file_with_progress(url, local_path):
     """Download a file from a URL and save it to the local path with progress tracking."""
     try:
@@ -95,13 +110,15 @@ def download_file_with_progress(url, local_path):
                     progress = downloaded / total_size
                     bar = '█' * int(progress * progress_bar_length)
                     spaces = ' ' * (progress_bar_length - len(bar))
-                    print(f"\rDownloading {os.path.basename(local_path)}: |{bar}{spaces}| {progress * 100:.2f}%", end='')
+                    print(f"\rDownloading {os.path.basename(local_path)}: |{bar}{spaces}| {progress * 100:.2f}%",
+                          end='')
             print(f"\nDownloaded {url} to {local_path}")
         else:
             print(f"Failed to download {url}")
     except Exception as e:
         print(f"An error occurred while downloading {url}: {e}")
         exit(1)
+
 
 def download_data_sets():
     """Download the data sets if they are not already present in the local folder."""
@@ -146,6 +163,7 @@ def download_data_sets():
             print(f"No MD5 mapping found for {file_name}")
             exit(1)
 
+
 def download_flink():
     flink_url = f"https://dlcdn.apache.org/flink/{flink}/{flink}-bin-scala_2.12.tgz"
     subprocess.run(["wget", flink_url, "-O", "flink.tgz"], check=True)
@@ -169,7 +187,8 @@ def run_flink_job(query, parallelism, num_records, max_runtime_per_job):
     print(f"Now running query {query} with {parallelism} threads.")
     subprocess.run(
         [os.path.join(flink, "bin", "flink"), "run", "--class", f"de.tub.nebulastream.benchmarks.flink.{query}",
-         jar_path, "--parallelism", parallelism, "--numOfRecords", f"{num_records}", "-Xmx41456m", "--maxRuntime ", str(max_runtime_per_job)])  # continue even if it fails
+         jar_path, "--parallelism", parallelism, "--numOfRecords", f"{num_records}", "-Xmx41456m", "--maxRuntime ",
+         str(max_runtime_per_job), "--basePathForDataFiles", f"{local_data_folder}"])  # continue even if it fails
     # Stop Flink cluster
     subprocess.run([os.path.join(flink, "bin", "stop-cluster.sh")], check=True)
 
@@ -219,19 +238,31 @@ def check_repository_root():
     if not all(expected_dir in contents for expected_dir in expected_dirs):
         raise RuntimeError("The script is not being run from the repository root.")
 
+
 def main():
+    # Initialize argument parser
+    parser = argparse.ArgumentParser(description="Run Flink queries.")
+    parser.add_argument("--all", action="store_true", help="Run all queries.")
+    parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
+    args = parser.parse_args()
+
+    # Determine which queries to run
+    queries_to_run = queries
+
+    if not args.all and args.queries:
+        # Filter queries based on the provided list
+        queries_to_run = {k: v for k, v in queries.items() if k in args.queries}
+
+    print(",".join(queries_to_run.keys()))
+
     # Checking if the script has been executed from the repository root
     check_repository_root()
 
     # Store the current working directory
     original_dir = os.getcwd()
 
-
     try:
         os.chdir('apache-flink-baseline')
-        global flink
-        flink = f"flink-{args.flink_version}"
-
         if not os.path.exists(flink):
             download_flink()
 
@@ -251,7 +282,7 @@ def main():
         subprocess.run(["mvn", "clean"], check=True)
         subprocess.run(["mvn", "package"], check=True)
 
-        for query_name, query_class in queries.items():
+        for query_name, query_class in queries_to_run.items():
             for parallelism in parallelisms:
                 for num_records in num_of_records:
                     if "YSB" in query_name:
@@ -272,7 +303,6 @@ def main():
     finally:
         # Change back to the original directory
         os.chdir(original_dir)
-
 
 
 if __name__ == "__main__":

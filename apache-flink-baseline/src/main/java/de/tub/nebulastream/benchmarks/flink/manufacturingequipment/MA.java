@@ -43,6 +43,7 @@ public class MA {
         final int parallelism = params.getInt("parallelism", 1);
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
         LOG.info("Arguments: {}", params);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -51,7 +52,7 @@ public class MA {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-         MemorySource<MARecord> source = new MemorySource<MARecord>("/tmp/data/manufacturing_1G.csv", numOfRecords, MARecord.class, MARecord.schema, true);
+         MemorySource<MARecord> source = new MemorySource<MARecord>(basePathForDataFiles + "/manufacturing_1G.csv", numOfRecords, MARecord.class, MARecord.schema, true);
          WatermarkStrategy<MARecord> strategy = WatermarkStrategy
                  .<MARecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                  .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);

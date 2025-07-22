@@ -50,6 +50,7 @@ public class NM2 {
         final int parallelism = params.getInt("parallelism", 1);
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
         LOG.info("Arguments: {}", params);
 
@@ -59,7 +60,7 @@ public class NM2 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<NMBidRecord> source = new MemorySource<NMBidRecord>("/tmp/data/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
+        MemorySource<NMBidRecord> source = new MemorySource<NMBidRecord>(basePathForDataFiles + "/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
                 DataStream<NMBidRecord> sourceStream = env
                     .fromSource(source, WatermarkStrategy.noWatermarks(), "Bid_Source")
                     .returns(TypeExtractor.getForClass(NMBidRecord.class))
