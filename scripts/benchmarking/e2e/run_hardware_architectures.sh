@@ -13,5 +13,5 @@
 # limitations under the License.
 
 set -euo pipefail
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks --all
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM5
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM5

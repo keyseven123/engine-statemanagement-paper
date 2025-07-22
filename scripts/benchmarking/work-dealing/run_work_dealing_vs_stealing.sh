@@ -12,6 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks --all
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all
+python3 -m scripts.benchmarking.work-dealing.run_nes_work_dealing_stealing
