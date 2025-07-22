@@ -56,6 +56,7 @@ public class YSB1k {
         final int parallelism = params.getInt("parallelism", 1);
         final long numOfRecords = params.getLong("numOfRecords", 10_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
         LOG.info("Arguments: {}", params);
 
@@ -66,7 +67,7 @@ public class YSB1k {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<YSBRecord> source = new MemorySource<YSBRecord>("/tmp/data/ysb1k_more_data_3GB.csv", numOfRecords, YSBRecord.class, YSBRecord.schema);
+        MemorySource<YSBRecord> source = new MemorySource<YSBRecord>(basePathForDataFiles + "/ysb1k_more_data_3GB.csv", numOfRecords, YSBRecord.class, YSBRecord.schema);
         WatermarkStrategy<YSBRecord> strategy = WatermarkStrategy
              .<YSBRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
              .withTimestampAssigner((event, timestamp) -> event.event_time / 1000);

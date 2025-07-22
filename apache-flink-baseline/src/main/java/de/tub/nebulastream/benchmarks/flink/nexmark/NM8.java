@@ -43,6 +43,7 @@ public class NM8 {
         final int parallelism = params.getInt("parallelism", 1);
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
 
         LOG.info("Arguments: {}", params);
@@ -57,7 +58,7 @@ public class NM8 {
         WatermarkStrategy<NMAuctionRecord> strategyAuction = WatermarkStrategy
                 .<NMAuctionRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>("/tmp/data/auction_more_data_707MB.csv", numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
+        MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>(basePathForDataFiles + "/auction_more_data_707MB.csv", numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
         DataStream<NMAuctionRecord> sourceStreamAuctions = env
             .fromSource(auctionSource, strategyAuction, "Auction_Source")
             .returns(TypeExtractor.getForClass(NMAuctionRecord.class))
@@ -67,7 +68,7 @@ public class NM8 {
         WatermarkStrategy<NMPersonRecord> strategyPerson = WatermarkStrategy
                 .<NMPersonRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMPersonRecord> personSource = new MemorySource<NMPersonRecord>("/tmp/data/person_more_data_840MB.csv", numOfRecords, NMPersonRecord.class, NMPersonRecord.schema);
+        MemorySource<NMPersonRecord> personSource = new MemorySource<NMPersonRecord>(basePathForDataFiles + "/person_more_data_840MB.csv", numOfRecords, NMPersonRecord.class, NMPersonRecord.schema);
         DataStream<NMPersonRecord> sourceStreamPersons = env
             .fromSource(personSource, strategyPerson, "Person_Source")
             .returns(TypeExtractor.getForClass(NMPersonRecord.class))
