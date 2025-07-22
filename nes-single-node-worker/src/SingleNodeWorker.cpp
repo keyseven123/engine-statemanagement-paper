@@ -42,7 +42,13 @@
 namespace NES
 {
 
-SingleNodeWorker::~SingleNodeWorker() = default;
+SingleNodeWorker::~SingleNodeWorker()
+{
+    for (const auto& listener : queryEngineStatisticsListener)
+    {
+        listener->onNodeShutdown();
+    }
+};
 SingleNodeWorker::SingleNodeWorker(SingleNodeWorker&& other) noexcept = default;
 SingleNodeWorker& SingleNodeWorker::operator=(SingleNodeWorker&& other) noexcept = default;
 
@@ -89,7 +95,7 @@ SingleNodeWorker::SingleNodeWorker(const SingleNodeWorkerConfiguration& configur
             bytesPerSecondMessage,
             tuplesPerSecondMessage);
     };
-    constexpr auto timeIntervalInMilliSeconds = 1000;
+    constexpr auto timeIntervalInMilliSeconds = 500;
     const auto throughputListener = std::make_shared<ThroughputListener>(timeIntervalInMilliSeconds, callback);
 
     const auto printStatisticListener = std::make_shared<PrintingStatisticListener>(

@@ -95,6 +95,11 @@ void threadRoutine(
 }
 }
 
+void PrintingStatisticListener::onNodeShutdown()
+{
+    /// No-op here
+}
+
 void PrintingStatisticListener::onEvent(Event event)
 {
     events.writeIfNotFull(std::visit([]<typename T>(T&& arg) { return CombinedEventType(std::forward<T>(arg)); }, std::move(event)));

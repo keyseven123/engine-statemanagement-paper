@@ -39,6 +39,7 @@ struct PrintingStatisticListener final : QueryEngineStatisticListener, SystemEve
     using CombinedEventType = FlattenVariant<SystemEvent, Event>::type;
     void onEvent(Event event) override;
     void onEvent(SystemEvent event) override;
+    void onNodeShutdown() override;
 
     explicit PrintingStatisticListener(const std::filesystem::path& path);
     static_assert(std::is_default_constructible_v<CombinedEventType>);

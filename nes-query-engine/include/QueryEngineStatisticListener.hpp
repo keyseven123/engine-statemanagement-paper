@@ -160,6 +160,10 @@ struct QueryEngineStatisticListener
     /// This function is called from a WorkerThread!
     /// It should not block, and it has to be thread-safe!
     virtual void onEvent(Event event) = 0;
+
+    /// This function is called when the SingleNodeWorker gets destroyed.
+    /// Giving time to process some events
+    virtual void onNodeShutdown() = 0;
 };
 
 }

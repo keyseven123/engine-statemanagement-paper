@@ -36,7 +36,7 @@ Timestamp convertToTimeStamp(const ChronoClock::time_point timePoint)
 void threadRoutine(
     const std::stop_token& token,
     const Timestamp::Underlying timeIntervalInMilliSeconds,
-    folly::MPMCQueue<Event>& events,
+    folly::Synchronized<std::queue<Event>>& events,
     const std::function<void(const ThroughputListener::CallBackParams&)>& callBack)
 {
     PRECONDITION(callBack != nullptr, "Call Back is null");
@@ -92,12 +92,21 @@ void threadRoutine(
 
     while (!token.stop_requested())
     {
-        Event event = QueryStart{WorkerThreadId(0), QueryId(0)}; /// Will be overwritten
-
-        if (!events.tryReadUntil(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(100), event))
+        if (events.rlock()->empty())
         {
             continue;
         }
+
+        /// Using lambda invocation to gain the possibility of a return
+        /// As we only have one thread removing items from the queue, we are sure that we will retrieve a new item here
+        auto event = [&events]()
+        {
+            const auto lockedEvents = events.wlock();
+            const auto newEvent = lockedEvents->front();
+            lockedEvents->pop();
+            return newEvent;
+        }();
+
         std::visit(
             Overloaded{
                 [&](const TaskExecutionStart& taskStartEvent)
@@ -176,9 +185,32 @@ void threadRoutine(
 }
 }
 
+void ThroughputListener::onNodeShutdown()
+{
+    /// We wait until the queue is empty or for 30 seconds
+    const std::chrono::seconds timeout{30};
+    const auto endTime = std::chrono::high_resolution_clock::now() + timeout;
+    while (true)
+    {
+        /// Check if the queue is empty
+        if (events.rlock()->empty())
+        {
+            return;
+        }
+
+        /// Check if the timeout has been reached
+        if (std::chrono::high_resolution_clock::now() >= endTime)
+        {
+            std::cout << fmt::format("Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout) << std::endl;
+            NES_WARNING("Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout);
+        }
+    }
+
+}
+
 void ThroughputListener::onEvent(Event event)
 {
-    events.writeIfNotFull(std::visit([]<typename T>(T&& arg) { return Event(std::forward<T>(arg)); }, std::move(event)));
+    events.wlock()->emplace(std::visit([]<typename T>(T&& arg) { return Event(std::forward<T>(arg)); }, std::move(event)));
 }
 
 ThroughputListener::ThroughputListener(
