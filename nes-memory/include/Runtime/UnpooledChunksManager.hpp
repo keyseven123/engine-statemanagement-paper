@@ -33,6 +33,36 @@
 namespace NES
 {
 
+/// Helper struct that stores necessary information for accessing unpooled chunks
+/// Instead of allocating the exact needed space, we allocate a chunk of a space calculated by a rolling average of the last n sizes.
+/// Thus, we (pre-)allocate potentially multiple buffers. At least, there is a high chance that one chunk contains multiple tuple buffers
+struct ThreadLocalChunks
+{
+    struct ChunkControlBlock
+    {
+        size_t totalSize = 0;
+        size_t usedSize = 0;
+        uint8_t* startOfChunk = nullptr;
+        std::vector<std::unique_ptr<Memory::detail::MemorySegment>> unpooledMemorySegments;
+        uint64_t activeMemorySegments = 0;
+
+        friend std::ostream& operator<<(std::ostream& os, const ChunkControlBlock& chunkControlBlock)
+        {
+            return os << fmt::format(
+                       "CCB {} ({}/{}B) with {} activeMemorySegments",
+                       fmt::ptr(chunkControlBlock.startOfChunk),
+                       chunkControlBlock.usedSize,
+                       chunkControlBlock.totalSize,
+                       chunkControlBlock.activeMemorySegments);
+        }
+    };
+
+    explicit ThreadLocalChunks(uint64_t windowSize);
+    void emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
+    std::unordered_map<uint8_t*, ChunkControlBlock> chunks;
+    uint8_t* lastAllocateChunkKey;
+    RollingAverage<size_t> rollingAverage;
+};
 
 /// Stores and tracks all memory chunks for unpooled / variable sized buffers
 class UnpooledChunksManager
@@ -42,37 +72,6 @@ class UnpooledChunksManager
 
     /// Needed for allocating and deallocating memory
     std::shared_ptr<std::pmr::memory_resource> memoryResource;
-
-    /// Helper struct that stores necessary information for accessing unpooled chunks
-    /// Instead of allocating the exact needed space, we allocate a chunk of a space calculated by a rolling average of the last n sizes.
-    /// Thus, we (pre-)allocate potentially multiple buffers. At least, there is a high chance that one chunk contains multiple tuple buffers
-    struct ThreadLocalChunks
-    {
-        struct ChunkControlBlock
-        {
-            size_t totalSize = 0;
-            size_t usedSize = 0;
-            uint8_t* startOfChunk = nullptr;
-            std::vector<std::unique_ptr<Memory::detail::MemorySegment>> unpooledMemorySegments;
-            uint64_t activeMemorySegments = 0;
-
-            friend std::ostream& operator<<(std::ostream& os, const ChunkControlBlock& chunkControlBlock)
-            {
-                return os << fmt::format(
-                           "CCB {} ({}/{}B) with {} activeMemorySegments",
-                           fmt::ptr(chunkControlBlock.startOfChunk),
-                           chunkControlBlock.usedSize,
-                           chunkControlBlock.totalSize,
-                           chunkControlBlock.activeMemorySegments);
-            }
-        };
-
-        explicit ThreadLocalChunks(uint64_t windowSize);
-        void emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
-        std::unordered_map<uint8_t*, ChunkControlBlock> chunks;
-        uint8_t* lastAllocateChunkKey;
-        RollingAverage<size_t> rollingAverage;
-    };
 
     /// UnpooledBufferData is a shared_ptr, as we pass a shared_ptr to anyone that requires access to an unpooled buffer chunk
     folly::Synchronized<std::unordered_map<std::thread::id, std::shared_ptr<folly::Synchronized<ThreadLocalChunks>>>> allThreadLocalChunks;
@@ -93,4 +92,4 @@ public:
 
 }
 
-FMT_OSTREAM(NES::UnpooledChunksManager::ThreadLocalChunks::ChunkControlBlock);
+FMT_OSTREAM(NES::ThreadLocalChunks::ChunkControlBlock);

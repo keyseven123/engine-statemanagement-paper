@@ -38,29 +38,33 @@ UnpooledChunksManager::UnpooledChunksManager(std::shared_ptr<std::pmr::memory_re
 {
 }
 
-UnpooledChunksManager::ThreadLocalChunks::ThreadLocalChunks(const uint64_t windowSize) : lastAllocateChunkKey(nullptr), rollingAverage(windowSize)
+ThreadLocalChunks::ThreadLocalChunks(const uint64_t windowSize) : lastAllocateChunkKey(nullptr), rollingAverage(windowSize)
 {
 }
 
-void UnpooledChunksManager::ThreadLocalChunks::emplaceChunkControlBlock(
+void ThreadLocalChunks::emplaceChunkControlBlock(
     uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment)
 {
     auto& curUnpooledChunk = chunks.at(chunkKey);
     curUnpooledChunk.unpooledMemorySegments.emplace_back(std::move(newMemorySegment));
 }
 
-std::shared_ptr<folly::Synchronized<UnpooledChunksManager::ThreadLocalChunks>> UnpooledChunksManager::getThreadLocalChunk(const std::thread::id threadId)
+thread_local std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> localChunk = nullptr;
+std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> UnpooledChunksManager::getThreadLocalChunk(const std::thread::id threadId)
 {
-    auto upgradeLockedUnpooledBuffers = allThreadLocalChunks.ulock();
-    if (const auto existingChunk = upgradeLockedUnpooledBuffers->find(threadId); existingChunk != upgradeLockedUnpooledBuffers->cend())
+    if (localChunk == nullptr)
     {
-        return existingChunk->second;
-    }
+        auto upgradeLockedUnpooledBuffers = allThreadLocalChunks.ulock();
+        if (const auto existingChunk = upgradeLockedUnpooledBuffers->find(threadId); existingChunk != upgradeLockedUnpooledBuffers->cend())
+        {
+            localChunk = existingChunk->second;
+        }
 
-    /// We have seen a new thread id and need to create a new UnpooledBufferChunkData for it
-    auto newUnpooledBuffer = std::make_shared<folly::Synchronized<ThreadLocalChunks>>(ThreadLocalChunks(ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE));
-    upgradeLockedUnpooledBuffers.moveFromUpgradeToWrite()->emplace(threadId, newUnpooledBuffer);
-    return newUnpooledBuffer;
+        /// We have seen a new thread id and need to create a new UnpooledBufferChunkData for it
+        localChunk = std::make_shared<folly::Synchronized<ThreadLocalChunks>>(ThreadLocalChunks(ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE));
+        upgradeLockedUnpooledBuffers.moveFromUpgradeToWrite()->emplace(threadId, localChunk);
+    }
+    return localChunk;
 }
 
 size_t UnpooledChunksManager::getNumberOfUnpooledBuffers() const
