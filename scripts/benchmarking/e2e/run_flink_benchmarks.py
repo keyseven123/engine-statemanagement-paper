@@ -21,6 +21,8 @@ import csv
 import requests
 import socket
 
+from scripts.benchmarking.utils import *
+
 from urllib.request import urlretrieve
 
 flink = "flink-2.0.0"
@@ -61,7 +63,7 @@ needed_data_sets = {
 }
 
 num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
-parallelisms = ["1", "2", "4", "8", "16"]  # ["1", "4"]
+parallelisms = ["1", "4"] #["1", "2", "4", "8", "16"]
 MAX_RUNTIME_PER_JOB = 10  # in seconds
 
 
@@ -70,7 +72,7 @@ def get_tmp_data_dir():
     hostname = socket.gethostname()
 
     # Determine the vcpkg directory based on the hostname
-    if hostname == "tower-en717":
+    if hostname == "nils-ThinkStation-P3-Tower":
         data_dir = "/tmp/data"
     elif hostname == "hare":
         data_dir = "/data/tmp_data"
@@ -228,17 +230,6 @@ def write_to_csv(query_name, num_records):
     # Remove the input csv file
     os.remove(input_path)
 
-
-def check_repository_root():
-    """Check if the script is being run from the repository root."""
-    expected_dirs = ["nes-sources", "nes-sql-parser", "nes-systests"]
-    current_dir = os.getcwd()
-    contents = os.listdir(current_dir)
-
-    if not all(expected_dir in contents for expected_dir in expected_dirs):
-        raise RuntimeError("The script is not being run from the repository root.")
-
-
 def main():
     # Initialize argument parser
     parser = argparse.ArgumentParser(description="Run Flink queries.")
@@ -286,7 +277,7 @@ def main():
             for parallelism in parallelisms:
                 for num_records in num_of_records:
                     if "YSB" in query_name:
-                        # If we go above 5M for YSB, we require more RAM than we have on the mchine
+                        # If we go above 5M for YSB, we require more RAM than we have on the machine
                         num_records = 5 * 1000 * 1000
 
                     prepare()
