@@ -84,6 +84,7 @@ class TestQueryStatisticListener : public NES::QueryEngineStatisticListener
 {
 public:
     MOCK_METHOD(void, onEvent, (NES::Event), (override));
+    MOCK_METHOD(void, onNodeShutdown, (), (override));
 };
 
 /// Mock implementation for the QueryStatusListener. This allows to verify query status events, e.g. `Running`, `Stopped`.

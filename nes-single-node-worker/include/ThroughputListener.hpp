@@ -16,7 +16,8 @@
 #include <filesystem>
 #include <fstream>
 #include <thread>
-#include <folly/MPMCQueue.h>
+#include <queue>
+#include <folly/Synchronized.h>
 #include <QueryEngineStatisticListener.hpp>
 
 
@@ -36,12 +37,13 @@ public:
     };
 
     void onEvent(Event event) override;
+    void onNodeShutdown() override;
     explicit ThroughputListener(
         const Timestamp::Underlying timeIntervalInMilliSeconds, const std::function<void(const CallBackParams&)>& callBack);
 
 private:
     std::ofstream file;
-    folly::MPMCQueue<Event> events{100};
+    folly::Synchronized<std::queue<Event>> events;
     const Timestamp::Underlying timeIntervalInMilliSeconds;
 
     /// We need to store the callback, as it might go out of scope
