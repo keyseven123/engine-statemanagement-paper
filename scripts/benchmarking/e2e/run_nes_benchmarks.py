@@ -16,12 +16,31 @@
 Python script that runs the below systest files for different worker configurations
 """
 
+import argparse
 import subprocess
 import json
 import os
 import csv
 import shutil
 import itertools
+import socket
+
+
+def get_vcpkg_dir():
+    # Get the hostname
+    hostname = socket.gethostname()
+
+    # Determine the vcpkg directory based on the hostname
+    if hostname == "tower-en717":
+        vcpkg_dir = "/home/nils/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    elif hostname == "hare":
+        vcpkg_dir = "/data/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    elif hostname == "mif-ws":
+        vcpkg_dir = "/home/nschubert/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    else:
+        raise ValueError(f"Unknown hostname: {hostname}. Cannot determine vcpkg directory.")
+
+    return vcpkg_dir
 
 #### Benchmark Configurations
 build_dir = os.path.join(".", "build_dir")
@@ -32,7 +51,7 @@ systest_executable = os.path.join(build_dir, "nes-systests/systest/systest")
 test_data_dir = os.path.abspath(os.path.join(build_dir, "nes-systests/testdata"))
 cmake_flags = ("-G Ninja "
                "-DCMAKE_BUILD_TYPE=Release "
-               "-DCMAKE_TOOLCHAIN_FILE=/home/nils/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake "
+               f"-DCMAKE_TOOLCHAIN_FILE={get_vcpkg_dir()} "
                "-DUSE_LIBCXX_IF_AVAILABLE:BOOL=OFF "
                "-DENABLE_LARGE_TESTS=1 "
                "-DNES_LOG_LEVEL:STRING=LEVEL_NONE "
@@ -50,7 +69,7 @@ allBufferSizes = [8196] #[100 * 1024]
 allPageSizes = [4096]
 
 #### Queries
-allQueries = {
+queries = {
     "CM1": "nes-systests/benchmark/memory-source/ClusterMonitoring.test:01",
     "CM2": "nes-systests/benchmark/memory-source/ClusterMonitoring.test:03",
     "LRB1": "nes-systests/benchmark/memory-source/LinearRoadBenchmark.test:01",
@@ -140,7 +159,7 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
                      f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
                      f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")
 
-    benchmark_command = f"{systest_executable} -b -t {allQueries[query]} --data {test_data_dir} --workingDir={working_dir} -- {worker_config}"
+    benchmark_command = f"{systest_executable} -b -t {queries[query]} --data {test_data_dir} --workingDir={working_dir} -- {worker_config}"
 
     print(
         f"Running {query} [{queryIdx}/{no_queries}] for worker configuration [{workerConfigIdx}/{no_combinations}]...")
@@ -175,6 +194,21 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
 
 
 if __name__ == "__main__":
+    # Initialize argument parser
+    parser = argparse.ArgumentParser(description="Run Flink queries.")
+    parser.add_argument("--all", action="store_true", help="Run all queries.")
+    parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
+    args = parser.parse_args()
+
+    # Determine which queries to run
+    queries_to_run = queries
+
+    if not args.all and args.queries:
+        # Filter queries based on the provided list
+        queries_to_run = {k: v for k, v in queries.items() if k in args.queries}
+
+    print(",".join(queries_to_run.keys()))
+
     # Checking if the script has been executed from the repository root
     check_repository_root()
 
@@ -198,8 +232,8 @@ if __name__ == "__main__":
             len(allBufferSizes) *
             len(allPageSizes)
     )
-    no_queries = len(allQueries)
-    for queryIdx, query in enumerate(allQueries):
+    no_queries = len(queries_to_run)
+    for queryIdx, query in enumerate(queries_to_run):
         workerConfigIdx = 0
 
         combinations = itertools.product(allExecutionModes, allNumberOfWorkerThreads,
