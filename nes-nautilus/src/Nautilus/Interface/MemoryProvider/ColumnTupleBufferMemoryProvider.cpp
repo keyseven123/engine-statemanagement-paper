@@ -58,16 +58,20 @@ Record ColumnTupleBufferMemoryProvider::readRecord(
     /// read all fields
     const auto bufferAddress = recordBuffer.getBuffer();
     Record record;
+    nautilus::val<uint64_t> countVarSized = 0;
     for (nautilus::static_val<uint64_t> i = 0; i < schema.getNumberOfFields(); ++i)
     {
         const auto& fieldName = schema.getFieldAt(i).name;
-        if (!includesField(projections, fieldName))
+        if (includesField(projections, fieldName))
         {
-            continue;
+            auto fieldAddress = calculateFieldAddress(bufferAddress, recordIndex, i);
+            auto value = loadValue(columnMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, countVarSized);
+            record.write(fieldName, value);
         }
-        auto fieldAddress = calculateFieldAddress(bufferAddress, recordIndex, i);
-        auto value = loadValue(columnMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress);
-        record.write(fieldName, value);
+        if (schema.getFieldAt(i).dataType.isType(DataType::Type::VARSIZED))
+        {
+            countVarSized += 1;
+        }
     }
     return record;
 }
@@ -80,11 +84,24 @@ void ColumnTupleBufferMemoryProvider::writeRecord(
 {
     const auto& schema = columnMemoryLayout->getSchema();
     const auto bufferAddress = recordBuffer.getBuffer();
+
+    nautilus::val<uint64_t> totalVarSizedSpace = 0;
+    for (nautilus::static_val<size_t> i = 0; i < schema.getNumberOfFields(); ++i)
+    {
+        if (schema.getFieldAt(i).dataType.isType(DataType::Type::VARSIZED))
+        {
+            const auto& varSized = rec.read(schema.getFieldAt(i).name).cast<VariableSizedData>();
+            totalVarSizedSpace += varSized.getTotalSize();
+        }
+    }
+
+    nautilus::val<uint32_t> childIndex = 0;
+    nautilus::val<uint64_t> varSizedOffset = 0;
     for (nautilus::static_val<size_t> i = 0; i < schema.getNumberOfFields(); ++i)
     {
         auto fieldAddress = calculateFieldAddress(bufferAddress, recordIndex, i);
         const auto value = rec.read(schema.getFieldAt(i).name);
-        storeValue(columnMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, value, bufferProvider);
+        storeValue(columnMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, value, bufferProvider, totalVarSizedSpace, varSizedOffset, childIndex);
     }
 }
 

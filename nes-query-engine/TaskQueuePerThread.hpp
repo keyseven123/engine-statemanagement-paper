@@ -23,25 +23,25 @@ namespace NES
 class TaskQueuePerQuery final : public TaskQueue
 {
     size_t taskQueueSize;
-    std::map<QueryId, std::shared_ptr<detail::Queue>> taskQueues;
+    std::map<QueryId, detail::Queue> taskQueues;
 
 
-    std::shared_ptr<detail::Queue> getOwnQueue(const QueryId& queryId)
+    detail::Queue& getOwnQueue(const QueryId& queryId)
     {
         return taskQueues[queryId];
     }
 
 public:
     explicit TaskQueuePerQuery(const size_t taskQueueSize) : taskQueueSize(taskQueueSize) {}
-    ssize_t size(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId)->size(); }
-    std::shared_ptr<detail::Queue> accessQueueForReading(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId); }
-    std::shared_ptr<detail::Queue> accessQueueForWriting(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId); }
+    ssize_t size(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId).size(); }
+    detail::Queue& accessQueueForReading(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId); }
+    detail::Queue& accessQueueForWriting(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId); }
     void addedQuery(const QueryId& queryId, const WorkerThreadId&) override
     {
         PRECONDITION(not taskQueues.contains(queryId), "QueryId {} should not exist already ", queryId);
 
         /// We need to add a new queue for the new query
-        taskQueues[queryId] = std::make_shared<detail::Queue>(taskQueueSize);
+        taskQueues[queryId] = detail::Queue{taskQueueSize};
     };
     ~TaskQueuePerQuery() override = default;
 };

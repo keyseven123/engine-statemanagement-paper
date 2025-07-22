@@ -11,6 +11,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
+#include <Nautilus/Interface/MemoryProvider/RowTupleBufferMemoryProvider.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -20,13 +21,13 @@
 #include <DataTypes/Schema.hpp>
 #include <MemoryLayout/MemoryLayout.hpp>
 #include <MemoryLayout/RowLayout.hpp>
-#include <Nautilus/Interface/MemoryProvider/RowTupleBufferMemoryProvider.hpp>
 #include <Nautilus/Interface/Record.hpp>
 #include <Nautilus/Interface/RecordBuffer.hpp>
 #include <Runtime/AbstractBufferProvider.hpp>
 #include <nautilus/val_ptr.hpp>
 #include <static.hpp>
 #include <val.hpp>
+#include "Nautilus/Util.hpp"
 
 namespace NES::Nautilus::Interface::MemoryProvider
 {
@@ -58,16 +59,20 @@ Record RowTupleBufferMemoryProvider::readRecord(
     const auto tupleSize = rowMemoryLayout->getTupleSize();
     const auto bufferAddress = recordBuffer.getBuffer();
     const auto recordOffset = bufferAddress + (tupleSize * recordIndex);
+    nautilus::val<uint64_t> countVarSized = 0;
     for (nautilus::static_val<uint64_t> i = 0; i < schema.getNumberOfFields(); ++i)
     {
         const auto& fieldName = schema.getFieldAt(i).name;
-        if (!includesField(projections, fieldName))
+        if (includesField(projections, fieldName))
         {
-            continue;
+            auto fieldAddress = calculateFieldAddress(recordOffset, i);
+            auto value = loadValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, countVarSized);
+            record.write(rowMemoryLayout->getSchema().getFieldAt(i).name, value);
         }
-        auto fieldAddress = calculateFieldAddress(recordOffset, i);
-        auto value = loadValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress);
-        record.write(rowMemoryLayout->getSchema().getFieldAt(i).name, value);
+        if (schema.getFieldAt(i).dataType.isType(DataType::Type::VARSIZED))
+        {
+            countVarSized += 1;
+        }
     }
     return record;
 }
@@ -82,11 +87,24 @@ void RowTupleBufferMemoryProvider::writeRecord(
     const auto bufferAddress = recordBuffer.getBuffer();
     const auto recordOffset = bufferAddress + (tupleSize * recordIndex);
     const auto schema = rowMemoryLayout->getSchema();
+
+    nautilus::val<uint64_t> totalVarSizedSpace = 0;
+    for (nautilus::static_val<size_t> i = 0; i < schema.getNumberOfFields(); ++i)
+    {
+        if (schema.getFieldAt(i).dataType.isType(DataType::Type::VARSIZED))
+        {
+            const auto& varSized = rec.read(schema.getFieldAt(i).name).cast<VariableSizedData>();
+            totalVarSizedSpace += varSized.getTotalSize();
+        }
+    }
+
+    nautilus::val<uint32_t> childIndex = 0;
+    nautilus::val<uint64_t> varSizedOffset = 0;
     for (nautilus::static_val<size_t> i = 0; i < schema.getNumberOfFields(); ++i)
     {
         auto fieldAddress = calculateFieldAddress(recordOffset, i);
         const auto& value = rec.read(schema.getFieldAt(i).name);
-        storeValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, value, bufferProvider);
+        storeValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, value, bufferProvider, totalVarSizedSpace, varSizedOffset, childIndex);
     }
 }
 

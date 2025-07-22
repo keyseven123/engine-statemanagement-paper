@@ -14,6 +14,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <utility>
 #include <Identifiers/Identifiers.hpp>
@@ -148,7 +149,7 @@ BufferControlBlock* BufferControlBlock::retain()
     fillThreadOwnershipInfo(info.threadName, info.callstack);
     owningThreads[std::this_thread::get_id()].emplace_back(info);
 #endif
-    referenceCounter++;
+    ++referenceCounter;
     return this;
 }
 
@@ -187,6 +188,9 @@ bool BufferControlBlock::release()
         }
         children.clear();
         auto recycler = std::move(owningBufferRecycler);
+        combinedVarSized = false;
+        numberOfTuples = 0;
+        usedMemorySize = 0;
         recycleCallback(owner, recycler.get());
 #ifdef NES_DEBUG_TUPLE_BUFFER_LEAKS
         {
@@ -308,6 +312,16 @@ OriginId BufferControlBlock::getOriginId() const noexcept
 void BufferControlBlock::setOriginId(const OriginId originId)
 {
     this->originId = originId;
+}
+
+void BufferControlBlock::setCombinedVarSized(bool combinedVarSized)
+{
+    this->combinedVarSized = combinedVarSized;
+}
+
+bool BufferControlBlock::isCombinedVarSized() const noexcept
+{
+    return combinedVarSized;
 }
 
 /// -----------------------------------------------------------------------------

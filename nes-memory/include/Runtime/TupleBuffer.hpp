@@ -184,6 +184,9 @@ public:
     void setChunkNumber(ChunkNumber chunkNumber) const noexcept;
     [[nodiscard]] ChunkNumber getChunkNumber() const noexcept;
 
+    void setCombinedVarSized(bool combinedVarSized) const;
+    [[nodiscard]] bool isCombinedVarSized() const noexcept;
+
     /// @brief set if this is the last chunk of a sequence number
     void setLastChunk(bool isLastChunk) const noexcept;
 
