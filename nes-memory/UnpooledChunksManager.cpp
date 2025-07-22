@@ -145,7 +145,7 @@ Memory::TupleBuffer UnpooledChunksManager::getUnpooledBuffer(
 
     /// we have to align the buffer size as ARM throws an SIGBUS if we have unaligned accesses on atomics.
     const auto alignedBufferSizePlusControlBlock
-        = Memory::alignBufferSize(neededSize + sizeof(Memory::detail::BufferControlBlock), alignment);
+        = Memory::alignBufferSize(neededSize, alignment);
 
     /// Getting space from the unpooled chunks manager
     const auto& [localKeyForUnpooledBufferChunk, localMemoryForNewTupleBuffer]
@@ -153,10 +153,9 @@ Memory::TupleBuffer UnpooledChunksManager::getUnpooledBuffer(
 
     /// Creating a new memory segment, and adding it to the unpooledMemorySegments
     const auto alignedBufferSize = Memory::alignBufferSize(neededSize, alignment);
-    const auto controlBlockSize = Memory::alignBufferSize(sizeof(Memory::detail::BufferControlBlock), alignment);
     const auto chunk = this->getThreadLocalChunk(threadId);
     auto memSegment = std::make_unique<Memory::detail::MemorySegment>(
-        localMemoryForNewTupleBuffer + controlBlockSize,
+        localMemoryForNewTupleBuffer,
         alignedBufferSize,
         [copyOfMemoryResource = this->memoryResource,
          copyOLastChunkPtr = localKeyForUnpooledBufferChunk,
