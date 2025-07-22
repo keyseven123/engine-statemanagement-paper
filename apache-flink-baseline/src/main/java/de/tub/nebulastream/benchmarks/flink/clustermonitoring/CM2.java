@@ -38,6 +38,7 @@ public class CM2 {
         final int parallelism = params.getInt("parallelism", 1);
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
         LOG.info("Arguments: {}", params);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -46,7 +47,7 @@ public class CM2 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-         MemorySource<CMRecord> source = new MemorySource<CMRecord>("/tmp/data/google-cluster-data-original_1G.csv", numOfRecords, CMRecord.class, CMRecord.schema);
+         MemorySource<CMRecord> source = new MemorySource<CMRecord>(basePathForDataFiles + "/google-cluster-data-original_1G.csv", numOfRecords, CMRecord.class, CMRecord.schema);
          WatermarkStrategy<CMRecord> strategy = WatermarkStrategy
                  .<CMRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                  .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);

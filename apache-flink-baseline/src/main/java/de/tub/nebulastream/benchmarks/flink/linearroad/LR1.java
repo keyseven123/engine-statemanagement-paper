@@ -40,6 +40,7 @@ public class LR1 {
         final int parallelism = params.getInt("parallelism", 1);
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
         LOG.info("Arguments: {}", params);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -48,7 +49,7 @@ public class LR1 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<LRRecord> source = new MemorySource<LRRecord>("/tmp/data/linear_road_benchmark_5GB.csv", numOfRecords, LRRecord.class, LRRecord.schema);
+        MemorySource<LRRecord> source = new MemorySource<LRRecord>(basePathForDataFiles + "/linear_road_benchmark_5GB.csv", numOfRecords, LRRecord.class, LRRecord.schema);
         WatermarkStrategy<LRRecord> strategy = WatermarkStrategy
                 .<LRRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);

@@ -40,6 +40,7 @@ public class SG3 {
         final int maxParallelism = params.getInt("maxParallelism", 16);
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
         LOG.info("Arguments: {}", params);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -48,7 +49,7 @@ public class SG3 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<SGRecord> source = new MemorySource<SGRecord>("/tmp/data/smartgrid-data_6GB.csv", numOfRecords, SGRecord.class, SGRecord.schema);
+        MemorySource<SGRecord> source = new MemorySource<SGRecord>(basePathForDataFiles + "/smartgrid-data_6GB.csv", numOfRecords, SGRecord.class, SGRecord.schema);
         WatermarkStrategy<SGRecord> strategy = WatermarkStrategy
              .<SGRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
              .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);

@@ -43,6 +43,7 @@ public class NM8_Variant {
         final int parallelism = params.getInt("parallelism", 1);
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
+        final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
 
 
         LOG.info("Arguments: {}", params);
@@ -57,7 +58,7 @@ public class NM8_Variant {
         WatermarkStrategy<NMAuctionRecord> strategyAuction = WatermarkStrategy
                 .<NMAuctionRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>("/tmp/data/auction_more_data_707MB.csv", numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
+        MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>(basePathForDataFiles + "/auction_more_data_707MB.csv", numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
         DataStream<NMAuctionRecord> sourceStreamAuctions = env
             .fromSource(auctionSource, strategyAuction, "Auction_Source")
             .returns(TypeExtractor.getForClass(NMAuctionRecord.class))
@@ -67,7 +68,7 @@ public class NM8_Variant {
         WatermarkStrategy<NMBidRecord> strategyBids = WatermarkStrategy
                 .<NMBidRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1))
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMBidRecord> bidSource = new MemorySource<NMBidRecord>("/tmp/data/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
+        MemorySource<NMBidRecord> bidSource = new MemorySource<NMBidRecord>(basePathForDataFiles + "/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
         DataStream<NMBidRecord> sourceStreamBids = env
             .fromSource(bidSource, strategyBids, "Bid_Source")
             .returns(TypeExtractor.getForClass(NMBidRecord.class))
