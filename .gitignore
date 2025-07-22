@@ -39,4 +39,9 @@ nes-asp/data/*.csv
 # Ignore log files
 *.log
 
+# Ignore pdf and jupyter notebook checkpoints
+*.pdf
+.ipynb_checkpoints
+*.ipynb
+
 scripts/__pycache__
