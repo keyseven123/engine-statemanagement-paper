@@ -25,22 +25,8 @@ import shutil
 import itertools
 import socket
 
+from scripts.benchmarking.utils import *
 
-def get_vcpkg_dir():
-    # Get the hostname
-    hostname = socket.gethostname()
-
-    # Determine the vcpkg directory based on the hostname
-    if hostname == "tower-en717":
-        vcpkg_dir = "/home/nils/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
-    elif hostname == "hare":
-        vcpkg_dir = "/data/vcpkg/scripts/buildsystems/vcpkg.cmake"
-    elif hostname == "mif-ws":
-        vcpkg_dir = "/home/nschubert/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
-    else:
-        raise ValueError(f"Unknown hostname: {hostname}. Cannot determine vcpkg directory.")
-
-    return vcpkg_dir
 
 #### Benchmark Configurations
 build_dir = os.path.join(".", "build_dir")
@@ -60,7 +46,7 @@ NUM_RUNS_PER_EXPERIMENT = 1
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = [1, 2, 4, 8, 16] #[1, 4]
+allNumberOfWorkerThreads = [1, 4] #[1, 2, 4, 8, 16]
 allNumberOfBuffersInGlobalBufferManagers = [4000000] #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
 allNumberOfEntriesSliceCaches = [5]
@@ -86,47 +72,6 @@ queries = {
     "YSB1k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:01",
     "YSB10k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:02",
 }
-
-
-def check_repository_root():
-    """Check if the script is being run from the repository root."""
-    expected_dirs = ["nes-sources", "nes-sql-parser", "nes-systests"]
-    current_dir = os.getcwd()
-    contents = os.listdir(current_dir)
-
-    if not all(expected_dir in contents for expected_dir in expected_dirs):
-        raise RuntimeError("The script is not being run from the repository root.")
-
-
-def create_folder_and_remove_if_exists(folder_path):
-    """
-    Create a folder and remove it if it already exists.
-    :param folder_path: Path of the folder to create.
-    """
-    # Check if the folder exists
-    if os.path.exists(folder_path):
-        # Remove the folder and all its contents
-        shutil.rmtree(folder_path)
-        print(f"Removed existing folder: {folder_path}")
-
-    # Create the folder
-    os.makedirs(folder_path)
-    print(f"Created folder: {folder_path}")
-
-
-def run_command(command, cwd=None):
-    result = subprocess.run(command, cwd=cwd, shell=True, check=True, text=True, capture_output=True)
-    return result.stdout
-
-
-def compile_nebulastream():
-    cmake_command = f"cmake {cmake_flags} -S . -B {build_dir}"
-    build_command = f"cmake --build {build_dir}"
-
-    print("Running cmake...")
-    run_command(cmake_command)
-    print("Building the project...")
-    run_command(build_command)
 
 
 def initialize_csv_file():
@@ -216,7 +161,7 @@ if __name__ == "__main__":
     create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
-    compile_nebulastream()
+    compile_nebulastream(cmake_flags, build_dir)
 
     # Init csv files
     initialize_csv_file()

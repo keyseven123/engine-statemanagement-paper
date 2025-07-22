@@ -23,7 +23,7 @@ import time
 import socket
 import yaml
 import pandas as pd
-
+from scripts.benchmarking.utils import *
 
 #### Benchmark Configurations
 build_dir = os.path.join(".", "build_dir")
@@ -35,7 +35,7 @@ nebuli_executable = os.path.join(build_dir, "nes-nebuli/nes-nebuli --debug")
 tcp_server_executable = os.path.join(build_dir, "scripts/benchmarking/work-dealing/tcp-server/tcpserver")
 cmake_flags = ("-G Ninja "
                "-DCMAKE_BUILD_TYPE=Release "
-               "-DCMAKE_TOOLCHAIN_FILE=/home/nils/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake "
+               f"-DCMAKE_TOOLCHAIN_FILE={get_vcpkg_dir()} "
                "-DUSE_LIBCXX_IF_AVAILABLE:BOOL=OFF "
                "-DENABLE_LARGE_TESTS=1 "
                "-DNES_LOG_LEVEL:STRING=LEVEL_NONE "
@@ -49,7 +49,7 @@ WAIT_BEFORE_SIGKILL = 10
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = [16]
+allNumberOfWorkerThreads = [8]
 allNumberOfBuffersInGlobalBufferManagers = [4000000]  # [500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
 allNumberOfEntriesSliceCaches = [5]
@@ -64,55 +64,12 @@ allQueries = {
     "filter": "scripts/benchmarking/work-dealing/configs/agg_query.yaml"}
 no_concurrent_queries = 128
 
-
-def check_repository_root():
-    """Check if the script is being run from the repository root."""
-    expected_dirs = ["nes-sources", "nes-sql-parser", "nes-systests"]
-    current_dir = os.getcwd()
-    contents = os.listdir(current_dir)
-
-    if not all(expected_dir in contents for expected_dir in expected_dirs):
-        raise RuntimeError("The script is not being run from the repository root.")
-
-
-def create_folder_and_remove_if_exists(folder_path):
-    """
-    Create a folder and remove it if it already exists.
-    :param folder_path: Path of the folder to create.
-    """
-    # Check if the folder exists
-    if os.path.exists(folder_path):
-        # Remove the folder and all its contents
-        shutil.rmtree(folder_path)
-        print(f"Removed existing folder: {folder_path}")
-
-    # Create the folder
-    os.makedirs(folder_path)
-    print(f"Created folder: {folder_path}")
-
-
 def create_output_folder(appendix):
     timestamp = int(time.time())
     folder_name = f"ResourceAssignment_{timestamp}_{appendix}"
     create_folder_and_remove_if_exists(folder_name)
     print(f"Created folder {folder_name}...")
     return folder_name
-
-
-def run_command(command, cwd=None):
-    result = subprocess.run(command, cwd=cwd, shell=True, check=True, text=True, capture_output=True)
-    return result.stdout
-
-
-def compile_nebulastream():
-    cmake_command = f"cmake {cmake_flags} -S . -B {build_dir}"
-    build_command = f"cmake --build {build_dir}"
-
-    print("Running cmake...")
-    run_command(cmake_command)
-    print("Building the project...")
-    run_command(build_command)
-
 
 def terminate_process_if_exists(process):
     try:
@@ -308,7 +265,7 @@ if __name__ == "__main__":
     create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
-    compile_nebulastream()
+    compile_nebulastream(cmake_flags, build_dir)
 
     tcp_server_processes = []
     single_node_process = []
