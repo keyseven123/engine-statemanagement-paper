@@ -38,8 +38,41 @@ UnpooledChunksManager::UnpooledChunksManager(std::shared_ptr<std::pmr::memory_re
 {
 }
 
-ThreadLocalChunks::ThreadLocalChunks(const uint64_t windowSize) : lastAllocateChunkKey(nullptr), rollingAverage(windowSize)
+ThreadLocalChunks::ThreadLocalChunks(const uint64_t windowSize, std::shared_ptr<std::pmr::memory_resource> memoryResource)
+    : chunkCache(std::move(memoryResource)), lastAllocateChunkKey(nullptr), rollingAverage(windowSize)
 {
+}
+
+void ThreadLocalChunks::ChunkCache::insert(const ChunkControlBlock& chunkControlBlock)
+{
+    /// Checking if we need to remove and deallocate a chunk control block
+    /// If this is the case, we opt for the smallest chunk as the larger a chunk is, the higher the chance we can reuse it
+    if (secondChanceChunks.size() >= chunkCacheSpace)
+    {
+        const auto [startOfChunk, alignment, totalSize] = secondChanceChunks.begin()->second;
+        secondChanceChunks.erase(secondChanceChunks.begin());
+        memoryResource->deallocate(startOfChunk, totalSize, alignment);
+    }
+
+    /// Inserting the chunk control block as we have enough space for it now
+    secondChanceChunks.insert({chunkControlBlock.memoryChunk.totalSize, chunkControlBlock.memoryChunk});
+}
+
+std::optional<ThreadLocalChunks::MemoryChunk> ThreadLocalChunks::ChunkCache::tryGetChunk(const size_t neededSize)
+{
+    /// Searching for a chunk that has a larger size than neededSize
+    for (auto it = secondChanceChunks.begin(); it != secondChanceChunks.end(); ++it)
+    {
+        if (it->first >= neededSize)
+        {
+            auto recycledChunk = std::move(it->second);
+            secondChanceChunks.erase(it);
+            return recycledChunk;
+        }
+    }
+
+    /// We could not find a chunk of a suitable size
+    return {};
 }
 
 void ThreadLocalChunks::emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment)
@@ -51,21 +84,25 @@ void ThreadLocalChunks::emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_
 
 std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> UnpooledChunksManager::getThreadLocalChunkForCurrentThread()
 {
-    thread_local std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> localChunk = getThreadLocalChunkFromOtherThread(std::this_thread::get_id());
+    thread_local std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> localChunk
+        = getThreadLocalChunkFromOtherThread(std::this_thread::get_id());
     return localChunk;
 }
 
 std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> UnpooledChunksManager::getThreadLocalChunkFromOtherThread(std::thread::id threadId)
 {
-    auto upgradeLockedUnpooledBuffers = allThreadLocalChunks.ulock();
-    if (const auto existingChunk = upgradeLockedUnpooledBuffers->find(threadId); existingChunk != upgradeLockedUnpooledBuffers->cend())
     {
-        return existingChunk->second;
+        auto upgradeLockedUnpooledBuffers = allThreadLocalChunks.rlock();
+        if (const auto existingChunk = upgradeLockedUnpooledBuffers->find(threadId); existingChunk != upgradeLockedUnpooledBuffers->cend())
+        {
+            return existingChunk->second;
+        }
     }
 
     /// We have seen a new thread id and need to create a new UnpooledBufferChunkData for it
-    auto newChunk = std::make_shared<folly::Synchronized<ThreadLocalChunks>>(ThreadLocalChunks(ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE));
-    upgradeLockedUnpooledBuffers.moveFromUpgradeToWrite()->insert({threadId, newChunk});
+    auto newChunk
+        = std::make_shared<folly::Synchronized<ThreadLocalChunks>>(ThreadLocalChunks(ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE, memoryResource));
+    allThreadLocalChunks.wlock()->insert({threadId, newChunk});
     return newChunk;
 }
 
@@ -85,8 +122,7 @@ size_t UnpooledChunksManager::getNumberOfUnpooledBuffers() const
     return numOfUnpooledBuffers;
 }
 
-std::pair<uint8_t*, uint8_t*>
-UnpooledChunksManager::allocateSpace(const size_t neededSize, const size_t alignment)
+std::pair<uint8_t*, uint8_t*> UnpooledChunksManager::allocateSpace(const size_t neededSize, const size_t alignment)
 {
     /// There exist two possibilities that can happen
     /// 1. We have enough space in an already allocated chunk or 2. we need to allocate a new chunk of memory
@@ -98,10 +134,10 @@ UnpooledChunksManager::allocateSpace(const size_t neededSize, const size_t align
     if (localUnpooledBufferChunkStorage.contains(localLastAllocatedChunkKey))
     {
         if (auto& currentAllocatedChunk = localUnpooledBufferChunkStorage.at(localLastAllocatedChunkKey);
-            currentAllocatedChunk.usedSize + neededSize < currentAllocatedChunk.totalSize)
+            currentAllocatedChunk.usedSize + neededSize < currentAllocatedChunk.memoryChunk.totalSize)
         {
             /// There is enough space in the last allocated chunk. Thus, we can create a tuple buffer from the available space
-            const auto localMemoryForNewTupleBuffer = currentAllocatedChunk.startOfChunk + currentAllocatedChunk.usedSize;
+            const auto localMemoryForNewTupleBuffer = currentAllocatedChunk.memoryChunk.startOfChunk + currentAllocatedChunk.usedSize;
             const auto localKeyForUnpooledBufferChunk = localLastAllocatedChunkKey;
             currentAllocatedChunk.activeMemorySegments += 1;
             currentAllocatedChunk.usedSize += neededSize;
@@ -116,6 +152,25 @@ UnpooledChunksManager::allocateSpace(const size_t neededSize, const size_t align
 
     /// The last allocated chunk is not enough. Thus, we need to allocate a new chunk and insert it into the unpooled buffer storage
     /// The memory to allocate must be larger than bufferSize, while also taking the rolling average into account.
+    /// We check if the chunk cache has a suitable chunk available
+    if (const auto recycledChunkControlBlock = lockedLocalUnpooledBufferData->chunkCache.tryGetChunk(neededSize);
+        recycledChunkControlBlock.has_value())
+    {
+        // Updating the local last allocate chunk key and adding the new chunk to the local chunk storage
+        localLastAllocatedChunkKey = recycledChunkControlBlock.value().startOfChunk;
+        const auto localKeyForUnpooledBufferChunk = recycledChunkControlBlock.value().startOfChunk;
+        const auto localMemoryForNewTupleBuffer = recycledChunkControlBlock.value().startOfChunk;
+        auto& currentAllocatedChunk = localUnpooledBufferChunkStorage[localKeyForUnpooledBufferChunk];
+        currentAllocatedChunk.memoryChunk.startOfChunk = recycledChunkControlBlock.value().startOfChunk;
+        currentAllocatedChunk.memoryChunk.totalSize = recycledChunkControlBlock.value().totalSize;
+        currentAllocatedChunk.memoryChunk.alignment = alignment;
+        currentAllocatedChunk.usedSize = neededSize;
+        currentAllocatedChunk.activeMemorySegments = 1;
+        return {localKeyForUnpooledBufferChunk, localMemoryForNewTupleBuffer};
+    }
+
+
+    /// We could not find a suitable chunk in the chunk cache. Therefore, we need to allocate new memory.
     /// For now, we allocate multiple localLastAllocateChunkKeyrolling averages. If this is too small for the current bufferSize, we allocate at least the bufferSize
     const auto newAllocationSizeExact = std::max(neededSize, newRollingAverage * NUM_PRE_ALLOCATED_CHUNKS);
     const auto newAllocationSize = (newAllocationSizeExact + 4095U) & ~4095U; /// Round to the nearest multiple of 4KB (page size)
@@ -131,10 +186,11 @@ UnpooledChunksManager::allocateSpace(const size_t neededSize, const size_t align
     const auto localKeyForUnpooledBufferChunk = newlyAllocatedMemory;
     const auto localMemoryForNewTupleBuffer = newlyAllocatedMemory;
     auto& currentAllocatedChunk = localUnpooledBufferChunkStorage[localKeyForUnpooledBufferChunk];
-    currentAllocatedChunk.startOfChunk = newlyAllocatedMemory;
-    currentAllocatedChunk.totalSize = newAllocationSize;
-    currentAllocatedChunk.usedSize += neededSize;
-    currentAllocatedChunk.activeMemorySegments += 1;
+    currentAllocatedChunk.memoryChunk.startOfChunk = newlyAllocatedMemory;
+    currentAllocatedChunk.memoryChunk.totalSize = newAllocationSize;
+    currentAllocatedChunk.memoryChunk.alignment = alignment;
+    currentAllocatedChunk.usedSize = neededSize;
+    currentAllocatedChunk.activeMemorySegments = 1;
     NES_TRACE("Created new chunk {} for tuple buffer {} of {}B", currentAllocatedChunk, fmt::ptr(localMemoryForNewTupleBuffer), neededSize);
     return {localKeyForUnpooledBufferChunk, localMemoryForNewTupleBuffer};
 }
@@ -162,9 +218,8 @@ void UnpooledChunksManager::recycleUnpooledBuffer(
         const auto extractedChunk = lockedLocalUnpooledBufferData->chunks.extract(threadCopyLastChunkPtr.lastChunkPtr);
         const auto& extractedChunkControlBlock = extractedChunk.mapped();
         lockedLocalUnpooledBufferData->lastAllocateChunkKey = nullptr;
+        lockedLocalUnpooledBufferData->chunkCache.insert(extractedChunkControlBlock);
         lockedLocalUnpooledBufferData.unlock();
-        memoryResource->deallocate(
-            extractedChunkControlBlock.startOfChunk, extractedChunkControlBlock.totalSize, threadCopyLastChunkPtr.alignment);
     }
 }
 
@@ -184,11 +239,11 @@ Memory::TupleBuffer UnpooledChunksManager::getUnpooledBuffer(const size_t needed
         localMemoryForNewTupleBuffer,
         alignedBufferSize,
         [copyOfLastChunkPtr = localKeyForUnpooledBufferChunk,
-         copyOfThreadId = std::this_thread::get_id(), copyOfAlignment = alignment](Memory::detail::MemorySegment* memorySegment, Memory::BufferRecycler* recycler)
+         copyOfThreadId = std::this_thread::get_id()](Memory::detail::MemorySegment* memorySegment, Memory::BufferRecycler* recycler)
         {
             /// We need to store the last chunk ptr and the thread id to find the memory segment in the ThreadLocalChunks.
             /// This is necessary, as another thread than the allocation thread, might return the allocated memorysegment
-            const Memory::ThreadIdCopyLastChunkPtr threadIdCopyLastChunkPtr{copyOfThreadId, copyOfLastChunkPtr, copyOfAlignment};
+            const Memory::ThreadIdCopyLastChunkPtr threadIdCopyLastChunkPtr{copyOfThreadId, copyOfLastChunkPtr};
             recycler->recycleUnpooledBuffer(memorySegment, threadIdCopyLastChunkPtr);
         });
 

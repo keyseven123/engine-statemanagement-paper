@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
+#include <map>
 #include <memory>
 #include <memory_resource>
 #include <thread>
@@ -33,16 +34,23 @@
 namespace NES
 {
 
+
 /// Helper struct that stores necessary information for accessing unpooled chunks
 /// Instead of allocating the exact needed space, we allocate a chunk of a space calculated by a rolling average of the last n sizes.
 /// Thus, we (pre-)allocate potentially multiple buffers. At least, there is a high chance that one chunk contains multiple tuple buffers
 struct ThreadLocalChunks
 {
+    struct MemoryChunk
+    {
+        uint8_t* startOfChunk = nullptr;
+        size_t alignment = 0;
+        size_t totalSize = 0;
+    };
+
     struct ChunkControlBlock
     {
-        size_t totalSize = 0;
+        MemoryChunk memoryChunk;
         size_t usedSize = 0;
-        uint8_t* startOfChunk = nullptr;
         std::vector<std::unique_ptr<Memory::detail::MemorySegment>> unpooledMemorySegments;
         uint64_t activeMemorySegments = 0;
 
@@ -50,16 +58,31 @@ struct ThreadLocalChunks
         {
             return os << fmt::format(
                        "CCB {} ({}/{}B) with {} activeMemorySegments",
-                       fmt::ptr(chunkControlBlock.startOfChunk),
+                       fmt::ptr(chunkControlBlock.memoryChunk.startOfChunk),
                        chunkControlBlock.usedSize,
-                       chunkControlBlock.totalSize,
+                       chunkControlBlock.memoryChunk.totalSize,
                        chunkControlBlock.activeMemorySegments);
         }
     };
 
-    explicit ThreadLocalChunks(uint64_t windowSize);
+    /// Stores the last chunks so that we reduce the amount of allocate()/deallocate() calls
+    class ChunkCache
+    {
+        /// Needed for deallocating memory, if we need to free-up space in the cache
+        std::shared_ptr<std::pmr::memory_resource> memoryResource;
+        std::multimap<size_t, MemoryChunk> secondChanceChunks;
+        uint64_t chunkCacheSpace = 10;
+
+    public:
+        explicit ChunkCache(std::shared_ptr<std::pmr::memory_resource> memoryResource) : memoryResource(std::move(memoryResource)) { }
+        void insert(const ChunkControlBlock& chunkControlBlock);
+        std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
+    };
+
+    explicit ThreadLocalChunks(uint64_t windowSize, std::shared_ptr<std::pmr::memory_resource> memoryResource);
     void emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
     std::unordered_map<uint8_t*, ChunkControlBlock> chunks;
+    ChunkCache chunkCache;
     uint8_t* lastAllocateChunkKey;
     RollingAverage<size_t> rollingAverage;
 };
@@ -88,6 +111,7 @@ class UnpooledChunksManager final : public std::enable_shared_from_this<Unpooled
     void recyclePooledBuffer(Memory::detail::MemorySegment* buffer) override;
     void
     recycleUnpooledBuffer(Memory::detail::MemorySegment* buffer, const Memory::ThreadIdCopyLastChunkPtr& threadCopyLastChunkPtr) override;
+
 public:
     explicit UnpooledChunksManager(std::shared_ptr<std::pmr::memory_resource> memoryResource);
     ~UnpooledChunksManager() override = default;
