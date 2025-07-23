@@ -110,6 +110,68 @@ void runAllocations(
     }
 }
 
+void runAllocationsAndDeallocations(
+    const size_t numberOfRandomAllocationSizes,
+    const size_t minAllocationSize,
+    const size_t maxAllocationSize,
+    const size_t numberOfThreads)
+{
+    /// Creating component under test. We do not care about the bufferSize and the number of buffers, as we test getUnpooledBuffer()
+    const auto bufferManager = BufferManager::create(1, 1);
+
+    /// Creating random allocation sizes
+    auto randomAllocations = createRandomSizeAllocations(numberOfRandomAllocationSizes, minAllocationSize, maxAllocationSize);
+
+    /// Running all allocations concurrently for #numberOfThreads
+    std::vector<std::thread> threads;
+    const auto chunkSize = numberOfThreads / numberOfRandomAllocationSizes;
+    for (auto& allocation : randomAllocations)
+    {
+        allocation.buffer = bufferManager->getUnpooledBuffer(allocation.neededSize);
+    }
+    for (size_t i = 0; i < numberOfThreads; ++i)
+    {
+        size_t start = i * chunkSize;
+        size_t end = (i == numberOfThreads - 1) ? randomAllocations.size() : start + chunkSize;
+
+        threads.emplace_back(
+            [&randomAllocations, &bufferManager](const size_t start, const size_t end)
+            {
+                std::random_device randomDevice;
+                std::mt19937 generator(randomDevice());
+                std::uniform_int_distribution<size_t> distribution(0, end - start);
+                for (size_t i = start; i < end; ++i)
+                {
+                    auto& allocation = randomAllocations[i];
+                    allocation.buffer = bufferManager->getUnpooledBuffer(allocation.neededSize);
+
+                    /// 50% chance of giving a random buffer back
+                    if (rand() % 2 == 0)
+                    {
+                        const auto bufferRetPos = distribution(generator) % (i - start) + start;
+                        ASSERT_TRUE(allocation.buffer.has_value());
+                        randomAllocations[bufferRetPos].buffer->release();
+                        randomAllocations[bufferRetPos].neededSize = 0;
+                    }
+                }
+            },
+            start,
+            end);
+    }
+
+    /// Wait for all threads to finish
+    for (auto& thread : threads)
+    {
+        thread.join();
+    }
+
+    /// Checking if the allocation were successful
+    for (const auto& allocation : randomAllocations)
+    {
+        ASSERT_TRUE(allocation.buffer.has_value());
+        ASSERT_EQ(allocation.buffer.value().getBufferSize(), allocation.neededSize);
+    }
+}
 
 }
 
@@ -147,6 +209,15 @@ TEST(UnpooledBufferTests, MultipleUnpooledBufferMultithreaded)
     constexpr auto maxAllocationSize = 500 * 1024; /// 500 KiB
     constexpr auto numberOfThreads = 8;
     runAllocations(numberOfRandomAllocationSizes, minAllocationSize, maxAllocationSize, numberOfThreads);
+}
+
+TEST(UnpooledBufferTests, MultipleUnpooledBufferMultithreadedWIthReturn)
+{
+    constexpr auto numberOfRandomAllocationSizes = 100 * 1000;
+    constexpr auto minAllocationSize = 10 * 1024; /// 1 KiB
+    constexpr auto maxAllocationSize = 500 * 1024; /// 500 KiB
+    constexpr auto numberOfThreads = 16;
+    runAllocationsAndDeallocations(numberOfRandomAllocationSizes, minAllocationSize, maxAllocationSize, numberOfThreads);
 }
 
 }
