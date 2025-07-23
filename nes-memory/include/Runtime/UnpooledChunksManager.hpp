@@ -54,6 +54,25 @@ struct ThreadLocalChunks
         std::vector<std::unique_ptr<Memory::detail::MemorySegment>> unpooledMemorySegments;
         uint64_t activeMemorySegments = 0;
 
+        ChunkControlBlock() = default;
+        ChunkControlBlock(const ChunkControlBlock& other) = delete;
+        ChunkControlBlock(ChunkControlBlock&& other) noexcept
+            : memoryChunk(std::move(other.memoryChunk))
+            , usedSize(std::move(other.usedSize))
+            , unpooledMemorySegments(std::move(other.unpooledMemorySegments))
+            , activeMemorySegments(std::move(other.activeMemorySegments))
+        {
+        }
+        ChunkControlBlock& operator=(const ChunkControlBlock& other) = delete;
+        ChunkControlBlock& operator=(ChunkControlBlock&& other) noexcept
+        {
+            memoryChunk = std::move(other.memoryChunk);
+            usedSize = std::move(other.usedSize);
+            unpooledMemorySegments = std::move(other.unpooledMemorySegments);
+            activeMemorySegments = std::move(other.activeMemorySegments);
+            return *this;
+        }
+
         friend std::ostream& operator<<(std::ostream& os, const ChunkControlBlock& chunkControlBlock)
         {
             return os << fmt::format(
@@ -70,21 +89,31 @@ struct ThreadLocalChunks
     {
         /// Needed for deallocating memory, if we need to free-up space in the cache
         std::shared_ptr<std::pmr::memory_resource> memoryResource;
-        std::multimap<size_t, MemoryChunk> secondChanceChunks;
+        std::multimap<size_t, MemoryChunk> chunksCache;
+        std::multimap<size_t, ChunkControlBlock> ccbCache;
         uint64_t chunkCacheSpace = 10;
 
     public:
         explicit ChunkCache(std::shared_ptr<std::pmr::memory_resource> memoryResource) : memoryResource(std::move(memoryResource)) { }
-        void insert(const ChunkControlBlock& chunkControlBlock);
+        void insertIntoCache(ChunkControlBlock& chunkControlBlock);
         std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
+        std::pair<ChunkControlBlock, Memory::detail::MemorySegment*> tryGetMemorySegment(size_t neededSize);
     };
 
     explicit ThreadLocalChunks(uint64_t windowSize, std::shared_ptr<std::pmr::memory_resource> memoryResource);
-    void emplaceChunkControlBlock(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
+    void emplaceMemorySegment(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
+    void insertIntoCache(ChunkControlBlock& chunkControlBlock);
+    std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
+    Memory::detail::MemorySegment* tryGetMemorySegment(size_t neededSize);
+
+
     std::unordered_map<uint8_t*, ChunkControlBlock> chunks;
-    ChunkCache chunkCache;
     uint8_t* lastAllocateChunkKey;
     RollingAverage<size_t> rollingAverage;
+
+private:
+    /// We have this chunk cache private, as we want to control access to it. The access should happen via the methods of ThreadLocalChunks
+    ChunkCache chunkCache;
 };
 
 /// Stores and tracks all memory chunks for unpooled / variable sized buffers

@@ -33,6 +33,7 @@
 namespace NES
 {
 class UnpooledChunksManager;
+struct ThreadLocalChunks;
 }
 
 namespace NES::Memory
@@ -183,6 +184,7 @@ class MemorySegment
     friend class NES::Memory::FixedSizeBufferPool;
     friend class NES::Memory::BufferManager;
     friend class NES::UnpooledChunksManager;
+    friend struct NES::ThreadLocalChunks;
     friend class NES::Memory::detail::BufferControlBlock;
 
     enum class MemorySegmentType : uint8_t
