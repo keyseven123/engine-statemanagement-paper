@@ -96,6 +96,13 @@ if (ENABLE_LARGE_TESTS)
     foreach (resourceAssignment IN LISTS resourceAssignmentCombined)
         foreach (sliceCache IN LISTS sliceCaches)
             foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
+                if (sliceCache STREQUAL "NONE")
+                    if (NOT cacheSize EQUAL 10)
+                        message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache")
+                        continue()
+                    endif()
+                endif()
+
                 set(joinStrategy HASH_JOIN) # We simp<ly test here with a hash join, as a NLJ does not finish in 2h
                 ExternalData_Add_Test(TEST_DATA_LARGE
                         NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
@@ -121,6 +128,12 @@ if (NOT CODE_COVERAGE)
     foreach (taskQueueSize IN LISTS taskQueueSize)
         foreach (sliceCache IN LISTS sliceCaches)
             foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
+                if (sliceCache STREQUAL "NONE")
+                    if (NOT cacheSize EQUAL 10)
+                        message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache")
+                        continue()
+                    endif()
+                endif()
                 ExternalData_Add_Test(TEST_DATA
                         NAME systest_task_queue_size_${taskQueueSize}_${sliceCache}_${cacheSize}_interpreter
                         COMMAND systest -n 4 --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${taskQueueSize}_${sliceCache}_${cacheSize}_interpreter --data ${SMALL_DATA} -- --worker.queryEngine.numberOfWorkerThreads=4 --worker.queryOptimizer.executionMode=INTERPRETER --worker.numberOfBuffersInGlobalBufferManager=200000 --worker.queryEngine.taskQueueSize=${taskQueueSize} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
@@ -138,6 +151,12 @@ if (NOT CODE_COVERAGE)
     foreach (workerThreads IN LISTS workerThreads)
         foreach (sliceCache IN LISTS sliceCaches)
             foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
+                if (sliceCache STREQUAL "NONE")
+                    if (NOT cacheSize EQUAL 10)
+                        message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache")
+                        continue()
+                    endif()
+                endif()
                 foreach (joinStrategy IN LISTS joinStrategies)
                     ExternalData_Add_Test(TEST_DATA
                             NAME systest_join_${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_interpreter
