@@ -68,6 +68,18 @@ def run_command(command, cwd=None):
     result = subprocess.run(command, cwd=cwd, shell=True, check=True, text=True, capture_output=True)
     return result.stdout
 
+def convert_unit_prefix(value, unit_prefix):
+    # Convert throughput based on the unit prefix
+    if unit_prefix == 'M':
+        return value * 1e6  # Convert to actual value (million)
+    elif unit_prefix == 'B':
+        return value * 1e9  # Convert to actual value (billion)
+    elif unit_prefix == 'k':
+        return value * 1e3  # Convert to actual value (thousand)
+    elif unit_prefix == '':
+        return value  # No conversion needed
+    else:
+        raise ValueError(f"Could not convert {value} for {unit_prefix}")
 
 def compile_nebulastream(cmake_flags, build_dir):
     cmake_command = f"cmake {cmake_flags} -S . -B {build_dir}"

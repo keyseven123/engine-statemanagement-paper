@@ -41,7 +41,7 @@ cmake_flags = ("-G Ninja "
                "-DNES_LOG_LEVEL:STRING=LEVEL_NONE "
                "-DNES_BUILD_NATIVE:BOOL=ON")
 NUM_RUNS_PER_EXPERIMENT = 1
-EMIT_RATE_TUPLES_PER_SECOND = str(1 * 1000 * 1000)
+EMIT_RATE_TUPLES_PER_SECOND = str(100 * 1000)
 WAIT_BETWEEN_COMMANDS_SHORT = 2
 WAIT_BETWEEN_COMMANDS_LONG = 5
 WAIT_BETWEEN_ADDING_NEW_QUERY = 10
@@ -52,17 +52,18 @@ allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
 allNumberOfWorkerThreads = [8]
 allNumberOfBuffersInGlobalBufferManagers = [4000000]  # [500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [5]
+allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["LRU"]
-allBufferSizes = [8196]  # [100 * 1024]
-allPageSizes = [4096]
+allBufferSizes = [8192]  # [100 * 1024]
+allPageSizes = [8192]
 allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]
 
 #### Queries
 allQueries = {
     "agg": "scripts/benchmarking/work-dealing/configs/agg_query.yaml",
     "filter": "scripts/benchmarking/work-dealing/configs/agg_query.yaml"}
-no_concurrent_queries = 128
+no_concurrent_queries = 64
+
 
 def create_output_folder(appendix):
     timestamp = int(time.time())
@@ -70,6 +71,7 @@ def create_output_folder(appendix):
     create_folder_and_remove_if_exists(folder_name)
     print(f"Created folder {folder_name}...")
     return folder_name
+
 
 def terminate_process_if_exists(process):
     try:
@@ -132,6 +134,7 @@ def start_single_node_worker(file_path_stdout):
     print(f"Started single node worker with pid {pid}")
     return process
 
+
 def submitting_query(query_file):
     cmd = f"cat {query_file} | {nebuli_executable} register -x -s localhost:8080"
     print(f"Submitting the query via {cmd}...")
@@ -150,11 +153,13 @@ def submitting_query(query_file):
         print("Error output:", e.stderr)
         exit(1)
 
+
 def stop_query(query_id):
     cmd = f"{nebuli_executable} stop {query_id} -s localhost:8080"
     # print(f"Stopping the query via {cmd}...")
     process = subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL)
     return process
+
 
 def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_port):
     # Loading the yaml file
@@ -178,6 +183,7 @@ def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_po
     with open(new_config, 'w') as file:
         yaml.dump(yaml_query_config, file, sort_keys=False)
 
+
 def parse_log_to_csv(log_file_path, csv_file_path):
     # Regular expression to parse each log line
     log_pattern = re.compile(
@@ -197,19 +203,11 @@ def parse_log_to_csv(log_file_path, csv_file_path):
                 start_timestamp = int(match.group(2))
                 throughput_value = float(match.group(4))
                 unit_prefix = match.group(5)
-
-                # Convert throughput based on the unit prefix
-                if unit_prefix == 'M':
-                    throughput = throughput_value * 1e6  # Convert to actual value (million)
-                elif unit_prefix == 'B':
-                    throughput = throughput_value * 1e9  # Convert to actual value (billion)
-                elif unit_prefix == 'k':
-                    throughput = throughput_value * 1e3  # Convert to actual value (thousand)
-                else:
-                    throughput = throughput_value  # No conversion needed
+                throughput_value = convert_unit_prefix(throughput_value, unit_prefix)
 
                 # Append the extracted data to the list
-                data.append((start_timestamp, query_id, throughput))
+                data.append((start_timestamp, query_id, throughput_value))
+
 
     # Find the minimum timestamp to normalize
     min_timestamp = min(data, key=lambda x: x[0])[0]
@@ -223,6 +221,7 @@ def parse_log_to_csv(log_file_path, csv_file_path):
         for start_timestamp, query_id, throughput in data:
             normalized_timestamp = start_timestamp - min_timestamp
             writer.writerow([normalized_timestamp, query_id, throughput])
+
 
 def concatenate_csv_files(folders, output_file, config_file):
     # Initialize an empty list to store DataFrames
@@ -256,6 +255,7 @@ def concatenate_csv_files(folders, output_file, config_file):
         print(f"Concatenated CSV file saved to {output_file}")
     else:
         print("No CSV files found.")
+
 
 if __name__ == "__main__":
     # Checking if the script has been executed from the repository root
@@ -317,7 +317,6 @@ if __name__ == "__main__":
                 }
                 yaml.dump(config, file, default_flow_style=False)
 
-
             # Starting the single node worker
             file_path_stdout = os.path.join(folder_name, "SingleNodeStdout.log")
             with open(file_path_stdout, 'w') as stdout_file:
@@ -331,7 +330,8 @@ if __name__ == "__main__":
 
                 # Changing the query yaml file to the new ports etc.
                 new_query_config_name = os.path.join(folder_name, f"{query}_{concurrent_query_number}.yaml")
-                copy_and_modify_query_config(allQueries[query], new_query_config_name, f"{query}_{concurrent_query_number}_source", tcp_server_ports[0])
+                copy_and_modify_query_config(allQueries[query], new_query_config_name,
+                                             f"{query}_{concurrent_query_number}_source", tcp_server_ports[0])
 
                 # Setting start ports for next query
                 start_port[0] = tcp_server_ports[0] + 1
@@ -345,7 +345,6 @@ if __name__ == "__main__":
 
                 # Waiting to give the engine time to start the query and for measuring the current throughput
                 time.sleep(WAIT_BETWEEN_ADDING_NEW_QUERY)
-
 
             # Stopping all queries
             for query_id in query_ids:
@@ -366,3 +365,6 @@ if __name__ == "__main__":
     # After all experiments have been run, we merge all csv files into one main csv file
     concat_file_name = "results_nebulastream_concat.csv"
     concatenate_csv_files(new_folders, concat_file_name, config_file)
+
+    abs_csv_path = os.path.abspath(concat_file_name)
+    print(f"CSV Measurement file can be found in {abs_csv_path}")

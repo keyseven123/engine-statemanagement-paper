@@ -1,5 +1,6 @@
 #include <chrono>
 #include <csignal>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -9,7 +10,6 @@
 #include <vector>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <cstdint>
 
 class ClientHandler
 {
@@ -28,26 +28,42 @@ public:
             std::mt19937_64 gen(rd());
             std::uniform_int_distribution<uint64_t> valueDistrib(0, UINT64_MAX);
             std::uniform_int_distribution<> counterDistrib(0, 9999);
+            int tupleCounter = 0;
+            constexpr auto checkTimeEvery = 1000L;
+            std::stringstream messageStream;
 
             auto startTime = std::chrono::steady_clock::now();
             while (running)
             {
                 counter = counterDistrib(gen);
                 value = valueDistrib(gen);
-                std::string message = std::to_string(counter) + "," + std::to_string(value) + "," + std::to_string(timestamp) + "\n";
-                send(clientSocket, message.c_str(), message.size(), 0);
+                messageStream << std::to_string(counter) << "," << std::to_string(value) << "," << std::to_string(timestamp) << "\n";
 
-                // Calculate the necessary delay to achieve the desired emit rate
-                auto endTime = std::chrono::steady_clock::now();
-                const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-                const auto delay = static_cast<long>(1000.0 / emitRate);
+                // Increment the tuple counter
+                tupleCounter++;
 
-                if (elapsed < delay)
+                // Check if 1000 tuples have been sent
+                if (tupleCounter >= checkTimeEvery)
                 {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(delay - elapsed));
+                    std::string message = messageStream.str();
+                    send(clientSocket, message.c_str(), message.size(), 0);
+                    messageStream.str("");
+                    messageStream.clear();
+
+                    auto endTime = std::chrono::steady_clock::now();
+                    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+                    const auto delay = static_cast<long>(checkTimeEvery / emitRate);
+
+                    if (elapsed < delay)
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(delay - elapsed));
+                    }
+
+                    // Reset the tuple counter and update startTime
+                    tupleCounter = 0;
+                    startTime = std::chrono::steady_clock::now();
                 }
 
-                startTime = std::chrono::steady_clock::now();
                 timestamp += 1;
             }
         }
@@ -84,10 +100,7 @@ private:
 class CounterServer
 {
 public:
-    CounterServer(const std::string& host, const int port, const double emitRate)
-        : host(host), port(port), emitRate(emitRate)
-    {
-    }
+    CounterServer(const std::string& host, const int port, const double emitRate) : host(host), port(port), emitRate(emitRate) { }
 
     void start()
     {
