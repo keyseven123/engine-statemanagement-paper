@@ -27,6 +27,15 @@
 namespace NES::Nautilus::Interface::MemoryProvider
 {
 
+uint32_t storeAssociatedVarSizedValueProxy(
+    const Memory::TupleBuffer* tupleBuffer,
+    Memory::AbstractBufferProvider* bufferProvider,
+    const int8_t* varSizedValue,
+    const uint32_t totalVariableSize,
+    const uint64_t totalVarSizedSpace,
+    const uint64_t varSizedOffset,
+    const uint32_t childBufferIndex);
+const uint8_t* loadAssociatedVarSizedValue(const Memory::TupleBuffer* tupleBuffer, const uint32_t childIndex, const uint64_t countVarSized);
 
 /// This class takes care of reading and writing data from/to a TupleBuffer.
 /// A TupleBufferMemoryProvider is closely coupled with a memory layout and we support row and column layouts, currently.
@@ -65,17 +74,24 @@ protected:
     /// Currently, this method does not support Null handling. It loads an VarVal of type from the fieldReference
     /// We require the recordBuffer, as we store variable sized data in a childbuffer and therefore, we need access
     /// to the buffer if the type is of variable sized
-    static VarVal loadValue(const DataType& type, const RecordBuffer& recordBuffer, const nautilus::val<int8_t*>& fieldReference);
+    static VarVal loadValue(
+        const DataType& physicalType,
+        const RecordBuffer& recordBuffer,
+        const nautilus::val<int8_t*>& fieldReference,
+        const nautilus::val<uint64_t>& countVarSized);
 
     /// Currently, this method does not support Null handling. It stores an VarVal of type to the fieldReference
     /// We require the recordBuffer, as we store variable sized data in a childbuffer and therefore, we need access
     /// to the buffer if the type is of variable sized
     static VarVal storeValue(
-        const DataType& type,
+        const DataType& physicalType,
         const RecordBuffer& recordBuffer,
         const nautilus::val<int8_t*>& fieldReference,
         VarVal value,
-        const nautilus::val<Memory::AbstractBufferProvider*>& bufferProvider);
+        const nautilus::val<Memory::AbstractBufferProvider*>& bufferProvider,
+        const nautilus::val<uint64_t>& totalVarSizedSpace,
+        nautilus::val<uint64_t>& varSizedOffset,
+        nautilus::val<uint32_t>& childIndex);
 
     [[nodiscard]] static bool
     includesField(const std::vector<Record::RecordFieldIdentifier>& projections, const Record::RecordFieldIdentifier& fieldIndex);

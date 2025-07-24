@@ -84,7 +84,8 @@ std::optional<ThreadLocalChunks::MemoryChunk> ThreadLocalChunks::ChunkCache::try
     return {};
 }
 
-std::pair<ThreadLocalChunks::ChunkControlBlock, Memory::detail::MemorySegment*> ThreadLocalChunks::ChunkCache::tryGetMemorySegment(const size_t neededSize)
+std::pair<ThreadLocalChunks::ChunkControlBlock, Memory::detail::MemorySegment*>
+ThreadLocalChunks::ChunkCache::tryGetMemorySegment(const size_t neededSize)
 {
     /// Searching for a memory that has a larger size than neededSize
     for (auto it = ccbCache.begin(); it != ccbCache.end(); ++it)
@@ -149,19 +150,24 @@ std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> UnpooledChunksManager::g
 
 std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> UnpooledChunksManager::getThreadLocalChunkFromOtherThread(std::thread::id threadId)
 {
+    thread_local std::unordered_map<std::thread::id, std::shared_ptr<folly::Synchronized<ThreadLocalChunks>>> localThreadLocalChunks
+        = allThreadLocalChunks.copy();
+    if (const auto existingChunk = localThreadLocalChunks.find(threadId); existingChunk != localThreadLocalChunks.end())
     {
-        auto upgradeLockedUnpooledBuffers = allThreadLocalChunks.rlock();
-        if (const auto existingChunk = upgradeLockedUnpooledBuffers->find(threadId); existingChunk != upgradeLockedUnpooledBuffers->cend())
-        {
-            return existingChunk->second;
-        }
+        return existingChunk->second;
+    }
+    if (threadId == std::this_thread::get_id())
+    {
+        /// We have seen a new thread id and need to create a new UnpooledBufferChunkData for it.
+        /// We only do this if the current thread does not have itself in the local hash map.
+        /// We can always assume that every thread will call this method before anyother thread calls it
+        auto newChunk
+            = std::make_shared<folly::Synchronized<ThreadLocalChunks>>(ThreadLocalChunks(ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE, memoryResource));
+        allThreadLocalChunks.wlock()->insert({threadId, newChunk});
     }
 
-    /// We have seen a new thread id and need to create a new UnpooledBufferChunkData for it
-    auto newChunk
-        = std::make_shared<folly::Synchronized<ThreadLocalChunks>>(ThreadLocalChunks(ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE, memoryResource));
-    allThreadLocalChunks.wlock()->insert({threadId, newChunk});
-    return newChunk;
+    localThreadLocalChunks = allThreadLocalChunks.copy();
+    return localThreadLocalChunks.at(threadId);
 }
 
 size_t UnpooledChunksManager::getNumberOfUnpooledBuffers() const
@@ -271,11 +277,10 @@ void UnpooledChunksManager::recycleUnpooledBuffer(
     curUnpooledChunk.activeMemorySegments -= 1;
     if (curUnpooledChunk.activeMemorySegments == 0)
     {
-        /// All memory segments have been removed, therefore, we can deallocate the unpooled chunk
+        /// All memory segments have been removed, therefore, we move the ccb into the cache
         const auto extractedChunk = lockedLocalUnpooledBufferData->chunks.extract(threadCopyLastChunkPtr.lastChunkPtr);
         lockedLocalUnpooledBufferData->lastAllocateChunkKey = nullptr;
         lockedLocalUnpooledBufferData->insertIntoCache(extractedChunk.mapped());
-        lockedLocalUnpooledBufferData.unlock();
     }
 }
 
@@ -285,11 +290,12 @@ Memory::TupleBuffer UnpooledChunksManager::getUnpooledBuffer(const size_t needed
     /// If this is not the case, we ask the chunk manager to allocate new space
     const auto chunk = this->getThreadLocalChunkForCurrentThread();
     Memory::detail::MemorySegment* leakedMemSegment = nullptr;
-    if (leakedMemSegment = chunk->wlock()->tryGetMemorySegment(neededSize); leakedMemSegment == nullptr)
+
+    /// we have to align the buffer size as ARM throws an SIGBUS if we have unaligned accesses on atomics.
+    const auto alignedBufferSizePlusControlBlock = Memory::alignBufferSize(neededSize, alignment);
+    if (leakedMemSegment = chunk->wlock()->tryGetMemorySegment(alignedBufferSizePlusControlBlock); leakedMemSegment == nullptr)
     {
         /// Getting space from the unpooled chunks manager
-        /// we have to align the buffer size as ARM throws an SIGBUS if we have unaligned accesses on atomics.
-        const auto alignedBufferSizePlusControlBlock = Memory::alignBufferSize(neededSize, alignment);
         const auto& [localKeyForUnpooledBufferChunk, localMemoryForNewTupleBuffer]
             = this->allocateSpace(alignedBufferSizePlusControlBlock, alignment);
         /// Creating a new memory segment, and adding it to the unpooledMemorySegments
