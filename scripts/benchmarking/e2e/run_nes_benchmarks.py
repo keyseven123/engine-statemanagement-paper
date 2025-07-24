@@ -24,6 +24,7 @@ import csv
 import shutil
 import itertools
 import socket
+import re
 
 from scripts.benchmarking.utils import *
 
@@ -46,13 +47,13 @@ NUM_RUNS_PER_EXPERIMENT = 1
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = [1, 4] #[1, 2, 4, 8, 16]
+allNumberOfWorkerThreads = [1, 2, 4, 8, 16] #[1, 4]
 allNumberOfBuffersInGlobalBufferManagers = [4000000] #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [5]
+allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["LRU"]
-allBufferSizes = [8196] #[100 * 1024]
-allPageSizes = [4096]
+allBufferSizes = [8192] #[100 * 1024]
+allPageSizes = [8192]
 
 #### Queries
 queries = {
@@ -79,7 +80,7 @@ def initialize_csv_file():
     print("Initializing CSV file...")
     with open(csv_file_path, mode='w', newline='') as csv_file:
         fieldnames = [
-            'bytesPerSecond', 'query_name', 'time', 'tuplesPerSecond',
+            'bytesPerSecond', 'query_name', 'time', 'tuplesPerSecond', 'tuplesPerSecond_listener',
             'executionMode', 'numberOfWorkerThreads', 'buffersInGlobalBufferManager',
             'joinStrategy', 'numberOfEntriesSliceCaches', 'sliceCacheType',
             'bufferSizeInBytes', 'pageSize'
@@ -87,6 +88,29 @@ def initialize_csv_file():
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         print("CSV file initialized with headers.")
+
+def parse_average_throughput_from_throughput_listener(console_output):
+    # Regular expression to parse each log line
+    log_pattern = re.compile(
+        r'Throughput for queryId (\d+) in window (\d+)-(\d+) is \d+\.\d+ \wB/s / (\d+\.\d+) (\w)Tup/s'
+    )
+
+    # List to store the extracted data
+    data = []
+    for line in console_output.split('\n'):
+        # Use regex to find matches in the log line
+        match = log_pattern.match(line)
+        if match:
+            throughput_value = float(match.group(4))
+            unit_prefix = match.group(5)
+            throughput_value = convert_unit_prefix(throughput_value, unit_prefix)
+
+            # Append the extracted data to the list
+            data.append(throughput_value)
+
+    # Calculate average of the query
+    average_throughput = sum(data) / len(data)
+    return average_throughput
 
 
 def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_queries):
@@ -108,10 +132,11 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
 
     print(
         f"Running {query} [{queryIdx}/{no_queries}] for worker configuration [{workerConfigIdx}/{no_combinations}]...")
-    run_command(benchmark_command)
+    stdout = run_command(benchmark_command)
 
     # Parse and save benchmark results
     try:
+
         with open(benchmark_json_file, 'r') as file:
             content = file.read()
             benchmark_results = json.loads(content)
@@ -126,21 +151,23 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
         exit(1)
 
     with open(csv_file_path, mode='a', newline='') as csv_file:
+        average_throughput = parse_average_throughput_from_throughput_listener(stdout)
         writer = csv.DictWriter(csv_file, fieldnames=[
-            'bytesPerSecond', 'query_name', 'time', 'tuplesPerSecond',
+            'bytesPerSecond', 'query_name', 'time', 'tuplesPerSecond', 'tuplesPerSecond_listener',
             'executionMode', 'numberOfWorkerThreads', 'buffersInGlobalBufferManager',
             'joinStrategy', 'numberOfEntriesSliceCaches', 'sliceCacheType',
             'bufferSizeInBytes', 'pageSize'
         ])
         for result in benchmark_results:
             result['query_name'] = query
+            result['tuplesPerSecond_listener'] = average_throughput
             writer.writerow({**result, **config})
         print(f"Results for config {config} written to CSV.")
 
 
 if __name__ == "__main__":
     # Initialize argument parser
-    parser = argparse.ArgumentParser(description="Run Flink queries.")
+    parser = argparse.ArgumentParser(description="Run NebulaStream queries.")
     parser.add_argument("--all", action="store_true", help="Run all queries.")
     parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
     args = parser.parse_args()
@@ -158,7 +185,7 @@ if __name__ == "__main__":
     check_repository_root()
 
     # Create folder
-    create_folder_and_remove_if_exists(build_dir)
+    # create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
     compile_nebulastream(cmake_flags, build_dir)
@@ -203,3 +230,6 @@ if __name__ == "__main__":
 
             for i in range(NUM_RUNS_PER_EXPERIMENT):
                 run_benchmark(config, query, queryIdx + 1, workerConfigIdx, no_combinations, no_queries)
+
+    abs_csv_path = os.path.abspath(csv_file_path)
+    print(f"CSV Measurement file can be found in {abs_csv_path}")
