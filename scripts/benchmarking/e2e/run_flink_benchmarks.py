@@ -63,7 +63,7 @@ needed_data_sets = {
 }
 
 num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
-parallelisms = ["1", "4"] #["1", "2", "4", "8", "16"]
+parallelisms = ["1", "2", "4", "8", "16"] #["1", "4"]
 MAX_RUNTIME_PER_JOB = 10  # in seconds
 
 
@@ -294,6 +294,10 @@ def main():
     finally:
         # Change back to the original directory
         os.chdir(original_dir)
+
+
+    abs_csv_path = os.path.abspath(csv_path)
+    print(f"CSV Measurement file can be found in {abs_csv_path}")
 
 
 if __name__ == "__main__":
