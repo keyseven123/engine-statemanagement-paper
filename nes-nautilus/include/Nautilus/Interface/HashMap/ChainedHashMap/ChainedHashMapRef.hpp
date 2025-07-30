@@ -84,11 +84,7 @@ public:
     class EntryIterator
     {
     public:
-        EntryIterator(
-            const nautilus::val<HashMap*>& hashMapRef,
-            const nautilus::val<uint64_t>& tupleIndex,
-            const std::vector<MemoryProvider::FieldOffsets>& fieldKeys,
-            const std::vector<MemoryProvider::FieldOffsets>& fieldValues);
+        EntryIterator(const nautilus::val<HashMap*>& hashMapRef, const nautilus::val<uint64_t>& tupleIndex, const nautilus::val<uint64_t>& entrySize);
         EntryIterator& operator++();
         nautilus::val<bool> operator==(const EntryIterator& other) const;
         nautilus::val<bool> operator!=(const EntryIterator& other) const;
@@ -96,10 +92,13 @@ public:
 
     private:
         nautilus::val<HashMap*> hashMapRef;
-        ChainedEntryRef currentEntry;
-        nautilus::val<uint64_t> chainIndex;
+        nautilus::val<ChainedHashMapEntry*> currentEntry;
+        nautilus::val<uint64_t> entrySize;
         nautilus::val<uint64_t> tupleIndex;
-        nautilus::val<uint64_t> numberOfChains;
+        nautilus::val<uint64_t> indexOnPage;
+        nautilus::val<uint64_t> numberOfTuplesInCurrentPage;
+        nautilus::val<uint64_t> pageIndex;
+        nautilus::val<uint64_t> numberOfPages;
     };
 
     ChainedHashMapRef(

@@ -125,7 +125,6 @@ void threadRoutine(
                     // std::cout << "Got taskEmit " << taskEmit.taskId << " with " << numberOfTuples << " tuples, " << bytes << " bytes and endTime " << endTime  << " for " << windowStart << " to " << windowEnd << std::endl;
 
 
-
                     /// Now we need to check if we can emit / calculate a throughput. We assume that taskStopEvent.timestamp is increasing
                     for (auto& [queryId, endTimeAndThroughputWindow] : queryIdToThroughputWindowMap)
                     {
@@ -191,16 +190,20 @@ void ThroughputListener::onNodeShutdown()
         /// Check if the timeout has been reached
         if (std::chrono::high_resolution_clock::now() >= endTime)
         {
-            std::cout << fmt::format("Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout) << std::endl;
-            NES_WARNING("Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout);
+            std::cout << fmt::format(
+                "Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout)
+                      << std::endl;
+            NES_WARNING(
+                "Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout);
         }
     }
-
 }
 
 void ThroughputListener::onEvent(Event event)
 {
-    events.wlock()->emplace(std::visit([]<typename T>(T&& arg) { return Event(std::forward<T>(arg)); }, std::move(event)));
+    std::visit(Overloaded{[&](const TaskEmit& taskEmit) { events.wlock()->emplace(taskEmit); }, [](auto) {}}, event);
+
+    // events.wlock()->emplace(std::visit([]<typename T>(T&& arg) { return Event(std::forward<T>(arg)); }, std::move(event)));
 }
 
 ThroughputListener::ThroughputListener(
