@@ -117,6 +117,8 @@ void AggregationOperatorHandler::triggerSlices(
         tupleBuffer.setLastChunk(true);
         tupleBuffer.setWatermark(windowInfo.windowInfo.windowStart);
         tupleBuffer.setNumberOfTuples(totalNumberOfTuples);
+        tupleBuffer.setCreationTimestampInMS(Timestamp(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count()));
 
 
         /// Writing all necessary information for the aggregation probe to the buffer.

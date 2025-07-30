@@ -32,15 +32,7 @@ void IngestionTimeWatermarkAssignerPhysicalOperator::open(ExecutionContext& exec
     openChild(executionCtx, recordBuffer);
     timeFunction.open(executionCtx, recordBuffer);
     auto emptyRecord = Record();
-    const auto tsField = [this](ExecutionContext& executionCtx)
-    {
-        auto emptyRecord = Record();
-        return timeFunction.getTs(executionCtx, emptyRecord);
-    }(executionCtx);
-    if (const auto currentWatermark = executionCtx.watermarkTs; tsField > currentWatermark)
-    {
-        executionCtx.watermarkTs = tsField;
-    }
+    executionCtx.watermarkTs = timeFunction.getTs(executionCtx, emptyRecord);
 }
 
 void IngestionTimeWatermarkAssignerPhysicalOperator::execute(ExecutionContext& executionCtx, Record& record) const
