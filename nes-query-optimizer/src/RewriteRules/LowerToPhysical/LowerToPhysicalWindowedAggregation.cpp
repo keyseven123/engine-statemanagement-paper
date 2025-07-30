@@ -83,10 +83,7 @@ static std::unique_ptr<TimeFunction> getTimeFunction(const WindowedAggregationLo
     switch (timeWindow->getTimeCharacteristic().getType())
     {
         case Windowing::TimeCharacteristic::Type::IngestionTime: {
-            if (timeWindow->getTimeCharacteristic().field.name == Windowing::TimeCharacteristic::RECORD_CREATION_TS_FIELD_NAME)
-            {
-                return std::make_unique<IngestionTimeFunction>();
-            }
+            return std::make_unique<IngestionTimeFunction>();
             throw UnknownWindowType(
                 "The ingestion time field of a window must be: {}", Windowing::TimeCharacteristic::RECORD_CREATION_TS_FIELD_NAME);
         }
