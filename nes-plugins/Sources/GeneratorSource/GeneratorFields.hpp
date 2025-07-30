@@ -21,6 +21,7 @@
 #include <random>
 #include <string_view>
 #include <variant>
+#include <DataTypes/DataType.hpp>
 
 namespace NES::Sources::GeneratorFields
 {
@@ -72,13 +73,13 @@ constexpr auto NUM_PARAMETERS_NORMAL_DISTRIBUTION_FIELD = 4;
 class NormalDistributionField final : public BaseGeneratorField
 {
 public:
-    NormalDistributionField(double mean, double stddev);
     explicit NormalDistributionField(std::string_view rawSchemaLine);
     std::ostream& generate(std::ostream& os, std::default_random_engine& randEng) override;
     static void validate(std::string_view rawSchemaLine);
 
 private:
     std::normal_distribution<double> distribution;
+    DataType outputType;
 };
 
 /// @brief Variant containing the types of base generator fields

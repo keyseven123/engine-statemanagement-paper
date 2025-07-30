@@ -29,39 +29,49 @@ public:
             std::uniform_int_distribution<uint64_t> valueDistrib(0, UINT64_MAX);
             std::uniform_int_distribution<> counterDistrib(0, 9999);
             int tupleCounter = 0;
-            constexpr auto checkTimeEvery = 1000L;
+            constexpr int checkTimeEvery = 1 * 1000;
             std::stringstream messageStream;
+            size_t numberOfNewLines = 0;
 
-            auto startTime = std::chrono::steady_clock::now();
+            auto startTime = std::chrono::high_resolution_clock::now();
             while (running)
             {
                 counter = counterDistrib(gen);
                 value = valueDistrib(gen);
                 messageStream << std::to_string(counter) << "," << std::to_string(value) << "," << std::to_string(timestamp) << "\n";
+                ++numberOfNewLines;
 
                 // Increment the tuple counter
-                tupleCounter++;
+                ++tupleCounter;
 
-                // Check if 1000 tuples have been sent
+                // Check if #checkTimeEvery tuples have been sent
                 if (tupleCounter >= checkTimeEvery)
                 {
                     std::string message = messageStream.str();
-                    send(clientSocket, message.c_str(), message.size(), 0);
+                    const auto bytesSend = send(clientSocket, message.c_str(), message.size(), 0);
+                    // std::cout << "bytesSend " << bytesSend << " for message " << message << std::endl;
+                    // std::cout << "bytesSend " << bytesSend << " numberOfNewLines " << numberOfNewLines << std::endl;
                     messageStream.str("");
                     messageStream.clear();
+                    numberOfNewLines = 0;
 
-                    auto endTime = std::chrono::steady_clock::now();
-                    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-                    const auto delay = static_cast<long>(checkTimeEvery / emitRate);
+                    auto endTime = std::chrono::high_resolution_clock::now();
+                    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
+                    const auto delayInSeconds = static_cast<double>(checkTimeEvery) / emitRate;
+                    const auto delayInMicroSeconds = static_cast<long>(delayInSeconds * 1000.0 * 1000.0);
+                    // std::cout << "Took " << elapsed << " ms" << std::endl;
+                    // std::cout << "delayInSeconds " << delayInSeconds << " s" << std::endl;
+                    // std::cout << "delayInMicroSeconds " << delayInMicroSeconds << " ms" << std::endl;
 
-                    if (elapsed < delay)
+                    if (elapsed < delayInMicroSeconds)
                     {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(delay - elapsed));
+                        // std::cout << "Sleeping for " << std::chrono::microseconds(delayInMicroSeconds - elapsed) << std::endl;
+                        std::this_thread::sleep_for(std::chrono::microseconds(delayInMicroSeconds - elapsed));
                     }
 
                     // Reset the tuple counter and update startTime
                     tupleCounter = 0;
-                    startTime = std::chrono::steady_clock::now();
+                    startTime = std::chrono::high_resolution_clock::now();
                 }
 
                 timestamp += 1;

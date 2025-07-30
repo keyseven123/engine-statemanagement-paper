@@ -90,6 +90,7 @@ SingleNodeWorker::SingleNodeWorker(const Configuration::SingleNodeWorkerConfigur
             tuplesPerSecondMessage);
     };
     constexpr auto timeIntervalInMilliSeconds = 500;
+    // constexpr auto timeIntervalInMilliSeconds = 1000;
     const auto throughputListener = std::make_shared<ThroughputListener>(timeIntervalInMilliSeconds, callback);
 
     const auto printStatisticListener = std::make_shared<PrintingStatisticListener>(

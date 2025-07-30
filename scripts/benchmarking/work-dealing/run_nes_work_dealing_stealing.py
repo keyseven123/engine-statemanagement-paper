@@ -19,6 +19,7 @@ import os
 import csv
 import shutil
 import itertools
+import random
 import time
 import socket
 import yaml
@@ -41,10 +42,10 @@ cmake_flags = ("-G Ninja "
                "-DNES_LOG_LEVEL:STRING=LEVEL_NONE "
                "-DNES_BUILD_NATIVE:BOOL=ON")
 NUM_RUNS_PER_EXPERIMENT = 1
-EMIT_RATE_TUPLES_PER_SECOND = str(100 * 1000)
+EMIT_RATE_TUPLES_PER_SECOND = str(10 * 1000)
 WAIT_BETWEEN_COMMANDS_SHORT = 2
 WAIT_BETWEEN_COMMANDS_LONG = 5
-WAIT_BETWEEN_ADDING_NEW_QUERY = 10
+WAIT_BETWEEN_ADDING_NEW_QUERY = 3
 WAIT_BEFORE_SIGKILL = 10
 
 #### Worker Configurations
@@ -60,7 +61,7 @@ allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]
 
 #### Queries
 allQueries = {
-    "agg": "scripts/benchmarking/work-dealing/configs/agg_query.yaml",
+    # "agg": "scripts/benchmarking/work-dealing/configs/agg_query.yaml",
     "filter": "scripts/benchmarking/work-dealing/configs/agg_query.yaml"}
 no_concurrent_queries = 64
 
@@ -91,20 +92,20 @@ def start_tcp_servers(starting_ports):
     max_retries = 10
     for port in starting_ports:
         for _ in range(max_retries):
-            cmd = f"{tcp_server_executable} -p {port} -r {EMIT_RATE_TUPLES_PER_SECOND}"
+            cmd = f"{tcp_server_executable} -p {str(port)} -r {EMIT_RATE_TUPLES_PER_SECOND}"
             print(f"Trying to start tcp server with {cmd}")
             process = subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL)
             time.sleep(WAIT_BETWEEN_COMMANDS_SHORT)  # Allow server to start
             if process.poll() is not None and process.poll() != 0:
                 # print(f"Failed to start tcp server with PID: {process.pid} and port: {port}")
-                port = str(int(port) + random.randint(1, 10))
+                port = port + random.randint(1, 10)
                 terminate_process_if_exists(process)
                 time.sleep(1)
             else:
                 # print(f"Started tcp server with PID: {process.pid} and port: {port}")
                 processes.append(process)
                 ports.append(port)
-                port = str(int(port) + 1)  # Increment the port for the next server
+                port = port + 1  # Increment the port for the next server
                 break
         else:
             raise Exception(f"Failed to start the TCP server after {max_retries} attempts.")
@@ -161,7 +162,7 @@ def stop_query(query_id):
     return process
 
 
-def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_port):
+def copy_and_modify_query_config(old_config, new_config, tcp_source_name):
     # Loading the yaml file
     with open(old_config, 'r') as input_yaml_file:
         yaml_query_config = yaml.safe_load(input_yaml_file)
@@ -176,9 +177,6 @@ def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_po
     # Update the physical logical reference to use the new logical name
     yaml_query_config['physical'][0]['logical'] = tcp_source_name
 
-    # Update the socket port
-    yaml_query_config['physical'][0]['sourceConfig']['socketPort'] = new_port
-
     # Save the updated content back to the YAML file
     with open(new_config, 'w') as file:
         yaml.dump(yaml_query_config, file, sort_keys=False)
@@ -187,7 +185,7 @@ def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_po
 def parse_log_to_csv(log_file_path, csv_file_path):
     # Regular expression to parse each log line
     log_pattern = re.compile(
-        r'Throughput for queryId (\d+) in window (\d+)-(\d+) is \d+\.\d+ MB/s / (\d+\.\d+) (\w)Tup/s'
+        r'Throughput for queryId (\d+) in window (\d+)-(\d+) is \d+\.\d+ \wB/s / (\d+\.\d+) (\w)Tup/s'
     )
 
     # List to store the extracted data
@@ -262,7 +260,7 @@ if __name__ == "__main__":
     check_repository_root()
 
     # Create folder
-    create_folder_and_remove_if_exists(build_dir)
+    # create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
     compile_nebulastream(cmake_flags, build_dir)
@@ -325,20 +323,10 @@ if __name__ == "__main__":
             start_port = [5123]
             query_ids = []
             for concurrent_query_number in range(no_concurrent_queries):
-                # Starting the tcp server(s)
-                [tcp_server_processes, tcp_server_ports] = start_tcp_servers(start_port)
-
                 # Changing the query yaml file to the new ports etc.
                 new_query_config_name = os.path.join(folder_name, f"{query}_{concurrent_query_number}.yaml")
                 copy_and_modify_query_config(allQueries[query], new_query_config_name,
-                                             f"{query}_{concurrent_query_number}_source", tcp_server_ports[0])
-
-                # Setting start ports for next query
-                start_port[0] = tcp_server_ports[0] + 1
-
-                # Waiting to give the tcp server time to start
-                time.sleep(WAIT_BETWEEN_COMMANDS_LONG)
-
+                                             f"{query}_{concurrent_query_number}_source")
                 # Submitting the query
                 query_id = submitting_query(new_query_config_name)
                 query_ids.append(query_id)
