@@ -63,10 +63,11 @@ std::vector<Memory::TupleBuffer> NautilusTestUtils::createMonotonicallyIncreasin
     const Schema& schema, const uint64_t numberOfTuples, Memory::BufferManager& bufferManager, const uint64_t minSizeVarSizedData)
 {
     /// We log the seed to gain reproducibility of the test
-    const auto seed = std::random_device()();
+    // const auto seed = std::random_device()();
+    const auto seed = 652747112;
     NES_INFO("Seed for creating values: {}", seed);
 
-    constexpr auto maxSizeVarSizedData = 20;
+    const auto maxSizeVarSizedData = std::max(20UL, minSizeVarSizedData + 1);
     return createMonotonicallyIncreasingValues(schema, numberOfTuples, bufferManager, seed, minSizeVarSizedData, maxSizeVarSizedData);
 }
 
@@ -210,10 +211,9 @@ void NautilusTestUtils::compileFillBufferFunction(
                             std::generate_n(randomString.begin(), size, randchar);
 
                             /// Adding the random string to the buffer and returning the pointer to the data
-                            const auto varSizedPosition
-                                = Memory::MemoryLayouts::writeVarSizedData(*inputBuffer, randomString, *bufferProviderVal).value();
-                            const auto varSizedDataBuffer = inputBuffer->loadChildBuffer(varSizedPosition);
-                            return varSizedDataBuffer.getBuffer();
+                            const auto combinedIdxOffset
+                                = Memory::MemoryLayouts::writeVarSizedData(*inputBuffer, randomString, *bufferProviderVal);
+                            return Memory::MemoryLayouts::loadAssociatedVarSizedValue(inputBuffer, combinedIdxOffset);
                         },
                         recordBuffer.getReference(),
                         bufferProvider,

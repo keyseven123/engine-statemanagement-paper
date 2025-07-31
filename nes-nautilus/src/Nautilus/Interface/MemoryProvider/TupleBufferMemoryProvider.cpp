@@ -31,83 +31,23 @@
 #include <Nautilus/Interface/Record.hpp>
 #include <Nautilus/Interface/RecordBuffer.hpp>
 #include <Runtime/AbstractBufferProvider.hpp>
-#include <Runtime/TupleBuffer.hpp>
 #include <nautilus/function.hpp>
 #include <nautilus/val_ptr.hpp>
 #include <ErrorHandling.hpp>
+#include <MemoryLayout/MemoryLayout.hpp>
 
 namespace NES::Nautilus::Interface::MemoryProvider
 {
 
-uint32_t storeAssociatedVarSizedValueProxy(
-    const Memory::TupleBuffer* tupleBuffer,
-    Memory::AbstractBufferProvider* bufferProvider,
-    const int8_t* varSizedValue,
-    const uint32_t totalVariableSize,
-    const uint64_t totalVarSizedSpace,
-    const uint64_t varSizedOffset,
-    const uint32_t childBufferIndex)
-{
-    if (varSizedOffset == 0)
-    {
-        auto buffer = bufferProvider->getUnpooledBuffer(totalVarSizedSpace);
-        INVARIANT(buffer.has_value(), "Cannot allocate unpooled buffer of size {}", totalVarSizedSpace);
-        const auto dstAddress = buffer.value().getBuffer<int8_t>() + varSizedOffset;
-        const auto srcAddress = varSizedValue;
-        std::memcpy(dstAddress, srcAddress, totalVariableSize);
-        buffer->setNumberOfTuples(buffer->getNumberOfTuples() + 1);
-        buffer->setUsedMemorySize(totalVariableSize);
-        buffer->setCombinedVarSized(true);
-        return tupleBuffer->storeChildBuffer(buffer.value());
-    }
-    auto buffer = tupleBuffer->loadChildBuffer(childBufferIndex);
-    PRECONDITION(varSizedOffset == buffer.getUsedMemorySize(), "varSizedOffset and usedMemory should be the same!");
-    const auto dstAddress = buffer.getBuffer<int8_t>() + varSizedOffset;
-    const auto srcAddress = varSizedValue;
-    std::memcpy(dstAddress, srcAddress, totalVariableSize);
-    buffer.setNumberOfTuples(buffer.getNumberOfTuples() + 1);
-    buffer.setUsedMemorySize(buffer.getUsedMemorySize() + totalVariableSize);
-    return childBufferIndex;
-}
-
-const uint8_t* loadAssociatedVarSizedValue(const Memory::TupleBuffer* tupleBuffer, const uint32_t childIndex, const uint64_t countVarSized)
-{
-    auto childBuffer = tupleBuffer->loadChildBuffer(childIndex);
-    if (childBuffer.isCombinedVarSized())
-    {
-        auto varSizedPointer = childBuffer.getBuffer<uint8_t>();
-        PRECONDITION(
-            childBuffer.getNumberOfTuples() > countVarSized,
-            "CountVarSized  {} is larger than the occurrences of var sized in the child buffer {}",
-            countVarSized,
-            childBuffer.getNumberOfTuples());
-
-        /// We need to jump #countVarSized to go to the correct pointer for the var sized
-        /// We jump by reading the size of the var sized data and then incrementing the pointer
-        uint32_t currentSize = 0;
-        for (uint64_t i = 0; i < countVarSized; ++i)
-        {
-            currentSize = *reinterpret_cast<uint32_t*>(varSizedPointer);
-            varSizedPointer += currentSize + sizeof(uint32_t);
-        }
-        return varSizedPointer;
-    }
-    return childBuffer.getBuffer<uint8_t>();
-}
-
-
 VarVal TupleBufferMemoryProvider::loadValue(
-    const DataType& physicalType,
-    const RecordBuffer& recordBuffer,
-    const nautilus::val<int8_t*>& fieldReference,
-    const nautilus::val<uint64_t>& countVarSized)
+    const DataType& physicalType, const RecordBuffer& recordBuffer, const nautilus::val<int8_t*>& fieldReference)
 {
     if (physicalType.type != DataType::Type::VARSIZED)
     {
         return VarVal::readVarValFromMemory(fieldReference, physicalType.type);
     }
-    const auto childIndex = Nautilus::Util::readValueFromMemRef<uint32_t>(fieldReference);
-    const auto varSizedPtr = invoke(loadAssociatedVarSizedValue, recordBuffer.getReference(), childIndex, countVarSized);
+    const auto combinedIdxOffset = Nautilus::Util::readValueFromMemRef<uint64_t>(fieldReference);
+    const auto varSizedPtr = invoke(Memory::MemoryLayouts::loadAssociatedVarSizedValue, recordBuffer.getReference(), combinedIdxOffset);
     return VariableSizedData(varSizedPtr);
 }
 
@@ -117,10 +57,7 @@ VarVal TupleBufferMemoryProvider::storeValue(
     const RecordBuffer& recordBuffer,
     const nautilus::val<int8_t*>& fieldReference,
     VarVal value,
-    const nautilus::val<Memory::AbstractBufferProvider*>& bufferProvider,
-    const nautilus::val<uint64_t>& totalVarSizedSpace,
-    nautilus::val<uint64_t>& varSizedOffset,
-    nautilus::val<uint32_t>& childIndex)
+    const nautilus::val<Memory::AbstractBufferProvider*>& bufferProvider)
 {
     if (physicalType.type != DataType::Type::VARSIZED)
     {
@@ -134,24 +71,16 @@ VarVal TupleBufferMemoryProvider::storeValue(
         throw UnknownDataType("Physical Type: {} is currently not supported", physicalType);
     }
 
-    if (physicalType.type == DataType::Type::VARSIZED)
-    {
-        const auto varSizedValue = value.cast<VariableSizedData>();
-        childIndex = invoke(
-            storeAssociatedVarSizedValueProxy,
-            recordBuffer.getReference(),
-            bufferProvider,
-            varSizedValue.getReference(),
-            varSizedValue.getTotalSize(),
-            totalVarSizedSpace,
-            varSizedOffset,
-            childIndex);
-        auto fieldReferenceCastedU32 = static_cast<nautilus::val<uint32_t*>>(fieldReference);
-        varSizedOffset += varSizedValue.getTotalSize();
-        *fieldReferenceCastedU32 = childIndex;
-        return value;
-    }
-    throw UnknownDataType("Physical Type: type {} is currently not supported", physicalType);
+    const auto varSizedValue = value.cast<VariableSizedData>();
+    const nautilus::val<uint64_t> newCombinedIdxOffset = invoke(
+        Memory::MemoryLayouts::storeAssociatedVarSizedValue,
+        recordBuffer.getReference(),
+        bufferProvider,
+        varSizedValue.getReference(),
+        varSizedValue.getTotalSize());
+    auto fieldReferenceCastedU64 = static_cast<nautilus::val<uint64_t*>>(fieldReference);
+    *fieldReferenceCastedU64 = newCombinedIdxOffset;
+    return value;
 }
 
 

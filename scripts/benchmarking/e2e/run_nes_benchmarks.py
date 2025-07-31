@@ -48,11 +48,11 @@ NUM_RUNS_PER_EXPERIMENT = 1
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
 allNumberOfWorkerThreads = [1, 2, 4, 8, 16] #[1, 4]
-allNumberOfBuffersInGlobalBufferManagers = [4000000] #[500000] if buffer size is 102400
+allNumberOfBuffersInGlobalBufferManagers = [20000] #[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [10]
+allNumberOfEntriesSliceCaches = [5]
 allSliceCacheTypes = ["LRU"]
-allBufferSizes = [8192] #[100 * 1024]
+allBufferSizes = [1048576] #[8192] #[100 * 1024]
 allPageSizes = [8192]
 
 #### Queries
@@ -109,6 +109,8 @@ def parse_average_throughput_from_throughput_listener(console_output):
             data.append(throughput_value)
 
     # Calculate average of the query
+    if len(data) == 0:
+        return -1
     average_throughput = sum(data) / len(data)
     return average_throughput
 
@@ -124,6 +126,7 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
                      f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.joinStrategy={joinStrategy} "
                      f"--worker.queryOptimizer.pageSize={pageSize} "
+                     "--worker.numberOfBuffersInSourceLocalPools=1024 "
                      f"--worker.queryOptimizer.operatorBufferSize={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
                      f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")

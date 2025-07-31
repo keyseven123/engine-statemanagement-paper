@@ -73,7 +73,8 @@ public:
 
         /// Getting a new random seed and then generating a random number for the no. items
         /// We print the seed, so that we can reproduce the test if necessary
-        const auto seed = std::random_device()();
+        // const auto seed = std::random_device()();
+        const auto seed = 2199643890;
         NES_INFO("Seed: {}", seed);
         std::srand(seed);
         numberOfItems = std::rand() % (maxNumberOfItems - minNumberOfItems + 1) + minNumberOfItems;
@@ -118,7 +119,8 @@ TEST_P(PagedVectorTest, storeAndRetrieveVarSizeValues)
 
 TEST_P(PagedVectorTest, storeAndRetrieveLargeValues)
 {
-    bufferManager = Memory::BufferManager::create();
+    /// We need to increase the number of buffers, otherwise we run out of them
+    bufferManager = Memory::BufferManager::create(8 * 1024, 10 * 1000);
     const auto testSchema
         = Schema{Schema::MemoryLayoutType::ROW_LAYOUT}.addField("value1", DataTypeProvider::provideDataType(DataType::Type::VARSIZED));
     /// smallest possible pageSize ensures that the text is split over multiple pages

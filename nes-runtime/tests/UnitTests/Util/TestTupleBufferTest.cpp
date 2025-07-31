@@ -158,7 +158,7 @@ TEST_P(TestTupleBufferTest, readWritetestBufferTestVarSizeData)
 {
     for (int i = 0; i < 10; ++i)
     {
-        auto testTuple = std::make_tuple((uint16_t)i, "" + std::to_string(i) + std::to_string(i), i * 2.0, std::to_string(i));
+        auto testTuple = std::make_tuple((uint16_t)i, "" + std::to_string(i) + std::to_string(i), i * 2.0, std::to_string(i + 5));
         testBufferVarSize->pushRecordToBuffer(testTuple, bufferManager.get());
         ASSERT_EQ((testBufferVarSize->readRecordFromBuffer<VAR_SIZED_DATA_TYPES>(i)), testTuple);
     }

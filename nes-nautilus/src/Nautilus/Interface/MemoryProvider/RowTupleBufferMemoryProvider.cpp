@@ -59,19 +59,14 @@ Record RowTupleBufferMemoryProvider::readRecord(
     const auto tupleSize = rowMemoryLayout->getTupleSize();
     const auto bufferAddress = recordBuffer.getBuffer();
     const auto recordOffset = bufferAddress + (tupleSize * recordIndex);
-    nautilus::val<uint64_t> countVarSized = 0;
     for (nautilus::static_val<uint64_t> i = 0; i < schema.getNumberOfFields(); ++i)
     {
         const auto& fieldName = schema.getFieldAt(i).name;
         if (includesField(projections, fieldName))
         {
             auto fieldAddress = calculateFieldAddress(recordOffset, i);
-            auto value = loadValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, countVarSized);
+            auto value = loadValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress);
             record.write(rowMemoryLayout->getSchema().getFieldAt(i).name, value);
-        }
-        if (schema.getFieldAt(i).dataType.isType(DataType::Type::VARSIZED))
-        {
-            countVarSized += 1;
         }
     }
     return record;
@@ -88,23 +83,12 @@ void RowTupleBufferMemoryProvider::writeRecord(
     const auto recordOffset = bufferAddress + (tupleSize * recordIndex);
     const auto schema = rowMemoryLayout->getSchema();
 
-    nautilus::val<uint64_t> totalVarSizedSpace = 0;
-    for (nautilus::static_val<size_t> i = 0; i < schema.getNumberOfFields(); ++i)
-    {
-        if (schema.getFieldAt(i).dataType.isType(DataType::Type::VARSIZED))
-        {
-            const auto& varSized = rec.read(schema.getFieldAt(i).name).cast<VariableSizedData>();
-            totalVarSizedSpace += varSized.getTotalSize();
-        }
-    }
-
-    nautilus::val<uint32_t> childIndex = 0;
     nautilus::val<uint64_t> varSizedOffset = 0;
     for (nautilus::static_val<size_t> i = 0; i < schema.getNumberOfFields(); ++i)
     {
         auto fieldAddress = calculateFieldAddress(recordOffset, i);
         const auto& value = rec.read(schema.getFieldAt(i).name);
-        storeValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, value, bufferProvider, totalVarSizedSpace, varSizedOffset, childIndex);
+        storeValue(rowMemoryLayout->getPhysicalType(i), recordBuffer, fieldAddress, value, bufferProvider);
     }
 }
 

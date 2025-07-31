@@ -35,6 +35,7 @@
 #include <InputFormatters/InputFormatterTask.hpp>
 #include <Runtime/AbstractBufferProvider.hpp>
 #include <Runtime/TupleBuffer.hpp>
+#include <MemoryLayout/MemoryLayout.hpp>
 #include <Util/Logger/Logger.hpp>
 #include <boost/token_functions.hpp>
 #include <boost/tokenizer.hpp>
@@ -436,16 +437,9 @@ CSVInputFormatter::CSVInputFormatter(const Schema& schema, std::string tupleDeli
                         "Parser::writeFieldValueToTupleBuffer(): trying to write the variable length input string: {}"
                         "to tuple buffer",
                         inputString);
-                    const auto valueLength = inputString.length();
-                    auto childBuffer = bufferProvider.getUnpooledBuffer(valueLength + sizeof(uint32_t));
-                    INVARIANT(childBuffer.has_value(), "Could not store string, because we cannot allocate a child buffer.");
-
-                    auto& childBufferVal = childBuffer.value();
-                    *childBufferVal.getBuffer<uint32_t>() = valueLength;
-                    std::memcpy(childBufferVal.getBuffer<char>() + sizeof(uint32_t), inputString.data(), valueLength);
-                    const auto index = tupleBufferFormatted.storeChildBuffer(childBufferVal);
-                    auto* childBufferIndexPointer = reinterpret_cast<uint32_t*>(fieldPointer);
-                    *childBufferIndexPointer = index;
+                    const auto combinedIdxOffset = Memory::MemoryLayouts::writeVarSizedData(tupleBufferFormatted, inputString, bufferProvider);
+                    auto* childBufferIndexPointer = reinterpret_cast<uint64_t*>(fieldPointer);
+                    *childBufferIndexPointer = combinedIdxOffset;
                 });
         }
     }
