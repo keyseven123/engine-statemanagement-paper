@@ -65,15 +65,14 @@ queries = {
     "SG1": "nes-systests/benchmark/memory-source/SmartGrid.test:01",
     "SG2": "nes-systests/benchmark/memory-source/SmartGrid.test:02",
     "SG3": "nes-systests/benchmark/memory-source/SmartGrid.test:03",
+    "YSB1k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:01",
+    "YSB10k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:02",
     "NM1": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:02",
     "NM2": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:03",
     "NM5": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:04",
-    "NM8": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:05",
     "NM8_Variant": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:06",
-    "YSB1k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:01",
-    "YSB10k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:02",
+    "NM8": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:05",
 }
-
 
 def initialize_csv_file():
     """Initialize the CSV file with headers."""
@@ -219,6 +218,11 @@ if __name__ == "__main__":
              numberOfEntriesSliceCaches,
              sliceCacheType, bufferSizeInBytes, pageSize] in combinations:
             workerConfigIdx += 1
+
+            # Otherwise we run out-of-memory on tower-en717
+            if query == "NM8":
+                buffersInGlobalBufferManager = 600000
+                bufferSizeInBytes = 200 * 1024
 
             config = {
                 'executionMode': executionMode,

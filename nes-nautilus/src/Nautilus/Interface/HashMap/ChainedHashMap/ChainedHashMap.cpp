@@ -33,7 +33,7 @@ constexpr auto assumedLoadFactor = 0.75;
 uint64_t calcCapacity(const uint64_t numberOfKeys, const double loadFactor)
 {
     PRECONDITION(numberOfKeys > 0, "Number of keys {} has to be greater than 0", numberOfKeys);
-    PRECONDITION(loadFactor > 0, "Load factor {} has to be greater than 0", loadFactor);
+    PRECONDITION(loadFactor > 0.0, "Load factor {} has to be greater than 0", loadFactor);
 
     const uint64_t numberOfZeroBits = std::countl_zero(numberOfKeys);
     INVARIANT(
@@ -122,7 +122,11 @@ std::unique_ptr<ChainedHashMap> ChainedHashMap::createNewMapWithSameConfiguratio
 ChainedHashMapEntry* ChainedHashMap::findChain(const HashFunction::HashValue::raw_type hash) const
 {
     const auto entryStartPos = hash & mask;
-    return entries[entryStartPos];
+    const auto chainStart = entries[entryStartPos];
+    const auto sizeOfEntryOfEntries = sizeof(ChainedHashMapEntry*);
+    // std::cout << fmt::format("chainStart {} and &chainStart {} and sizeOfEntryOfEntries {}", fmt::ptr(chainStart), fmt::ptr(&entries[entryStartPos]), sizeOfEntryOfEntries)
+              // << std::endl;
+    return chainStart;
 }
 
 int8_t* ChainedHashMap::allocateSpaceForVarSized(Memory::AbstractBufferProvider* bufferProvider, const size_t neededSize)
@@ -133,7 +137,8 @@ int8_t* ChainedHashMap::allocateSpaceForVarSized(Memory::AbstractBufferProvider*
         auto varSizedBuffer = bufferProvider->getUnpooledBuffer(neededSize * numberOfPreAllocatedSpaces);
         if (not varSizedBuffer)
         {
-            throw CannotAllocateBuffer("Could not allocate memory for ChainedHashMap of size {}", std::to_string(neededSize * numberOfPreAllocatedSpaces));
+            throw CannotAllocateBuffer(
+                "Could not allocate memory for ChainedHashMap of size {}", std::to_string(neededSize * numberOfPreAllocatedSpaces));
         }
         varSizedSpace.emplace_back(varSizedBuffer.value());
     }

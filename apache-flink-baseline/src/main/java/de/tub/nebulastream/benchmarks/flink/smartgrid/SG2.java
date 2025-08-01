@@ -48,7 +48,7 @@ public class SG2 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<SGRecord> source = new MemorySource<SGRecord>(basePathForDataFiles + "/smartgrid-data_6GB.csv", numOfRecords, SGRecord.class, SGRecord.schema);
+        MemorySource<SGRecord> source = new MemorySource<SGRecord>(basePathForDataFiles + "/smartgrid-data_2GB.csv", numOfRecords, SGRecord.class, SGRecord.schema);
         WatermarkStrategy<SGRecord> strategy = WatermarkStrategy
              .<SGRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
              .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);

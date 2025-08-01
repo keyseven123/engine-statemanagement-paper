@@ -136,7 +136,16 @@ HashFunction::HashValue ChainedHashMapRef::ChainedEntryRef::getHash() const
 
 nautilus::val<ChainedHashMapEntry*> ChainedHashMapRef::ChainedEntryRef::getNext() const
 {
-    return invoke(+[](const ChainedHashMapEntry* entry) { return entry->next; }, entryRef);
+    // return invoke(+[](const ChainedHashMapEntry* entry) { return entry->next; }, entryRef);
+    const auto nextRef = Util::getMemberRef(entryRef, &ChainedHashMapEntry::next);
+    auto next = Util::readValueFromMemRef<ChainedHashMapEntry**>(nextRef);
+    return next;
+    // if (next == nullptr)
+    // {
+    // return nullptr;
+    // }
+    // nautilus::val<ChainedHashMapEntry*> tmp = *next;
+    // return tmp;
 }
 
 ChainedHashMapRef::ChainedEntryRef::ChainedEntryRef(
@@ -282,14 +291,20 @@ ChainedHashMapRef::EntryIterator ChainedHashMapRef::end() const
 
 nautilus::val<ChainedHashMapEntry*> ChainedHashMapRef::findChain(const HashFunction::HashValue& hash) const
 {
-    return invoke(
-        +[](HashMap* hashMap, const HashFunction::HashValue::raw_type hashValue)
-        {
-            /// If no tuples are in the hashmap, we return nullptr otherwise we return the chain for the hash value.
-            return hashMap->getNumberOfTuples() == 0 ? nullptr : dynamic_cast<ChainedHashMap*>(hashMap)->findChain(hashValue);
-        },
-        hashMapRef,
-        hash);
+    const auto numberOfTuplesRef = Util::getMemberRef(hashMapRef, &ChainedHashMap::numberOfTuples);
+    const auto numberOfTuples = Util::readValueFromMemRef<uint64_t>(numberOfTuplesRef);
+    if (numberOfTuples == 0)
+    {
+        return nullptr;
+    }
+
+    const auto maskRef = Util::getMemberRef(hashMapRef, &ChainedHashMap::mask);
+    auto mask = Util::readValueFromMemRef<uint64_t>(maskRef);
+    const auto entryStartPos = hash & mask;
+    const auto entriesRef = Util::getMemberRef(hashMapRef, &ChainedHashMap::entries);
+    auto entries = Util::readValueFromMemRef<ChainedHashMapEntry**>(entriesRef);
+    nautilus::val<ChainedHashMapEntry*> chainStart = entries[entryStartPos];
+    return chainStart;
 }
 
 nautilus::val<ChainedHashMapEntry*>

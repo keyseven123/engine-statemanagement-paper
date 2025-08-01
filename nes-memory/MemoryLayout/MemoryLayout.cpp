@@ -55,13 +55,16 @@ uint64_t getChildIndex(const uint64_t combinedIdxOffset)
 Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProvider, const uint32_t newBufferSize)
 {
     /// If the fixed size buffers are not large enough, we get an unpooled buffer
-    if (tupleBufferProvider->getBufferSize() <= newBufferSize)
+    if (tupleBufferProvider->getBufferSize() > newBufferSize)
     {
-        const auto unpooledBuffer = tupleBufferProvider->getUnpooledBuffer(newBufferSize);
-        INVARIANT(unpooledBuffer.has_value(), "Cannot allocate unpooled buffer of size {}", newBufferSize);
-        return unpooledBuffer.value();
+        if (auto newBuffer = tupleBufferProvider->getBufferNoBlocking(); newBuffer.has_value())
+        {
+            return newBuffer.value();
+        }
     }
-    return tupleBufferProvider->getBufferBlocking();
+    const auto unpooledBuffer = tupleBufferProvider->getUnpooledBuffer(newBufferSize);
+    INVARIANT(unpooledBuffer.has_value(), "Cannot allocate unpooled buffer of size {}", newBufferSize);
+    return unpooledBuffer.value();
 }
 
 /// @brief Copies the varsized to the specified location and then increments the number of tuples and used memory

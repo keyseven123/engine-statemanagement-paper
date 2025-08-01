@@ -38,17 +38,13 @@ struct WindowInfo
             this->windowStart = Timestamp(0);
         }
     }
-
+    bool operator==(const WindowInfo& other) const
+    {
+        return windowStart == other.windowStart and windowEnd == other.windowEnd;
+    }
     bool operator<(const WindowInfo& other) const { return windowEnd < other.windowEnd; }
     Timestamp windowStart;
     Timestamp windowEnd;
-};
-
-/// This struct stores a slice and the window info
-struct SlicesAndWindowInfo
-{
-    std::vector<std::shared_ptr<Slice>> windowSlices;
-    WindowInfo windowInfo;
 };
 
 struct WindowInfoAndSequenceNumber
@@ -96,3 +92,12 @@ public:
     [[nodiscard]] virtual uint64_t getWindowSize() const = 0;
 };
 }
+
+template <>
+struct std::hash<NES::WindowInfo>
+{
+    size_t operator()(const NES::WindowInfo& windowInfo) const
+    {
+        return hash<uint64_t>()(windowInfo.windowStart.getRawValue()) ^ hash<uint64_t>()(windowInfo.windowEnd.getRawValue());
+    }
+};
