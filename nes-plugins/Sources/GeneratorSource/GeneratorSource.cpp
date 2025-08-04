@@ -39,13 +39,13 @@ namespace NES::Sources
 GeneratorSource::GeneratorSource(const SourceDescriptor& sourceDescriptor)
     : seed(sourceDescriptor.getFromConfig(ConfigParametersGenerator::SEED))
     , maxRuntime(sourceDescriptor.getFromConfig(ConfigParametersGenerator::MAX_RUNTIME_MS))
+    , emitRateTuplesPerSecond(sourceDescriptor.getFromConfig(ConfigParametersGenerator::EMIT_RATE_TUPLES_PER_SECOND))
     , generatorSchemaRaw(sourceDescriptor.getFromConfig(ConfigParametersGenerator::GENERATOR_SCHEMA))
     , generatorStartTime(std::chrono::system_clock::now())
     , generator(
           seed,
           sourceDescriptor.getFromConfig(ConfigParametersGenerator::SEQUENCE_STOPS_GENERATOR),
           sourceDescriptor.getFromConfig(ConfigParametersGenerator::GENERATOR_SCHEMA))
-
 {
     NES_TRACE("Init GeneratorSource.")
 }
@@ -53,16 +53,21 @@ GeneratorSource::GeneratorSource(const SourceDescriptor& sourceDescriptor)
 void GeneratorSource::open()
 {
     NES_TRACE("Opening GeneratorSource.");
+    startTimeForEmitRate = std::chrono::high_resolution_clock::now();
 }
 
 void GeneratorSource::close()
 {
+    auto totalElapsedTime = std::chrono::high_resolution_clock::now() - startTimeForEmitRate;
+    std::cout << fmt::format("Generated {} buffers in {}", generatedBuffers, totalElapsedTime) << std::endl;
     NES_TRACE("Closing GeneratorSource.");
 }
 
 size_t GeneratorSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, const std::stop_token& stopToken)
 {
-    NES_INFO("Filling buffer in GeneratorSource.");
+    constexpr uint64_t checkRateEveryNthTuples = 100 * 1000;
+
+    NES_DEBUG("Filling buffer in GeneratorSource.");
     try
     {
         size_t writtenBytes = 0;
@@ -77,27 +82,59 @@ size_t GeneratorSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, c
         while (writtenBytes < rawTBSize and not this->generator.shouldStop() and not stopToken.stop_requested())
         {
             auto insertedBytes = tuplesStream.tellp();
-            if (!orphanTuples.empty())
+            if (not orphanTuples.empty())
             {
                 tuplesStream << orphanTuples;
                 orphanTuples.clear();
             }
             this->generator.generateTuple(tuplesStream);
+            ++generatedTuplesCounter;
             insertedBytes = tuplesStream.tellp() - insertedBytes;
             if (writtenBytes + insertedBytes > rawTBSize)
             {
-                tuplesStream.read(tupleBuffer.getBuffer<char>(), writtenBytes);
-                generatedBuffers++;
                 this->orphanTuples = tuplesStream.str().substr(writtenBytes, tuplesStream.str().length() - writtenBytes);
-                tuplesStream.str("");
-                return writtenBytes;
+                break;
             }
             writtenBytes += insertedBytes;
         }
         tuplesStream.read(tupleBuffer.getBuffer<char>(), writtenBytes);
         ++generatedBuffers;
         tuplesStream.str("");
-        NES_INFO("Wrote {} bytes", writtenBytes);
+        NES_DEBUG("Wrote {} bytes", writtenBytes);
+
+
+        if (generatedTuplesCounter >= checkRateEveryNthTuples)
+        {
+            const auto endTime = std::chrono::high_resolution_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTimeForEmitRate).count();
+            const auto delayInSeconds = static_cast<double>(checkRateEveryNthTuples) / emitRateTuplesPerSecond;
+            const auto delayInMicroSeconds = static_cast<long>(delayInSeconds * 1000.0 * 1000.0);
+            std::cout << fmt::format(
+                "writtenBytes {} endTime {} elapsed {} delayInSeconds {} generatedTuplesCounter {} emitRateTuplesPerSecond {}",
+                writtenBytes,
+                endTime,
+                elapsed,
+                delayInSeconds,
+                generatedTuplesCounter,
+                emitRateTuplesPerSecond)
+                      << std::endl;
+
+            if (elapsed < delayInMicroSeconds)
+            {
+                std::cout << "Sleeping for " << std::chrono::microseconds(delayInMicroSeconds - elapsed) << std::endl;
+                std::this_thread::sleep_for(std::chrono::microseconds(delayInMicroSeconds - elapsed));
+            }
+
+
+            /// Reset the tuple counter and update startTimeForEmitRate
+            generatedTuplesCounter = 0;
+            startTimeForEmitRate = std::chrono::high_resolution_clock::now();
+
+            /// Printing how many buffers we have created
+            auto totalElapsedTime = std::chrono::high_resolution_clock::now() - generatorStartTime;
+            std::cout << fmt::format("Generated {} buffers in {}", generatedBuffers, totalElapsedTime) << std::endl;
+        }
+
         return writtenBytes;
     }
     catch (const std::exception& e)

@@ -55,6 +55,8 @@
 #include <TaskQueue.hpp>
 #include <TaskQueuePerThread.hpp>
 
+#include "SingleTaskQueue.hpp"
+
 namespace NES
 {
 
@@ -786,8 +788,8 @@ QueryEngine::QueryEngine(
             break;
         }
         case QueryEngineConfiguration::ResourceAssignment::WORK_STEALING: {
-            internalTaskQueue = std::make_unique<RoundRobinTaskQueue>(1, config.taskQueueSize.getValue());
-            admissionQueue = std::make_unique<RoundRobinTaskQueue>(1, config.admissionQueueSize.getValue());
+            internalTaskQueue = std::make_unique<SingleTaskQueue>(config.taskQueueSize.getValue());
+            admissionQueue = std::make_unique<SingleTaskQueue>(config.admissionQueueSize.getValue());
             break;
         }
             std::unreachable();

@@ -21,6 +21,7 @@ physical:
       type: Generator
       stopGeneratorWhenSequenceFinishes: ONE
       maxRuntimeMS: 1000000000
+      emitRateTuplesPerSecond: TBA
       seed: 42
       generatorSchema: |
         NORMAL_DISTRIBUTION UINT64 0 4999 1666

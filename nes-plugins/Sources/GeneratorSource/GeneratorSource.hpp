@@ -64,8 +64,11 @@ public:
 private:
     uint32_t seed;
     int32_t maxRuntime;
+    double emitRateTuplesPerSecond;
+    uint64_t generatedTuplesCounter{0};
     uint64_t generatedBuffers{0};
     std::string generatorSchemaRaw;
+    std::chrono::time_point<std::chrono::system_clock> startTimeForEmitRate;
     std::chrono::time_point<std::chrono::system_clock> generatorStartTime;
     Generator generator;
     std::stringstream tuplesStream;
@@ -125,18 +128,18 @@ struct ConfigParametersGenerator
                 | std::views::filter([](const auto& subView) { return !subView.empty(); });
             for (auto line : lines)
             {
-                const auto foundIdentifer = line.substr(0, line.find_first_of(' '));
+                const auto foundIdentifier = line.substr(0, line.find_first_of(' '));
                 bool validatorExists = false;
                 for (const auto& [identifier, validator] : GeneratorFields::Validators)
                 {
-                    if (identifier == foundIdentifer)
+                    if (identifier == foundIdentifier)
                     {
                         validator(line);
                         validatorExists = true;
                         break;
                     }
                 }
-                if (!validatorExists)
+                if (not validatorExists)
                 {
                     NES_ERROR("Cannot identify the type of field in \"{}\", does the field have a registered validator?", line);
                     throw NES::InvalidConfigParameter(
@@ -153,9 +156,18 @@ struct ConfigParametersGenerator
         [](const std::unordered_map<std::string, std::string>& config)
         { return Configurations::DescriptorConfig::tryGet(MAX_RUNTIME_MS, config); }};
 
+    /// @brief config option for setting the emit rate in tuples per second
+    static inline const Configurations::DescriptorConfig::ConfigParameter<double> EMIT_RATE_TUPLES_PER_SECOND{
+        "emitRateTuplesPerSecond",
+        std::numeric_limits<double>::max(),
+        [](const std::unordered_map<std::string, std::string>& config)
+        { return Configurations::DescriptorConfig::tryGet(EMIT_RATE_TUPLES_PER_SECOND, config); }};
+
+
+
     static inline std::unordered_map<std::string, Configurations::DescriptorConfig::ConfigParameterContainer> parameterMap
         = Configurations::DescriptorConfig::createConfigParameterContainerMap(
-            SEED, GENERATOR_SCHEMA, MAX_RUNTIME_MS, SEQUENCE_STOPS_GENERATOR);
+            SEED, GENERATOR_SCHEMA, MAX_RUNTIME_MS, SEQUENCE_STOPS_GENERATOR, EMIT_RATE_TUPLES_PER_SECOND);
 };
 
 }

@@ -58,28 +58,6 @@ void threadRoutine(
 
         bool operator<(const ThroughputWindow& other) const { return endTime < other.endTime; }
     };
-    struct TaskIntermediateStore
-    {
-        TaskIntermediateStore(
-            QueryId queryId,
-            Timestamp startTime,
-            const uint64_t bytes,
-            const uint64_t numberOfTuples,
-            ChronoClock::time_point startTimePoint)
-            : queryId(std::move(queryId))
-            , startTime(std::move(startTime))
-            , bytes(bytes)
-            , numberOfTuples(numberOfTuples)
-            , startTimePoint(std::move(startTimePoint))
-        {
-        }
-        explicit TaskIntermediateStore() : queryId(INVALID_QUERY_ID), startTime(Timestamp::INVALID_VALUE), bytes(0), numberOfTuples(0) { }
-        QueryId queryId;
-        Timestamp startTime;
-        uint64_t bytes;
-        uint64_t numberOfTuples;
-        ChronoClock::time_point startTimePoint;
-    };
 
     /// We need to have for each query id windows that store the number of tuples processed in one.
     /// For faster access, we store the window with its end time as the key in a hash map.

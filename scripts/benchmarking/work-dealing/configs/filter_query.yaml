@@ -1,4 +1,4 @@
-query: SELECT * FROM tcp_source WHERE id > 123456789 INTO discard_sink
+query: SELECT * FROM tcp_source WHERE id > UINT64(123456789) INTO discard_sink
 sink:
   name: discard_sink
   type: Discard
@@ -21,6 +21,7 @@ physical:
       type: Generator
       stopGeneratorWhenSequenceFinishes: ONE
       maxRuntimeMS: 1000000000
+      emitRateTuplesPerSecond: TBA
       seed: 42
       generatorSchema: |
         NORMAL_DISTRIBUTION UINT64 0 4999 1666

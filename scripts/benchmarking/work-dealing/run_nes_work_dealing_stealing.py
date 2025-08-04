@@ -42,7 +42,7 @@ cmake_flags = ("-G Ninja "
                "-DNES_LOG_LEVEL:STRING=LEVEL_NONE "
                "-DNES_BUILD_NATIVE:BOOL=ON")
 NUM_RUNS_PER_EXPERIMENT = 1
-EMIT_RATE_TUPLES_PER_SECOND = str(10 * 1000)
+EMIT_RATE_TUPLES_PER_SECOND = str(100 * 1000)
 WAIT_BETWEEN_COMMANDS_SHORT = 2
 WAIT_BETWEEN_COMMANDS_LONG = 5
 WAIT_BETWEEN_ADDING_NEW_QUERY = 3
@@ -50,20 +50,20 @@ WAIT_BEFORE_SIGKILL = 10
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = [8]
-allNumberOfBuffersInGlobalBufferManagers = [4000000]  # [500000] if buffer size is 102400
+allNumberOfWorkerThreads = [16]
+allNumberOfBuffersInGlobalBufferManagers = [20000] #[4000000] if buffer size is 8192  # [500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [10]
+allNumberOfEntriesSliceCaches = [5]
 allSliceCacheTypes = ["LRU"]
-allBufferSizes = [8192]  # [100 * 1024]
+allBufferSizes = [1048576] #[8192] #[100 * 1024]
 allPageSizes = [8192]
 allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]
 
 #### Queries
 allQueries = {
-    # "agg": "scripts/benchmarking/work-dealing/configs/agg_query.yaml",
-    "filter": "scripts/benchmarking/work-dealing/configs/agg_query.yaml"}
-no_concurrent_queries = 64
+    "agg": "scripts/benchmarking/work-dealing/configs/agg_query.yaml",
+    "filter": "scripts/benchmarking/work-dealing/configs/filter_query.yaml"}
+no_concurrent_queries = 128
 
 
 def create_output_folder(appendix):
@@ -162,7 +162,7 @@ def stop_query(query_id):
     return process
 
 
-def copy_and_modify_query_config(old_config, new_config, tcp_source_name):
+def copy_and_modify_query_config(old_config, new_config, tcp_source_name, emitRate):
     # Loading the yaml file
     with open(old_config, 'r') as input_yaml_file:
         yaml_query_config = yaml.safe_load(input_yaml_file)
@@ -176,6 +176,9 @@ def copy_and_modify_query_config(old_config, new_config, tcp_source_name):
 
     # Update the physical logical reference to use the new logical name
     yaml_query_config['physical'][0]['logical'] = tcp_source_name
+
+    # Update the ingestion rage
+    yaml_query_config['physical'][0]['sourceConfig']['emitRateTuplesPerSecond'] = emitRate
 
     # Save the updated content back to the YAML file
     with open(new_config, 'w') as file:
@@ -206,6 +209,9 @@ def parse_log_to_csv(log_file_path, csv_file_path):
                 # Append the extracted data to the list
                 data.append((start_timestamp, query_id, throughput_value))
 
+    # Calculate average of the query
+    if len(data) == 0:
+        return -1
 
     # Find the minimum timestamp to normalize
     min_timestamp = min(data, key=lambda x: x[0])[0]
@@ -319,6 +325,7 @@ if __name__ == "__main__":
             file_path_stdout = os.path.join(folder_name, "SingleNodeStdout.log")
             with open(file_path_stdout, 'w') as stdout_file:
                 single_node_process = start_single_node_worker(stdout_file)
+                time.sleep(WAIT_BETWEEN_COMMANDS_LONG)
 
             start_port = [5123]
             query_ids = []
@@ -326,7 +333,8 @@ if __name__ == "__main__":
                 # Changing the query yaml file to the new ports etc.
                 new_query_config_name = os.path.join(folder_name, f"{query}_{concurrent_query_number}.yaml")
                 copy_and_modify_query_config(allQueries[query], new_query_config_name,
-                                             f"{query}_{concurrent_query_number}_source")
+                                             f"{query}_{concurrent_query_number}_source",
+                                             EMIT_RATE_TUPLES_PER_SECOND)
                 # Submitting the query
                 query_id = submitting_query(new_query_config_name)
                 query_ids.append(query_id)
