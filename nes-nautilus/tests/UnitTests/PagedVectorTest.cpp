@@ -118,7 +118,8 @@ TEST_P(PagedVectorTest, storeAndRetrieveVarSizeValues)
 
 TEST_P(PagedVectorTest, storeAndRetrieveLargeValues)
 {
-    bufferManager = Memory::BufferManager::create();
+    /// We need to increase the number of buffers, otherwise we run out of them for this test
+    bufferManager = Memory::BufferManager::create(8 * 1024, 10 * 1000);
     const auto testSchema
         = Schema{Schema::MemoryLayoutType::ROW_LAYOUT}.addField("value1", DataTypeProvider::provideDataType(DataType::Type::VARSIZED));
     /// smallest possible pageSize ensures that the text is split over multiple pages
