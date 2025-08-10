@@ -69,7 +69,8 @@ public:
     int8_t* allocateSpaceForVarSized(Memory::AbstractBufferProvider* bufferProvider, size_t neededSize);
     AbstractHashMapEntry* insertEntry(HashFunction::HashValue::raw_type hash, Memory::AbstractBufferProvider* bufferProvider) override;
     [[nodiscard]] uint64_t getNumberOfTuples() const override;
-    [[nodiscard]] const ChainedHashMapEntry* getPage(uint64_t pageIndex) const;
+    [[nodiscard]] const Memory::TupleBuffer& getPage(uint64_t pageIndex) const;
+    [[nodiscard]] uint64_t getNumberOfPages() const;
     [[nodiscard]] ChainedHashMapEntry* getStartOfChain(uint64_t entryIdx) const;
     [[nodiscard]] uint64_t getNumberOfChains() const;
 
