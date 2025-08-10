@@ -21,6 +21,7 @@
 #include <Configurations/BaseOption.hpp>
 #include <Configurations/Enums/EnumOption.hpp>
 #include <Configurations/ScalarOption.hpp>
+#include <Configurations/Validation/BooleanValidation.hpp>
 #include <Configurations/Validation/NumberValidation.hpp>
 #include <Util/DumpMode.hpp>
 #include <QueryEngineConfiguration.hpp>
@@ -60,6 +61,12 @@ public:
            DumpMode::NONE,
            fmt::format("If and where to dump query compilation results: {}", enumPipeList<DumpMode>())};
 
+    BoolOption latencyListener
+        = {"latencyListener",
+           "false",
+           "Should add the latency listener to the query engine listeners",
+           {std::make_shared<BooleanValidation>()}};
+
 private:
     std::vector<BaseOption*> getOptions() override
     {
@@ -69,7 +76,9 @@ private:
             &numberOfBuffersInGlobalBufferManager,
             &numberOfBuffersInSourceLocalPools,
             &bufferSizeInBytes,
-            &dumpQueryCompilationIntermediateRepresentations};
+            &dumpQueryCompilationIntermediateRepresentations,
+            &latencyListener
+        };
     }
 };
 }

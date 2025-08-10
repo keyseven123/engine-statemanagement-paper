@@ -58,37 +58,10 @@ void threadRoutine(
 
         bool operator<(const ThroughputWindow& other) const { return endTime < other.endTime; }
     };
-    struct TaskIntermediateStore
-    {
-        TaskIntermediateStore(
-            QueryId queryId,
-            Timestamp startTime,
-            const uint64_t bytes,
-            const uint64_t numberOfTuples,
-            ChronoClock::time_point startTimePoint)
-            : queryId(std::move(queryId))
-            , startTime(std::move(startTime))
-            , bytes(bytes)
-            , numberOfTuples(numberOfTuples)
-            , startTimePoint(std::move(startTimePoint))
-        {
-        }
-        explicit TaskIntermediateStore() : queryId(INVALID_QUERY_ID), startTime(Timestamp::INVALID_VALUE), bytes(0), numberOfTuples(0) { }
-        QueryId queryId;
-        Timestamp startTime;
-        uint64_t bytes;
-        uint64_t numberOfTuples;
-        ChronoClock::time_point startTimePoint;
-    };
 
     /// We need to have for each query id windows that store the number of tuples processed in one.
     /// For faster access, we store the window with its end time as the key in a hash map.
     std::unordered_map<QueryId, std::map<Timestamp, ThroughputWindow>> queryIdToThroughputWindowMap;
-
-    /// It might happen that a task takes longer than a timeInterval. Therefore, we might need to distribute the number of tuples
-    /// across multiple intervals / slices. To accomplish this, we store each TaskExecutionStart in a hash map.
-    std::unordered_map<TaskId, TaskIntermediateStore> taskIdToTaskIntermediateStoreMap;
-
 
     while (!token.stop_requested())
     {
@@ -109,28 +82,11 @@ void threadRoutine(
 
         std::visit(
             Overloaded{
-                [&](const TaskExecutionStart& taskStartEvent)
-                {
-                    const auto taskId = taskStartEvent.taskId;
-                    const auto queryId = taskStartEvent.queryId;
-                    const auto bytes = taskStartEvent.bytesInTupleBuffer;
-                    const auto numberOfTuples = taskStartEvent.numberOfTuples;
-                    const auto startTime = convertToTimeStamp(taskStartEvent.timestamp);
-                    const auto intermediateStoreItem
-                        = TaskIntermediateStore(queryId, startTime, bytes, numberOfTuples, taskStartEvent.timestamp);
-                    INVARIANT(
-                        not taskIdToTaskIntermediateStoreMap.contains(taskId),
-                        "TaskId {} was already presented with start time {} and new start time {}",
-                        taskId,
-                        taskIdToTaskIntermediateStoreMap.at(taskId).startTime,
-                        startTime);
-                    taskIdToTaskIntermediateStoreMap[taskId] = intermediateStoreItem;
-                },
                 [&](const TaskEmit& taskEmit)
                 {
                     /// We define the throughput to be the performance of the formatting steps, i.e., the throughput of emitting work from the formatting
                     /// If this task did not belong to a formatting task, we ignore it and return
-                    if (not taskEmit.formattingTask)
+                    if (not taskEmit.formattingTask or taskEmit.fromPipeline == taskEmit.toPipeline)
                     {
                         return;
                     }
@@ -144,11 +100,19 @@ void threadRoutine(
                     queryIdToThroughputWindowMap[queryId][windowEnd].tuplesProcessed += numberOfTuples;
                     queryIdToThroughputWindowMap[queryId][windowEnd].startTime = windowStart;
                     queryIdToThroughputWindowMap[queryId][windowEnd].endTime = windowEnd;
+                    // std::cout << "Got taskEmit " << taskEmit.taskId << " with " << numberOfTuples << " tuples, " << bytes << " bytes and endTime " << endTime  << " for " << windowStart << " to " << windowEnd << std::endl;
+
 
                     /// Now we need to check if we can emit / calculate a throughput. We assume that taskStopEvent.timestamp is increasing
                     for (auto& [queryId, endTimeAndThroughputWindow] : queryIdToThroughputWindowMap)
                     {
-                        for (auto it = endTimeAndThroughputWindow.begin(); it != endTimeAndThroughputWindow.end();)
+                        /// We need at least two windows per query to calculate a throughput
+                        if (endTimeAndThroughputWindow.size() < 2)
+                        {
+                            continue;
+                        }
+                        auto it = endTimeAndThroughputWindow.begin();
+                        while (it != std::prev(endTimeAndThroughputWindow.end()))
                         {
                             const auto& curWindowEnd = it->first;
                             const auto& [startTime, endTime, bytesProcessed, tuplesProcessed] = it->second;
@@ -159,13 +123,16 @@ void threadRoutine(
                             }
 
                             /// Calculating the throughput over this window and letting the callback know that a new throughput has been calculated
-                            const auto durationInMilliseconds = (endTime - startTime).getRawValue();
+                            auto nextEndTime = std::next(it)->first;
+                            const auto durationInMilliseconds = (nextEndTime - endTime).getRawValue();
                             const auto throughputInBytesPerSec = bytesProcessed / (durationInMilliseconds / 1000.0);
                             const auto throughputInTuplesPerSec = tuplesProcessed / (durationInMilliseconds / 1000.0);
-                            if (startTime.getRawValue() == Timestamp::INVALID_VALUE or endTime.getRawValue() == 384)
-                            {
-                                NES_INFO("blab");
-                            }
+                            // std::cout << "nextEndTime " << nextEndTime << std::endl;
+                            // std::cout << "endTime " << endTime << std::endl;
+                            // std::cout << "bytesProcessed " << bytesProcessed << std::endl;
+                            // std::cout << "tuplesProcessed " << tuplesProcessed << std::endl;
+                            // std::cout << "throughputInBytesPerSec " << throughputInBytesPerSec << std::endl;
+                            // std::cout << "throughputInTuplesPerSec " << throughputInTuplesPerSec << std::endl;
                             const ThroughputListener::CallBackParams callbackParams
                                 = {.queryId = queryId,
                                    .windowStart = startTime,
@@ -201,16 +168,18 @@ void ThroughputListener::onNodeShutdown()
         /// Check if the timeout has been reached
         if (std::chrono::high_resolution_clock::now() >= endTime)
         {
-            std::cout << fmt::format("Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout) << std::endl;
-            NES_WARNING("Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout);
+            std::cout << fmt::format(
+                "Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout)
+                      << std::endl;
+            NES_WARNING(
+                "Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout);
         }
     }
-
 }
 
 void ThroughputListener::onEvent(Event event)
 {
-    events.wlock()->emplace(std::visit([]<typename T>(T&& arg) { return Event(std::forward<T>(arg)); }, std::move(event)));
+    std::visit(Overloaded{[&](const TaskEmit& taskEmit) { events.wlock()->emplace(taskEmit); }, [](auto) {}}, event);
 }
 
 ThroughputListener::ThroughputListener(

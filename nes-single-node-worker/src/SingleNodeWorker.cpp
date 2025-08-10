@@ -33,6 +33,7 @@
 #include <Util/Pointers.hpp>
 #include <fmt/format.h>
 #include <ErrorHandling.hpp>
+#include <LatencyListener.hpp>
 #include <QueryCompiler.hpp>
 #include <QueryOptimizer.hpp>
 #include <SingleNodeWorkerConfiguration.hpp>
@@ -68,7 +69,7 @@ SingleNodeWorker::SingleNodeWorker(const SingleNodeWorkerConfiguration& configur
     }
 
     /// Writing the current throughput to the log
-    auto callback = [](const ThroughputListener::CallBackParams& callBackParams)
+    auto throughputCallback = [](const ThroughputListener::CallBackParams& callBackParams)
     {
         /// Helper function to format throughput in SI units
         auto formatThroughput = [](double throughput, const std::string_view suffix)
@@ -96,12 +97,48 @@ SingleNodeWorker::SingleNodeWorker(const SingleNodeWorkerConfiguration& configur
             tuplesPerSecondMessage);
     };
     constexpr auto timeIntervalInMilliSeconds = 500;
-    const auto throughputListener = std::make_shared<ThroughputListener>(timeIntervalInMilliSeconds, callback);
-
+    const auto throughputListener = std::make_shared<ThroughputListener>(timeIntervalInMilliSeconds, throughputCallback);
     const auto printStatisticListener = std::make_shared<PrintingStatisticListener>(
         fmt::format("EngineStats_{:%Y-%m-%d_%H-%M-%S}_{:d}.stats", std::chrono::system_clock::now(), ::getpid()));
     queryEngineStatisticsListener = {printStatisticListener, throughputListener};
     systemEventListener = printStatisticListener;
+
+
+    if (configuration.workerConfiguration.latencyListener.getValue())
+    {
+        auto latencyCallBack = [](const LatencyListener::CallBackParams& callBackParams)
+        {
+            /// Helper function to format latency in SI units
+            auto formatLatency = [](const std::chrono::duration<double> latency)
+            {
+                auto latencyCount = latency.count();
+                constexpr std::array<const char*, 5> units = {"", "m", "u", "n"};
+                int unitIndex = 0;
+
+                while (latencyCount <= 1 && unitIndex < 4)
+                {
+                    latencyCount *= 1000;
+                    unitIndex++;
+                }
+
+                return fmt::format("{:.3f} {}s", latencyCount, units[unitIndex]);
+            };
+
+            const auto latencyMessage = formatLatency(callBackParams.averageLatency);
+            std::cout << fmt::format(
+                "Latency for queryId {} and {} tasks over duration {}-{} is {}\n",
+                callBackParams.queryId,
+                callBackParams.numberOfTasks,
+                callBackParams.firstTaskTimestamp,
+                callBackParams.lastTaskTimestamp,
+                latencyMessage);
+        };
+
+        constexpr auto numberOfTasks = 1;
+        const auto latencyListener = std::make_shared<LatencyListener>(latencyCallBack, numberOfTasks);
+        queryEngineStatisticsListener.emplace_back(latencyListener);
+    }
+
     nodeEngine = NodeEngineBuilder(configuration.workerConfiguration, systemEventListener, queryEngineStatisticsListener).build();
 }
 
