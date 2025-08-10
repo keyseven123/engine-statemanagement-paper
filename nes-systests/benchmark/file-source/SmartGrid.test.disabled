@@ -8,25 +8,30 @@
 
 # Source definitions
 Source smartGrid UINT64 creationTS FLOAT32 value FLOAT32 property INT16 plugId INT16 householdId INT16 houseId FILE
-TESTDATA/smartgrid/smartgrid-data_974K.csv
+TESTDATA/large/smartgrid/smartgrid-data_2GB.csv
 
 
 # Query 1
-SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
+SELECT start, end, AVG(value) AS avg_value
 FROM smartGrid
-GROUP BY (plugId, householdId, houseId)
 WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
-INTO sinkQ2;
+INTO CHECKSUM;
 ----
-1730016,3598524228
+48412 91492644
 
 # Query 2
 SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
-WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
+WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
 INTO CHECKSUM;
 ----
-#98176,201359101
-#98176,201359115
-98176,201359117
+94690277 199750670242
+
+# Query 3
+SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
+FROM smartGrid
+GROUP BY (plugId, householdId, houseId)
+WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
+INTO DISCARD;
+----

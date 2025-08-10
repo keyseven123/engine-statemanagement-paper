@@ -8,7 +8,7 @@
 
 # Source definitions
 Source smartGrid UINT64 creationTS FLOAT32 value FLOAT32 property INT16 plugId INT16 householdId INT16 houseId MEMORY
-TESTDATA/large/smartgrid/smartgrid-data_6GB.csv
+TESTDATA/large/smartgrid/smartgrid-data_2GB.csv
 
 
 # Query 1
