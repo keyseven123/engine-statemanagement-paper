@@ -33,7 +33,7 @@ constexpr auto assumedLoadFactor = 0.75;
 uint64_t calcCapacity(const uint64_t numberOfKeys, const double loadFactor)
 {
     PRECONDITION(numberOfKeys > 0, "Number of keys {} has to be greater than 0", numberOfKeys);
-    PRECONDITION(loadFactor > 0, "Load factor {} has to be greater than 0", loadFactor);
+    PRECONDITION(loadFactor > 0.0, "Load factor {} has to be greater than 0", loadFactor);
 
     const uint64_t numberOfZeroBits = std::countl_zero(numberOfKeys);
     INVARIANT(
@@ -122,7 +122,8 @@ std::unique_ptr<ChainedHashMap> ChainedHashMap::createNewMapWithSameConfiguratio
 ChainedHashMapEntry* ChainedHashMap::findChain(const HashFunction::HashValue::raw_type hash) const
 {
     const auto entryStartPos = hash & mask;
-    return entries[entryStartPos];
+    const auto chainStart = entries[entryStartPos];
+    return chainStart;
 }
 
 int8_t* ChainedHashMap::allocateSpaceForVarSized(Memory::AbstractBufferProvider* bufferProvider, const size_t neededSize)
@@ -133,7 +134,8 @@ int8_t* ChainedHashMap::allocateSpaceForVarSized(Memory::AbstractBufferProvider*
         auto varSizedBuffer = bufferProvider->getUnpooledBuffer(neededSize * numberOfPreAllocatedSpaces);
         if (not varSizedBuffer)
         {
-            throw CannotAllocateBuffer("Could not allocate memory for ChainedHashMap of size {}", std::to_string(neededSize * numberOfPreAllocatedSpaces));
+            throw CannotAllocateBuffer(
+                "Could not allocate memory for ChainedHashMap of size {}", std::to_string(neededSize * numberOfPreAllocatedSpaces));
         }
         varSizedSpace.emplace_back(varSizedBuffer.value());
     }
@@ -191,7 +193,9 @@ ChainedHashMap::insertEntry(const HashFunction::HashValue::raw_type hash, Memory
         "Invalid page index {} as it is greater than the number of pages {}",
         pageIndex,
         storageSpace.size());
-    auto* page = storageSpace[pageIndex].getBuffer();
+    auto& bufferStorage = storageSpace[pageIndex];
+    bufferStorage.setNumberOfTuples(bufferStorage.getNumberOfTuples() + 1);
+    auto* page = bufferStorage.getBuffer();
     const auto entryOffsetInBuffer = numberOfTuples - (pageIndex * entriesPerPage);
     auto* const newEntry = reinterpret_cast<ChainedHashMapEntry*>(page + (entryOffsetInBuffer * entrySize));
 
@@ -209,10 +213,15 @@ ChainedHashMap::insertEntry(const HashFunction::HashValue::raw_type hash, Memory
     return newEntry;
 }
 
-const ChainedHashMapEntry* ChainedHashMap::getPage(const uint64_t pageIndex) const
+const Memory::TupleBuffer& ChainedHashMap::getPage(const uint64_t pageIndex) const
 {
     PRECONDITION(pageIndex < storageSpace.size(), "Page index {} is greater than the number of pages {}", pageIndex, storageSpace.size());
-    return storageSpace[pageIndex].getBuffer<ChainedHashMapEntry>();
+    return storageSpace[pageIndex];
+}
+
+uint64_t ChainedHashMap::getNumberOfPages() const
+{
+    return storageSpace.size();
 }
 
 ChainedHashMapEntry* ChainedHashMap::getStartOfChain(const uint64_t entryIdx) const
