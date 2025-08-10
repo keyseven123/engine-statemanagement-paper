@@ -79,7 +79,7 @@ public:
     using Config = std::unordered_map<std::string, ConfigType>;
 
     /// Tag struct that tags a config key with a type.
-    /// The tagged type allows to determine the correct variant of a config paramater, without supplying it as a template parameter.
+    /// The tagged type allows to determine the correct variant of a config parameter, without supplying it as a template parameter.
     /// Therefore, config keys defined in a single place are sufficient to retrieve parameters from the config, reducing the surface for errors.
     template <typename T, typename U = void>
     struct ConfigParameter
@@ -228,6 +228,7 @@ private:
         }
         else
         {
+            NES_ERROR("Could not convert {} to {}", stringParameter, typeid(T).name())
             return std::nullopt;
         }
     }
