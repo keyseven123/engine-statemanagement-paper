@@ -22,10 +22,9 @@
 #include <Configurations/ConfigurationOption.hpp>
 #include <Configurations/Enums/EnumOption.hpp>
 #include <Configurations/ScalarOption.hpp>
-#include <Configurations/Validation/NonZeroValidation.hpp>
+#include <Configurations/Validation/BooleanValidation.hpp>
 #include <Configurations/Validation/NumberValidation.hpp>
 #include <Configurations/Worker/QueryOptimizerConfiguration.hpp>
-#include <Configurations/WrapOption.hpp>
 #include <QueryEngineConfiguration.hpp>
 
 namespace NES::Configurations
@@ -68,6 +67,12 @@ public:
     QueryOptimizerConfiguration queryOptimizer = {"queryOptimizer", "Configuration for the query optimizer"};
     StringOption configPath = {CONFIG_PATH, "", "Path to configuration file."};
 
+    BoolOption latencyListener
+        = {"latencyListener",
+           "false",
+           "Should add the latency listener to the query engine listeners",
+           {std::make_shared<BooleanValidation>()}};
+
 private:
     std::vector<NES::Configurations::BaseOption*> getOptions() override
     {
@@ -82,6 +87,7 @@ private:
             &bufferSizeInBytes,
             &logLevel,
             &queryOptimizer,
+            &latencyListener
         };
     }
 };
