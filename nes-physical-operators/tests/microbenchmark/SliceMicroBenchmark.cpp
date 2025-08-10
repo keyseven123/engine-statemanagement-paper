@@ -123,60 +123,57 @@ public:
 auto createSliceCacheFillFunction(
     const nautilus::engine::NautilusEngine& nautilusEngine, const Configurations::SliceCacheOptions& sliceCacheOptions)
 {
-    return nautilusEngine.registerFunction(std::function(
-        [copyOfSliceCacheOptions = sliceCacheOptions](
-            nautilus::val<Timestamp*> inputData,
-            nautilus::val<uint64_t> sizeInputData,
-            nautilus::val<int8_t*> startOfSliceEntries,
-            nautilus::val<Timestamp::Underlying> windowSize,
-            nautilus::val<Timestamp::Underlying> windowSlide)
-        {
-            using namespace nautilus;
-            /// Creating a slice cache and filling all input timestamps
-            /// We are not using the operator handler, therefore we set it to nullptr
-            const nautilus::val<int8_t*> globalOperatorHandler = nullptr;
-            const auto sliceCache = NES::Util::createSliceCache(copyOfSliceCacheOptions, globalOperatorHandler, startOfSliceEntries);
-            for (val<uint64_t> i = 0; i < sizeInputData; ++i)
+    return nautilusEngine.registerFunction(
+        std::function(
+            [copyOfSliceCacheOptions = sliceCacheOptions](
+                nautilus::val<Timestamp*> inputData,
+                nautilus::val<uint64_t> sizeInputData,
+                nautilus::val<int8_t*> startOfSliceEntries,
+                nautilus::val<Timestamp::Underlying> windowSize,
+                nautilus::val<Timestamp::Underlying> windowSlide)
             {
-                val<Timestamp> ts(Nautilus::Util::readValueFromMemRef<Timestamp::Underlying>(inputData + i));
+                using namespace nautilus;
+                /// Creating a slice cache and filling all input timestamps
+                /// We are not using the operator handler, therefore we set it to nullptr
+                const nautilus::val<int8_t*> globalOperatorHandler = nullptr;
+                const auto sliceCache = NES::Util::createSliceCache(copyOfSliceCacheOptions, globalOperatorHandler, startOfSliceEntries);
+                for (val<uint64_t> i = 0; i < sizeInputData; ++i)
                 {
-                    const SliceAssignerRef sliceAssigner(windowSize, windowSlide);
-                    const auto sliceStart = sliceAssigner.getSliceStartTs(ts);
-                    const auto sliceEnd = sliceAssigner.getSliceEndTs(ts);
-                    // NES_INFO_EXEC("Trying to access slice " << sliceStart << "-" << sliceEnd << " for ts " << ts);
-                }
-                sliceCache->getDataStructureRef(
-                    ts,
-                    [&](const val<SliceCacheEntry*>& sliceCacheEntryToReplace, const nautilus::val<uint64_t>& replacementIndex)
+                    val<Timestamp> ts(Nautilus::Util::readValueFromMemRef<Timestamp::Underlying>(inputData + i));
                     {
-                        /// To simulate adding a slice, we use a slice assigner to create slice start and end
                         const SliceAssignerRef sliceAssigner(windowSize, windowSlide);
                         const auto sliceStart = sliceAssigner.getSliceStartTs(ts);
                         const auto sliceEnd = sliceAssigner.getSliceEndTs(ts);
+                    }
+                    sliceCache->getDataStructureRef(
+                        ts,
+                        [&](const val<SliceCacheEntry*>& sliceCacheEntryToReplace, const nautilus::val<uint64_t>& replacementIndex)
+                        {
+                            /// To simulate adding a slice, we use a slice assigner to create slice start and end
+                            const SliceAssignerRef sliceAssigner(windowSize, windowSlide);
+                            const auto sliceStart = sliceAssigner.getSliceStartTs(ts);
+                            const auto sliceEnd = sliceAssigner.getSliceEndTs(ts);
 
 
-                        const auto sliceStartReplacement = sliceCache->getSliceStart(replacementIndex);
-                        const auto sliceEndReplacement = sliceCache->getSliceEnd(replacementIndex);
-                        // NES_INFO_EXEC(
-                        //     "Adding " << sliceStart << "-" << sliceEnd << " for ts " << ts << "\t\t\tReplacing "
-                        //               << sliceStartReplacement << "-" << sliceEndReplacement << " at replacementIndex "
-                        //               << replacementIndex);
+                            const auto sliceStartReplacement = sliceCache->getSliceStart(replacementIndex);
+                            const auto sliceEndReplacement = sliceCache->getSliceEnd(replacementIndex);
 
+                            /// Writing the slice start and end. We assume first the slice start and then the slice end
+                            const auto sliceStartMemory
+                                = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceStart);
+                            const auto sliceEndMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceEnd);
+                            *static_cast<nautilus::val<uint64_t*>>(sliceStartMemory) = sliceStart;
+                            *static_cast<nautilus::val<uint64_t*>>(sliceEndMemory) = sliceEnd;
 
-                        /// Writing the slice start and end. We assume first the slice start and then the slice end
-                        const auto sliceStartMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceStart);
-                        const auto sliceEndMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceEnd);
-                        *static_cast<nautilus::val<uint64_t*>>(sliceStartMemory) = sliceStart;
-                        *static_cast<nautilus::val<uint64_t*>>(sliceEndMemory) = sliceEnd;
+                            /// Write any value to the datastructure
+                            auto dataStructureMemory
+                                = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::dataStructure);
+                            *dataStructureMemory = nautilus::val<uint64_t>(0x12345678);
 
-                        /// Write any value to the datastructure
-                        auto dataStructureMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::dataStructure);
-                        *dataStructureMemory = nautilus::val<uint64_t>(0x12345678);
-
-                        return sliceCacheEntryToReplace;
-                    });
-            }
-        }));
+                            return sliceCacheEntryToReplace;
+                        });
+                }
+            }));
 }
 
 /// This function creates timestamps following the "Poster: Generating Reproducible Out-of-Order Data Streams" by Grulich et al.
@@ -195,8 +192,9 @@ std::vector<Timestamp> createTimestampsOutOfOrderDataStreams(
     }
 
     /// We use a constant seed to ensure determinism
-    constexpr auto seed = 42;
-    std::mt19937 gen(seed);
+    // constexpr auto seed = 42;
+    // std::mt19937 gen(seed);
+    std::mt19937 gen(std::random_device{}.operator()());
     std::uniform_int_distribution<size_t> distribution(minDelay, maxDelay);
     std::uniform_real_distribution<> outOfOrder(0.0, 1.0);
 
@@ -219,32 +217,6 @@ std::vector<Timestamp> createTimestampsOutOfOrderDataStreams(
     std::vector<Timestamp> timestamps;
     timestamps.reserve(numberOfTimestamps);
     std::ranges::transform(ingestionAndEventTime, std::back_inserter(timestamps), [](const auto& ts) { return ts.second; });
-
-    return timestamps;
-}
-
-std::vector<Timestamp>
-createTimestamps(const size_t numberOfMeans, const size_t samplesPerMean, const double standardDeviation, const size_t meanStep)
-{
-    /// Creating a vector containing strong monotonic timestamps
-    std::vector<Timestamp> timestamps;
-    timestamps.reserve(numberOfMeans * samplesPerMean);
-
-    /// We create #samplesPerMeans for #numberOfTimestamps around a normal_distribution with #stddev
-    std::random_device rd;
-    std::mt19937 gen(rd());
-
-    for (size_t i = 0; i < numberOfMeans; ++i)
-    {
-        constexpr auto startMean = 1000;
-        const double mean = startMean + i * meanStep;
-        std::normal_distribution<> dist(mean, standardDeviation);
-        for (size_t n = 0; n < samplesPerMean; ++n)
-        {
-            const auto sample = std::max(dist(gen), 0.0);
-            timestamps.emplace_back(static_cast<size_t>(sample));
-        }
-    }
 
     return timestamps;
 }
@@ -392,7 +364,8 @@ struct BenchmarkRunMeasurements
     static std::string getCsvHeader() { return "executionTime,cacheHits,cacheMisses,optimalCacheHits,optimalCacheMisses"; }
 };
 
-std::vector<BenchmarkRunMeasurements> runBenchmark(const BenchmarkParameters& benchmarkParams, const int numReps)
+std::vector<BenchmarkRunMeasurements>
+runBenchmark(const BenchmarkParameters& benchmarkParams, const int numReps, std::vector<Timestamp>& timestamps)
 {
     /// 1. Create a slice cache query compiled nautilus function that access the slice cache
     nautilus::engine::Options options;
@@ -403,20 +376,14 @@ std::vector<BenchmarkRunMeasurements> runBenchmark(const BenchmarkParameters& be
     std::vector<BenchmarkRunMeasurements> benchmarkRunMeasurements;
     for (auto rep = 0; rep < numReps; ++rep)
     {
-        /// 2. Create timestamps / input data
-        // auto timestamps = createTimestamps(
-        // benchmarkParams.numberOfMeans, benchmarkParams.samplesPerMean, benchmarkParams.standardDeviation, benchmarkParams.meanStep);
-        auto timestamps = createTimestampsOutOfOrderDataStreams(
-            benchmarkParams.numberOfTimestamps, benchmarkParams.minDelay, benchmarkParams.maxDelay, benchmarkParams.outOfOrderPercentage);
-
-        /// 3. Create space for slice cache
+        /// 2. Create space for slice cache
         const auto neededSize
             = benchmarkParams.sliceCacheOptions.numberOfEntries * getSliceCacheEntrySize(benchmarkParams.sliceCacheOptions)
             + sizeof(HitsAndMisses);
         std::vector<int8_t> sliceCacheMemory(neededSize);
         std::memset(sliceCacheMemory.data(), 0, neededSize);
 
-        /// 4. Measure the execution time via chrono system clock for a particular slice cache
+        /// 3. Measure the execution time via chrono system clock for a particular slice cache
         const auto startTime = std::chrono::high_resolution_clock::now();
         sliceCacheFunction(
             timestamps.data(),
@@ -426,16 +393,16 @@ std::vector<BenchmarkRunMeasurements> runBenchmark(const BenchmarkParameters& be
             benchmarkParams.windowSizeSlide.second);
         const auto duration = std::chrono::high_resolution_clock::now() - startTime;
 
-        /// 5. Retrieve the cache hits and misses. We assume the hits and misses are stored in this order at the beginning of the sliceCacheMemory
+        /// 4. Retrieve the cache hits and misses. We assume the hits and misses are stored in this order at the beginning of the sliceCacheMemory
         /// Thus, we simply need to read twice 64bits from the start of sliceCacheMemory
         const auto hits = *reinterpret_cast<uint64_t*>(sliceCacheMemory.data());
         const auto misses = *reinterpret_cast<uint64_t*>(sliceCacheMemory.data() + sizeof(hits));
 
-        /// 6. Calculate the optimial cache hits and misses by using Belady's algorithm, also known as the OPT (Optimal Page Replacement) algorithm
+        /// 5. Calculate the optimial cache hits and misses by using Belady's algorithm, also known as the OPT (Optimal Page Replacement) algorithm
         const auto& [optimalHits, optimalMisses]
             = calculateOptimalHistsMisses(timestamps, benchmarkParams.sliceCacheOptions.numberOfEntries, benchmarkParams.windowSizeSlide);
 
-        /// 7. Returning the measurments
+        /// 6. Returning the measurments
         benchmarkRunMeasurements.emplace_back(duration_cast<std::chrono::microseconds>(duration), hits, misses, optimalHits, optimalMisses);
     }
 
@@ -511,12 +478,12 @@ int main()
 {
     /// All benchmark parameters
     constexpr auto allSliceCacheTypes = magic_enum::enum_values<NES::Configurations::SliceCacheType>();
-    const auto allSliceCacheSizes = {2, 5, 10, 20, 50, 100};
-    const auto allNumberOfTimestamps = {100 * 1000};
-    const std::vector<std::pair<size_t, size_t>> allMinMaxDelay = {{10, 1000}, {1000, 100 * 1000}, {100 * 1000, 10 * 1000 * 1000}};
-    const auto allOutOfOrderPercentage = {0.1, 0.5, 0.9};
-    const std::vector<std::pair<NES::Timestamp::Underlying, NES::Timestamp::Underlying>> allWindowSizeSlide
-        = {{100, 100}, {1000, 1000}, {10 * 1000, 10 * 1000}};
+    const auto allSliceCacheSizes = {2, 5, 10, 20, 25, 50};
+    const auto allNumberOfTimestamps = {1 * 1000 * 1000};
+    const std::vector<std::pair<size_t, size_t>> allMinMaxDelay = {{1000, 500 * 1000}};
+
+    const auto allOutOfOrderPercentage = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+    const std::vector<std::pair<NES::Timestamp::Underlying, NES::Timestamp::Underlying>> allWindowSizeSlide = {{1000, 1000}};
     constexpr auto NUM_EXPERIMENT_RUNS = 3;
     std::filesystem::path csvFilePath("slice-cache-micro-benchmarks.csv");
     std::filesystem::remove(csvFilePath);
@@ -524,29 +491,32 @@ int main()
 
 
     NES::ETACalculator etaCalculator(
-        allSliceCacheSizes.size() * allSliceCacheTypes.size() * allOutOfOrderPercentage.size() * allWindowSizeSlide.size()
+        allSliceCacheSizes.size() * (allSliceCacheTypes.size() - 1) * allOutOfOrderPercentage.size() * allWindowSizeSlide.size()
         * allMinMaxDelay.size() * allNumberOfTimestamps.size());
     csvFile << NES::createNewCsvHeaderLine() << std::endl;
     std::cout << NES::createNewCsvHeaderLine() << std::endl;
-    for (const auto& sliceCacheType : allSliceCacheTypes)
+    for (const uint64_t sliceCacheSize : allSliceCacheSizes)
     {
-        if (sliceCacheType == NES::Configurations::SliceCacheType::NONE)
+        for (const auto windowSizeSlide : allWindowSizeSlide)
         {
-            /// We skip the slice cache type none
-            continue;
-        }
-        NES::Logger::setupLogging(
-            fmt::format("slice-cache-micro-benchmarks-{}.log", magic_enum::enum_name(sliceCacheType)), NES::LogLevel::LOG_TRACE, false);
-        for (const uint64_t sliceCacheSize : allSliceCacheSizes)
-        {
-            for (const auto windowSizeSlide : allWindowSizeSlide)
+            for (const auto& [minDelay, maxDelay] : allMinMaxDelay)
             {
-                for (const auto& [minDelay, maxDelay] : allMinMaxDelay)
+                for (const auto& outOfOrderPercentage : allOutOfOrderPercentage)
                 {
-                    for (const auto& outOfOrderPercentage : allOutOfOrderPercentage)
+                    for (const size_t numberOfTimestamps : allNumberOfTimestamps)
                     {
-                        for (const size_t numberOfTimestamps : allNumberOfTimestamps)
+                        /// Create timestamps / input data
+                        auto timestamps
+                            = NES::createTimestampsOutOfOrderDataStreams(numberOfTimestamps, minDelay, maxDelay, outOfOrderPercentage);
+
+                        for (const auto& sliceCacheType : allSliceCacheTypes)
                         {
+                            if (sliceCacheType == NES::Configurations::SliceCacheType::NONE)
+                            {
+                                /// We skip the slice cache type none
+                                continue;
+                            }
+
                             /// Running the benchmark
                             NES::BenchmarkParameters benchmarkParams{
                                 NES::SliceCacheOptionsMicroBenchmark{sliceCacheType, sliceCacheSize},
@@ -555,8 +525,7 @@ int main()
                                 minDelay,
                                 maxDelay,
                                 windowSizeSlide};
-                            const auto allMeasurements = NES::runBenchmark(benchmarkParams, NUM_EXPERIMENT_RUNS);
-                            NES_INFO("Currently running: {}", benchmarkParams.getValuesAsCsv());
+                            const auto allMeasurements = NES::runBenchmark(benchmarkParams, NUM_EXPERIMENT_RUNS, timestamps);
 
                             /// Create new csv file from benchmark params and measurements
                             for (const auto& measurement : allMeasurements)
