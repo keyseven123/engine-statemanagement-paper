@@ -14,4 +14,4 @@
 
 set -euo pipefail
 /usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks --all
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all -s SECOND_CHANCE NONE

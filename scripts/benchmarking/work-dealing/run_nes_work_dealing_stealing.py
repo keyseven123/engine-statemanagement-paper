@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import subprocess
 import json
 import re
@@ -19,6 +20,7 @@ import os
 import csv
 import shutil
 import itertools
+import random
 import time
 import socket
 import yaml
@@ -28,11 +30,11 @@ from scripts.benchmarking.utils import *
 #### Benchmark Configurations
 build_dir = os.path.join(".", "build_dir")
 working_dir = os.path.join(build_dir, "working_dir")
-csv_file_path = "results_nebulastream.csv"
+latency_csv_file_path = "latency_results_nebulastream.csv"
+throughput_csv_file_path = "throughput_results_nebulastream.csv"
 config_file = "config.yaml"
 single_node_executable = os.path.join(build_dir, "nes-single-node-worker/nes-single-node-worker")
 nebuli_executable = os.path.join(build_dir, "nes-nebuli/nes-nebuli --debug")
-tcp_server_executable = os.path.join(build_dir, "scripts/benchmarking/work-dealing/tcp-server/tcpserver")
 cmake_flags = ("-G Ninja "
                "-DCMAKE_BUILD_TYPE=Release "
                f"-DCMAKE_TOOLCHAIN_FILE={get_vcpkg_dir()} "
@@ -41,28 +43,24 @@ cmake_flags = ("-G Ninja "
                "-DNES_LOG_LEVEL:STRING=LEVEL_NONE "
                "-DNES_BUILD_NATIVE:BOOL=ON")
 NUM_RUNS_PER_EXPERIMENT = 1
-EMIT_RATE_TUPLES_PER_SECOND = str(100 * 1000)
 WAIT_BETWEEN_COMMANDS_SHORT = 2
 WAIT_BETWEEN_COMMANDS_LONG = 5
-WAIT_BETWEEN_ADDING_NEW_QUERY = 10
 WAIT_BEFORE_SIGKILL = 10
 
 #### Worker Configurations
-allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = [8]
-allNumberOfBuffersInGlobalBufferManagers = [4000000]  # [500000] if buffer size is 102400
+allExecutionModes = ["COMPILER"]
+allNumberOfWorkerThreads = [16]
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [10]
-allSliceCacheTypes = ["LRU"]
-allBufferSizes = [8192]  # [100 * 1024]
+allNumberOfEntriesSliceCaches = [5]
+allSliceCacheTypes = ["SECOND_CHANCE"]
 allPageSizes = [8192]
 allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]
+FLUSH_INTERVAL_MS = 10
 
 #### Queries
 allQueries = {
-    "agg": "scripts/benchmarking/work-dealing/configs/agg_query.yaml",
-    "filter": "scripts/benchmarking/work-dealing/configs/agg_query.yaml"}
-no_concurrent_queries = 64
+    "aggregation": "scripts/benchmarking/work-dealing/query-configs/agg_query.yaml",
+    "filter": "scripts/benchmarking/work-dealing/query-configs/agg_query.yaml"}
 
 
 def create_output_folder(appendix):
@@ -85,35 +83,6 @@ def terminate_process_if_exists(process):
         print(f"Process with PID {process.pid} forcefully killed.")
 
 
-def start_tcp_servers(starting_ports):
-    processes = []
-    ports = []
-    max_retries = 10
-    for port in starting_ports:
-        for _ in range(max_retries):
-            cmd = f"{tcp_server_executable} -p {port} -r {EMIT_RATE_TUPLES_PER_SECOND}"
-            print(f"Trying to start tcp server with {cmd}")
-            process = subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL)
-            time.sleep(WAIT_BETWEEN_COMMANDS_SHORT)  # Allow server to start
-            if process.poll() is not None and process.poll() != 0:
-                # print(f"Failed to start tcp server with PID: {process.pid} and port: {port}")
-                port = str(int(port) + random.randint(1, 10))
-                terminate_process_if_exists(process)
-                time.sleep(1)
-            else:
-                # print(f"Started tcp server with PID: {process.pid} and port: {port}")
-                processes.append(process)
-                ports.append(port)
-                port = str(int(port) + 1)  # Increment the port for the next server
-                break
-        else:
-            raise Exception(f"Failed to start the TCP server after {max_retries} attempts.")
-
-    print(
-        f"Started all TCP servers with the following <port, pid>: {list(zip(ports, [proc.pid for proc in processes]))}")
-    return [processes, ports]
-
-
 def start_single_node_worker(file_path_stdout):
     # Running the query with a particular worker configuration
     worker_config = (f"--worker.queryEngine.numberOfWorkerThreads={numberOfWorkerThreads} "
@@ -123,6 +92,7 @@ def start_single_node_worker(file_path_stdout):
                      f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.joinStrategy={joinStrategy} "
                      f"--worker.queryOptimizer.pageSize={pageSize} "
+                     f"--worker.latencyListener=true "
                      f"--worker.queryOptimizer.operatorBufferSize={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
                      f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")
@@ -161,7 +131,7 @@ def stop_query(query_id):
     return process
 
 
-def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_port):
+def copy_and_modify_query_config(old_config, new_config, tcp_source_name, generatorRateConfig, generatorType):
     # Loading the yaml file
     with open(old_config, 'r') as input_yaml_file:
         yaml_query_config = yaml.safe_load(input_yaml_file)
@@ -176,18 +146,67 @@ def copy_and_modify_query_config(old_config, new_config, tcp_source_name, new_po
     # Update the physical logical reference to use the new logical name
     yaml_query_config['physical'][0]['logical'] = tcp_source_name
 
-    # Update the socket port
-    yaml_query_config['physical'][0]['sourceConfig']['socketPort'] = new_port
+    # Update the generator rate type
+    yaml_query_config['physical'][0]['sourceConfig']['generatorRateConfig'] = generatorRateConfig
+    yaml_query_config['physical'][0]['sourceConfig']['generatorRateType'] = generatorType
+    yaml_query_config['physical'][0]['sourceConfig']['flushIntervalMS'] = FLUSH_INTERVAL_MS
 
     # Save the updated content back to the YAML file
     with open(new_config, 'w') as file:
         yaml.dump(yaml_query_config, file, sort_keys=False)
 
 
-def parse_log_to_csv(log_file_path, csv_file_path):
+def parse_log_to_latency_csv(log_file_path, csv_file_path):
     # Regular expression to parse each log line
     log_pattern = re.compile(
-        r'Throughput for queryId (\d+) in window (\d+)-(\d+) is \d+\.\d+ MB/s / (\d+\.\d+) (\w)Tup/s'
+        r'Latency for queryId (\d+) and (\d+) tasks over duration (\d+)-(\d+) is (\d+\.\d+) (\w?)s'
+    )
+
+    # List to store the extracted data
+    data = []
+
+    # Open the log file for reading
+    with open(log_file_path, mode='r') as log_file:
+        for line in log_file:
+            # Use regex to find matches in the log line
+            match = log_pattern.match(line)
+            if match:
+                query_id = match.group(1)
+                number_of_tasks = match.group(2)
+                start_timestamp = int(match.group(3))
+                end_timestamp = int(match.group(4))
+                latency_value = float(match.group(5))
+                unit_prefix = match.group(6)
+                latency_value = convert_unit_prefix(latency_value, unit_prefix)
+
+                # Append the extracted data to the list
+                data.append((query_id, number_of_tasks, start_timestamp, end_timestamp, latency_value))
+
+    # Calculate average of the query
+    if len(data) == 0:
+        return
+
+    # Find the minimum timestamp to normalize
+    min_timestamp = min(data, key=lambda x: x[2])[2]
+
+    # Open the CSV file for writing
+    with open(csv_file_path, mode='w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        # Write the header
+        writer.writerow(
+            ['query_id', 'number_of_tasks', 'normalized_start_timestamp', 'normalized_end_timestamp', 'latency'])
+        # Write the normalized data to the CSV file
+        for query_id, number_of_tasks, start_timestamp, end_timestamp, latency_value in data:
+            normalized_start_timestamp = start_timestamp - min_timestamp
+            normalized_end_timestamp = end_timestamp - min_timestamp
+            writer.writerow(
+                [query_id, number_of_tasks, normalized_start_timestamp, normalized_end_timestamp, latency_value])
+
+
+def parse_log_to_throughput_csv(log_file_path, csv_file_path):
+    # Regular expression to parse each log line
+    log_pattern = re.compile(
+        r'Throughput for queryId (\d+) in window (\d+)-(\d+) is \d+\.\d+ \w*B/s / (\d+\.\d+) (\w*)Tup/s'
     )
 
     # List to store the extracted data
@@ -208,6 +227,9 @@ def parse_log_to_csv(log_file_path, csv_file_path):
                 # Append the extracted data to the list
                 data.append((start_timestamp, query_id, throughput_value))
 
+    # Calculate average of the query
+    if len(data) == 0:
+        return
 
     # Find the minimum timestamp to normalize
     min_timestamp = min(data, key=lambda x: x[0])[0]
@@ -223,7 +245,7 @@ def parse_log_to_csv(log_file_path, csv_file_path):
             writer.writerow([normalized_timestamp, query_id, throughput])
 
 
-def concatenate_csv_files(folders, output_file, config_file):
+def concatenate_csv_files(folders, output_file, config_file, csv_file_path):
     # Initialize an empty list to store DataFrames
     dfs = []
 
@@ -257,12 +279,54 @@ def concatenate_csv_files(folders, output_file, config_file):
         print("No CSV files found.")
 
 
+def read_generator_rates(yaml_file_path):
+    try:
+        with open(yaml_file_path, 'r') as file:
+            data = yaml.safe_load(file)
+
+        # Convert each dictionary in the list to a tuple
+        list_of_tuples = [(item['type'], item['rate']) for item in data]
+        return list_of_tuples
+    except yaml.YAMLError as exc:
+        print(f"YAML Error: {exc}")
+    except KeyError as exc:
+        print(f"Key error: {exc}. Ensure the YAML structure matches the expected format.")
+    except FileNotFoundError:
+        print(f"File not found: {yaml_file_path}")
+
+
 if __name__ == "__main__":
+    # Initialize argument parser
+    parser = argparse.ArgumentParser(description="Run NebulaStream queries.")
+    parser.add_argument("--wait-between-queries", type=float, default=3.0, help="Time duration in seconds to wait between queries.")
+    parser.add_argument("--wait-before-stopping-queries", type=float, default=5.0, help="Time duration in seconds to wait before stopping all queries.")
+    parser.add_argument("--generator-rates", type=str, required=True, help="Path to yaml file containing the generator rates of the queries.")
+    parser.add_argument("--number-of-queries", type=int, required=True, help="Number of queries to run concurrently. If there are more queries to be run than generator rates are provided, we use the last generator rates for the remaining queries.")
+    parser.add_argument("--buffer-size", type=int, required=True, help="Buffer size for NebulaStream.")
+    parser.add_argument("--number-of-buffers", type=int, required=True, help="Number of buffers in the buffer manager of NebulaStream")
+    args = parser.parse_args()
+
+    # Printing all arguments with their parsed values
+    print("Parsed arguments:")
+    for arg, value in vars(args).items():
+        print(f"- {arg}: {value}")
+    print()
+
+    allBufferSizes = [args.buffer_size]
+    allNumberOfBuffersInGlobalBufferManagers = [args.number_of_buffers]
+
     # Checking if the script has been executed from the repository root
     check_repository_root()
 
     # Create folder
-    create_folder_and_remove_if_exists(build_dir)
+    # create_folder_and_remove_if_exists(build_dir)
+
+    # Reading generator rates from file
+    allGeneratorRatesPerQuery = read_generator_rates(args.generator_rates)
+    if len(allGeneratorRatesPerQuery) >= args.number_of_queries:
+        allGeneratorRatesPerQuery = allGeneratorRatesPerQuery[:args.number_of_queries]
+    else:
+        allGeneratorRatesPerQuery = allGeneratorRatesPerQuery + [allGeneratorRatesPerQuery[-1]] * (args.number_of_queries - len(allGeneratorRatesPerQuery))
 
     # Build NebulaStream
     compile_nebulastream(cmake_flags, build_dir)
@@ -321,37 +385,30 @@ if __name__ == "__main__":
             file_path_stdout = os.path.join(folder_name, "SingleNodeStdout.log")
             with open(file_path_stdout, 'w') as stdout_file:
                 single_node_process = start_single_node_worker(stdout_file)
+                time.sleep(WAIT_BETWEEN_COMMANDS_LONG)
 
             start_port = [5123]
             query_ids = []
-            for concurrent_query_number in range(no_concurrent_queries):
-                # Starting the tcp server(s)
-                [tcp_server_processes, tcp_server_ports] = start_tcp_servers(start_port)
-
+            for concurrent_query_number, (generatorRateType, generatorRateConfig) in enumerate(
+                    allGeneratorRatesPerQuery):
                 # Changing the query yaml file to the new ports etc.
                 new_query_config_name = os.path.join(folder_name, f"{query}_{concurrent_query_number}.yaml")
                 copy_and_modify_query_config(allQueries[query], new_query_config_name,
-                                             f"{query}_{concurrent_query_number}_source", tcp_server_ports[0])
-
-                # Setting start ports for next query
-                start_port[0] = tcp_server_ports[0] + 1
-
-                # Waiting to give the tcp server time to start
-                time.sleep(WAIT_BETWEEN_COMMANDS_LONG)
-
+                                             f"{query}_{concurrent_query_number}_source",
+                                             generatorRateConfig, generatorRateType)
                 # Submitting the query
                 query_id = submitting_query(new_query_config_name)
                 query_ids.append(query_id)
 
                 # Waiting to give the engine time to start the query and for measuring the current throughput
-                time.sleep(WAIT_BETWEEN_ADDING_NEW_QUERY)
+                time.sleep(args.wait_between_queries)
+
+            # Waiting to take measurements
+            time.sleep(args.wait_before_stopping_queries)
 
             # Stopping all queries
             for query_id in query_ids:
                 stop_process = stop_query(query_id)
-
-            full_csv_path = os.path.join(folder_name, csv_file_path)
-            parse_log_to_csv(file_path_stdout, full_csv_path)
 
         finally:
             time.sleep(WAIT_BEFORE_SIGKILL)  # Wait additional time before cleanup
@@ -362,9 +419,20 @@ if __name__ == "__main__":
                     continue
                 terminate_process_if_exists(proc)
 
-    # After all experiments have been run, we merge all csv files into one main csv file
-    concat_file_name = "results_nebulastream_concat.csv"
-    concatenate_csv_files(new_folders, concat_file_name, config_file)
+        throughput_full_csv_path = os.path.join(folder_name, throughput_csv_file_path)
+        parse_log_to_throughput_csv(file_path_stdout, throughput_full_csv_path)
 
-    abs_csv_path = os.path.abspath(concat_file_name)
-    print(f"CSV Measurement file can be found in {abs_csv_path}")
+        latency_full_csv_path = os.path.join(folder_name, latency_csv_file_path)
+        parse_log_to_latency_csv(file_path_stdout, latency_full_csv_path)
+
+
+# After all experiments have been run, we merge all csv files into one main csv file
+    latency_concat_file_name = "latency_results_nebulastream_concat.csv"
+    throughput_concat_file_name = "throughput_results_nebulastream_concat.csv"
+    concatenate_csv_files(new_folders, throughput_concat_file_name, config_file, throughput_csv_file_path)
+    concatenate_csv_files(new_folders, latency_concat_file_name, config_file, latency_csv_file_path)
+
+    latency_abs_csv_path = os.path.abspath(latency_concat_file_name)
+    throughput_abs_csv_path = os.path.abspath(throughput_concat_file_name)
+    print(f"CSV Measurement file can be found in {latency_abs_csv_path}")
+    print(f"CSV Measurement file can be found in {throughput_abs_csv_path}")
