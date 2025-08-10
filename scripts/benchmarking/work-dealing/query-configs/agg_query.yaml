@@ -18,10 +18,15 @@ physical:
     parserConfig:
       type: CSV
     sourceConfig:
-      type: TCP
-      socketDomain: AF_INET
-      socketType: SOCK_STREAM
-      socketPort: 5010
-      socketHost: localhost
-      socketBufferSize: 2
-      flushIntervalMS: 100
+      type: Generator
+      stopGeneratorWhenSequenceFinishes: ONE
+      maxRuntimeMS: 1000000000
+      flushIntervalMS: TBA
+      seed: 42
+      generatorRateType: TBD
+      generatorRateConfig: |
+        TBA
+      generatorSchema: |
+        NORMAL_DISTRIBUTION UINT64 0 4999 1666
+        NORMAL_DISTRIBUTION UINT64 0 499999 166666
+        SEQUENCE UINT64 0 1000000000 1

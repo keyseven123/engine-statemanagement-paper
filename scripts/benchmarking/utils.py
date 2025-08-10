@@ -76,6 +76,12 @@ def convert_unit_prefix(value, unit_prefix):
         return value * 1e9  # Convert to actual value (billion)
     elif unit_prefix == 'k':
         return value * 1e3  # Convert to actual value (thousand)
+    elif unit_prefix == 'm':
+        return value * 1e-3
+    elif unit_prefix == 'u':
+        return value * 1e-6
+    elif unit_prefix == 'n':
+        return value * 1e-9
     elif unit_prefix == '':
         return value  # No conversion needed
     else:
