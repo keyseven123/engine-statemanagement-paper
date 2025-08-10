@@ -47,12 +47,12 @@ NUM_RUNS_PER_EXPERIMENT = 1
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = [1, 2, 4, 8, 16] #[1, 4]
-allNumberOfBuffersInGlobalBufferManagers = [4000000] #[500000] if buffer size is 102400
+allNumberOfWorkerThreads = ['1', '2', '4', '8', '16'] #['4', '16']
+allNumberOfBuffersInGlobalBufferManagers = [20000] #[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [10]
-allSliceCacheTypes = ["LRU"]
-allBufferSizes = [8192] #[100 * 1024]
+allNumberOfEntriesSliceCaches = [5]
+allSliceCacheTypes = ["NONE", "SECOND_CHANCE", "LRU"]
+allBufferSizes = [1048576] #[8192] #[100 * 1024]
 allPageSizes = [8192]
 
 #### Queries
@@ -65,15 +65,14 @@ queries = {
     "SG1": "nes-systests/benchmark/memory-source/SmartGrid.test:01",
     "SG2": "nes-systests/benchmark/memory-source/SmartGrid.test:02",
     "SG3": "nes-systests/benchmark/memory-source/SmartGrid.test:03",
+    "YSB1k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:01",
+    "YSB10k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:02",
     "NM1": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:02",
     "NM2": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:03",
     "NM5": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:04",
-    "NM8": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:05",
     "NM8_Variant": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:06",
-    "YSB1k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:01",
-    "YSB10k": "nes-systests/benchmark/memory-source/YahooStreamingBenchmark_more_data.test:02",
+    "NM8": "nes-systests/benchmark/memory-source/Nexmark_multiple_GB_of_Bids.test:05",
 }
-
 
 def initialize_csv_file():
     """Initialize the CSV file with headers."""
@@ -109,6 +108,8 @@ def parse_average_throughput_from_throughput_listener(console_output):
             data.append(throughput_value)
 
     # Calculate average of the query
+    if len(data) == 0:
+        return -1
     average_throughput = sum(data) / len(data)
     return average_throughput
 
@@ -124,6 +125,7 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
                      f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.joinStrategy={joinStrategy} "
                      f"--worker.queryOptimizer.pageSize={pageSize} "
+                     "--worker.numberOfBuffersInSourceLocalPools=1024 "
                      f"--worker.queryOptimizer.operatorBufferSize={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
                      f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")
@@ -170,6 +172,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run NebulaStream queries.")
     parser.add_argument("--all", action="store_true", help="Run all queries.")
     parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
+    parser.add_argument("-s", "--slice-cache-type", nargs="+", help="List of slice cache types to run the queries.")
+    parser.add_argument("-w", "--worker-threads", nargs="+", help="Number of worker threads to run the queries.")
     args = parser.parse_args()
 
     # Determine which queries to run
@@ -179,7 +183,19 @@ if __name__ == "__main__":
         # Filter queries based on the provided list
         queries_to_run = {k: v for k, v in queries.items() if k in args.queries}
 
+    # Determine which slice caches to run
+    slice_caches_to_run = allSliceCacheTypes
+    if args.slice_cache_type:
+        slice_caches_to_run = [slice_cache for slice_cache in allSliceCacheTypes if slice_cache in args.slice_cache_type]
+
+    # Determine with number of worker threads to run it with
+    number_of_worker_threads_to_run = allNumberOfWorkerThreads
+    if args.worker_threads:
+        number_of_worker_threads_to_run = [str(no_worker_threads) for no_worker_threads in allNumberOfWorkerThreads if str(no_worker_threads) in args.worker_threads]
+
     print(",".join(queries_to_run.keys()))
+    print(",".join(slice_caches_to_run))
+    print(",".join(number_of_worker_threads_to_run))
 
     # Checking if the script has been executed from the repository root
     check_repository_root()
@@ -196,11 +212,11 @@ if __name__ == "__main__":
     # Iterate over all cross-product combinations for each query
     no_combinations = (
             len(allExecutionModes) *
-            len(allNumberOfWorkerThreads) *
+            len(number_of_worker_threads_to_run) *
             len(allNumberOfBuffersInGlobalBufferManagers) *
             len(allJoinStrategies) *
             len(allNumberOfEntriesSliceCaches) *
-            len(allSliceCacheTypes) *
+            len(slice_caches_to_run) *
             len(allBufferSizes) *
             len(allPageSizes)
     )
@@ -208,14 +224,19 @@ if __name__ == "__main__":
     for queryIdx, query in enumerate(queries_to_run):
         workerConfigIdx = 0
 
-        combinations = itertools.product(allExecutionModes, allNumberOfWorkerThreads,
+        combinations = itertools.product(allExecutionModes, number_of_worker_threads_to_run,
                                          allNumberOfBuffersInGlobalBufferManagers, allJoinStrategies,
-                                         allNumberOfEntriesSliceCaches, allSliceCacheTypes, allBufferSizes,
+                                         allNumberOfEntriesSliceCaches, slice_caches_to_run, allBufferSizes,
                                          allPageSizes)
         for [executionMode, numberOfWorkerThreads, buffersInGlobalBufferManager, joinStrategy,
              numberOfEntriesSliceCaches,
              sliceCacheType, bufferSizeInBytes, pageSize] in combinations:
             workerConfigIdx += 1
+
+            # Otherwise we run out-of-memory on tower-en717
+            if query == "NM8":
+                buffersInGlobalBufferManager = 600000
+                bufferSizeInBytes = 200 * 1024
 
             config = {
                 'executionMode': executionMode,
