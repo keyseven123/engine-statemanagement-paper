@@ -25,6 +25,7 @@
 #include <SliceStore/WindowSlicesStoreInterface.hpp>
 #include <nautilus/Engine.hpp>
 #include <WindowBasedOperatorHandler.hpp>
+#include <Util/RollingAverage.hpp>
 
 namespace NES
 {
@@ -61,6 +62,7 @@ protected:
     void triggerSlices(
         const std::map<WindowInfoAndSequenceNumber, std::vector<std::shared_ptr<Slice>>>& slicesAndWindowInfo,
         PipelineExecutionContext* pipelineCtx) override;
+    RollingAverage<uint64_t> rollingAverageNumberOfKeys;
 };
 
 }

@@ -40,7 +40,7 @@ AggregationOperatorHandler::AggregationOperatorHandler(
     const std::vector<OriginId>& inputOrigins,
     const OriginId outputOriginId,
     std::unique_ptr<WindowSlicesStoreInterface> sliceAndWindowStore)
-    : WindowBasedOperatorHandler(inputOrigins, outputOriginId, std::move(sliceAndWindowStore))
+    : WindowBasedOperatorHandler(inputOrigins, outputOriginId, std::move(sliceAndWindowStore)), rollingAverageNumberOfKeys(100)
 {
 }
 
@@ -49,7 +49,9 @@ AggregationOperatorHandler::getCreateNewSlicesFunction(const CreateNewSlicesArgu
 {
     PRECONDITION(
         numberOfWorkerThreads > 0, "Number of worker threads not set for window based operator. Was setWorkerThreads() being called?");
-    const auto newHashMapArgs = dynamic_cast<const CreateNewHashMapSliceArgs&>(newSlicesArguments);
+    auto newHashMapArgs = dynamic_cast<const CreateNewHashMapSliceArgs&>(newSlicesArguments);
+    const auto avgNumberOfKeys = std::min(10000.0, rollingAverageNumberOfKeys.getAverage());
+    newHashMapArgs.numberOfBuckets = avgNumberOfKeys == 0.0 ? newHashMapArgs.numberOfBuckets : static_cast<uint64_t>(avgNumberOfKeys);
     return std::function(
         [outputOriginId = outputOriginId, numberOfWorkerThreads = numberOfWorkerThreads, copyOfNewHashMapArgs = newHashMapArgs](
             SliceStart sliceStart, SliceEnd sliceEnd) -> std::vector<std::shared_ptr<Slice>>
@@ -77,6 +79,9 @@ void AggregationOperatorHandler::triggerSlices(
                 if (auto* hashMap = aggregationSlice->getHashMapPtr(WorkerThreadId(hashMapIdx));
                     (hashMap != nullptr) and hashMap->getNumberOfTuples() > 0)
                 {
+                    /// As the hashmap has one value per key, we can use the number of tuples for the number of keys
+                    rollingAverageNumberOfKeys.add(hashMap->getNumberOfTuples());
+
                     allHashMaps.emplace_back(hashMap);
                     totalNumberOfTuples += hashMap->getNumberOfTuples();
                     if (not finalHashMap)
@@ -127,12 +132,13 @@ void AggregationOperatorHandler::triggerSlices(
         /// Dispatching the buffer to the probe operator via the task queue.
         pipelineCtx->emitBuffer(tupleBuffer);
         NES_TRACE(
-            "Emitted window {}-{} with watermarkTs {} sequenceNumber {} originId {}",
+            "Emitted window {}-{} with watermarkTs {} sequenceNumber {} originId {} for {} tuples",
             windowInfo.windowInfo.windowStart,
             windowInfo.windowInfo.windowEnd,
             tupleBuffer.getWatermark(),
             tupleBuffer.getSequenceNumber(),
-            tupleBuffer.getOriginId());
+            tupleBuffer.getOriginId(),
+            totalNumberOfTuples);
     }
 }
 
