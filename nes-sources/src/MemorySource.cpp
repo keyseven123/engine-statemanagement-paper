@@ -118,20 +118,10 @@ size_t MemorySource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, cons
     }
 
     auto& nextBuffer = nextBufferIterator->second;
-    std::memcpy(tupleBuffer.getBuffer(), nextBuffer.getBuffer(), nextBuffer.getBufferSize());
-    tupleBuffer.setCreationTimestampInMS(nextBuffer.getCreationTimestampInMS());
-    tupleBuffer.setUsedMemorySize(nextBuffer.getUsedMemorySize());
-    tupleBuffer.setNumberOfTuples(nextBuffer.getNumberOfTuples());
-    for (size_t childId = 0; childId < nextBuffer.getNumberOfChildrenBuffer(); ++childId)
-    {
-        auto childBuffer = nextBuffer.loadChildBuffer(childId);
-        const auto childIdxInTupleBuffer = tupleBuffer.storeChildBuffer(childBuffer);
-        ((void)childIdxInTupleBuffer);
-    }
-
-    totalNumBytesRead += nextBuffer.getBufferSize();
+    tupleBuffer = std::move(nextBuffer);
+    totalNumBytesRead += tupleBuffer.getBufferSize();
     ++nextBufferIterator;
-    return nextBuffer.getBufferSize();
+    return tupleBuffer.getBufferSize();
 }
 
 NES::Configurations::DescriptorConfig::Config MemorySource::validateAndFormat(std::unordered_map<std::string, std::string> config)
