@@ -78,22 +78,15 @@ std::string CSVFormat::tupleBufferToFormattedCSVString(Memory::TupleBuffer tbuff
     for (size_t i = 0; i < numberOfTuples; i++)
     {
         auto tuple = buffer.subspan(i * formattingContext.schemaSizeInBytes, formattingContext.schemaSizeInBytes);
-        uint64_t countVarSized = 0;
         auto fields = std::views::iota(static_cast<size_t>(0), formattingContext.offsets.size())
             | std::views::transform(
-                          [&formattingContext, &tuple, &tbuffer, copyOfEscapeStrings = escapeStrings, &countVarSized](const auto& index)
+                          [&formattingContext, &tuple, &tbuffer, copyOfEscapeStrings = escapeStrings](const auto& index)
                           {
                               const auto physicalType = formattingContext.physicalTypes[index];
                               if (physicalType.type == DataType::Type::VARSIZED)
                               {
-                                  auto childIdx = *reinterpret_cast<const uint32_t*>(&tuple[formattingContext.offsets[index]]);
-                                  auto stringPtr
-                                      = Nautilus::Interface::MemoryProvider::loadAssociatedVarSizedValue(std::addressof(tbuffer), childIdx, countVarSized);
-                                  const auto stringSize = *reinterpret_cast<const uint32_t*>(stringPtr);
-                                  std::string varSizedData(stringSize, '\0');
-                                  std::memcpy(varSizedData.data(), stringPtr + sizeof(uint32_t), stringSize);
-                                  countVarSized += 1;
-
+                                  const auto combinedIdxOffset = *reinterpret_cast<const uint64_t*>(&tuple[formattingContext.offsets[index]]);
+                                  auto varSizedData = Memory::MemoryLayouts::readVarSizedDataAsString(tbuffer, combinedIdxOffset);
                                   if (copyOfEscapeStrings)
                                   {
                                       return "\"" + varSizedData + "\"";
