@@ -46,7 +46,6 @@ change_to_directory_with_folders() {
         done
 
         if [ "$all_folders_found" = true ]; then
-            echo "Changed directory to: $current_dir"
             return 0
         fi
 
@@ -148,14 +147,6 @@ if [ $? -eq 0 ]; then
     echo "Found the Nebulastream repository root."
 else
     echo "Failed to find the Nebulastream repository root."
-fi
-
-# Check if we can change to a directory which is the root
-change_to_directory_with_folders "nes-sources" "nes-sql-parser" "nes-systests"
-if [ $? -eq 0 ]; then
-    echo "Directory changed successfully."
-else
-    echo "Failed to find the required folders."
 fi
 
 HASH=$(bash docker/dependency/hash_dependencies.sh)
