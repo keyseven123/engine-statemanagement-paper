@@ -57,7 +57,9 @@ all_data_sets = {
     "SG3": ["/data/smartgrid/smartgrid-data_2GB.csv"],
     "YSB1k": ["/data/ysb/ysb1k_more_data_3GB.csv"],
     "YSB10k": ["/data/ysb/ysb10k_more_data_3GB.csv"],
-    "NM1-5": ["/data/nexmark/bid_more_data_6GB.csv"],
+    "NM1": ["/data/nexmark/bid_more_data_6GB.csv"],
+    "NM2": ["/data/nexmark/bid_more_data_6GB.csv"],
+    "NM5": ["/data/nexmark/bid_more_data_6GB.csv"],
     "NM8": ["/data/nexmark/auction_more_data_707MB.csv",
             "/data/nexmark/person_more_data_840MB.csv"]
 }
