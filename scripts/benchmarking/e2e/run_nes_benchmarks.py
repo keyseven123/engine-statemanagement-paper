@@ -47,10 +47,10 @@ NUM_RUNS_PER_EXPERIMENT = 1
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
-allNumberOfWorkerThreads = ['1', '2', '4', '8', '16'] #['4', '16']
+allNumberOfWorkerThreads = ['1', '4', '8', '16', '24'] #['4', '16']
 allNumberOfBuffersInGlobalBufferManagers = [20000] #[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [5]
+allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["NONE", "SECOND_CHANCE", "LRU"]
 allBufferSizes = [1048576] #[8192] #[100 * 1024]
 allPageSizes = [8192]
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # Determine with number of worker threads to run it with
     number_of_worker_threads_to_run = allNumberOfWorkerThreads
     if args.worker_threads:
-        number_of_worker_threads_to_run = [str(no_worker_threads) for no_worker_threads in allNumberOfWorkerThreads if str(no_worker_threads) in args.worker_threads]
+        number_of_worker_threads_to_run = [str(no_worker_threads) for no_worker_threads in args.worker_threads]
 
     print(",".join(queries_to_run.keys()))
     print(",".join(slice_caches_to_run))

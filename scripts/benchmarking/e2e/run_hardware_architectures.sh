@@ -13,5 +13,15 @@
 # limitations under the License.
 
 set -euo pipefail
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM5
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM5 -s SECOND_CHANCE
+
+# Create a Python virtual environment and install the required python libraries
+python3 -m venv myenv
+source myenv/bin/activate
+pip3 install argparse requests pandas pyyaml
+
+myenv/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM1 NM5 YSB10k -p 24
+myenv/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM1 NM5 YSB10k -s SECOND_CHANCE -w 24
+
+# Deactivate the virtual environment
+deactivate
+rm -rf myenv
