@@ -19,8 +19,22 @@
 # exit if any command (even inside a pipe) fails or an undefined variable is used.
 set -euo pipefail
 
-# cd to root of git repo
-cd "$(git rev-parse --show-toplevel)"
+# Check if the script is being run from the repository root
+expected_dirs=("nes-sources" "nes-sql-parser" "nes-systests")
+current_dir=$(pwd)
+valid_root=true
+
+for dir in "${expected_dirs[@]}"; do
+    if [ ! -d "$current_dir/$dir" ]; then
+        valid_root=false
+        break
+    fi
+done
+
+if [ "$valid_root" = false ]; then
+    echo "Error: The script is not being run from the repository root."
+    exit 1
+fi
 
 # paths of dirs or files that affect the dependency images
 #
