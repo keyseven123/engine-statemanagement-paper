@@ -72,7 +72,7 @@ public class YSB10k {
                     .setParallelism(1);
 
         sourceStream
-            .flatMap(new ThroughputLogger<YSBRecord>(500))
+            .flatMap(new ThroughputLogger<YSBRecord>(1))
             .filter(new FilterFunction<YSBRecord>() {
                 @Override
                 public boolean filter(YSBRecord value) throws Exception {

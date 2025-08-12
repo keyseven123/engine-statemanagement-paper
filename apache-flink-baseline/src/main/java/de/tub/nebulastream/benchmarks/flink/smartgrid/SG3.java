@@ -60,7 +60,7 @@ public class SG3 {
 
 
         sourceStream
-            .flatMap(new ThroughputLogger<SGRecord>(500))
+            .flatMap(new ThroughputLogger<SGRecord>(100))
             .keyBy(new KeySelector<SGRecord, Tuple3<Short, Short, Short>>() {
                     @Override
                     public Tuple3<Short, Short, Short> getKey(SGRecord sgRecord) throws Exception {
@@ -89,7 +89,6 @@ public class SG3 {
                         return new Tuple2<>(a.f0 + b.f0, a.f1 + b.f1);
                     }
                 })
-                .setMaxParallelism(maxParallelism)
                 .name("WindowOperator")
                 .sinkTo(new DiscardingSink<Double>() {
                 });
