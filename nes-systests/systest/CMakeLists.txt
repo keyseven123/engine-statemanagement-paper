@@ -76,17 +76,30 @@ endif (CODE_COVERAGE)
 
 # If we are running code coverage, we need to ONLY run the interpreter tests, as otherwise, the code coverage will be 100% for all operators as the compiler traces all branches and operations.
 set(joinStrategies NESTED_LOOP_JOIN HASH_JOIN)
-foreach (resourceAssignment IN LISTS resourceAssignmentCombined)
-    foreach (joinStrategy IN LISTS joinStrategies)
-        ExternalData_Add_Test(TEST_DATA
-                NAME systest_interpreter_${joinStrategy}_${resourceAssignment}
-                COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/interpreter_${joinStrategy}_${resourceAssignment} --exclude-groups large --data ${SMALL_DATA} -- --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskQueueSize=100000 --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryOptimizer.joinStrategy=${joinStrategy})
+set(numberOfEntriesSliceCaches 5 10 100)
+foreach (sliceCache IN LISTS sliceCaches)
+    foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
+        foreach (resourceAssignment IN LISTS resourceAssignmentCombined)
+            if (resourceAssignment STREQUAL "WORK_DEALING_NEW_QUEUE_AND_THREAD" AND NOT sliceCache STREQUAL "NONE" AND NOT cacheSize STREQUAL "10")
+                message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache for ${resourceAssignment}")
+                continue()
+            endif ()
+            foreach (joinStrategy IN LISTS joinStrategies)
+                ExternalData_Add_Test(TEST_DATA
+                        NAME systest_interpreter_${joinStrategy}_${resourceAssignment}_${sliceCache}_${cacheSize}
+                        COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/interpreter_${joinStrategy}_${resourceAssignment}_${sliceCache}_${cacheSize} --exclude-groups large --data ${SMALL_DATA} -- --worker.queryOptimizer.executionMode=INTERPRETER --worker.queryEngine.taskQueueSize=100000 --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryOptimizer.joinStrategy=${joinStrategy} --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+            endforeach ()
+        endforeach ()
     endforeach ()
 endforeach ()
 if (NOT CODE_COVERAGE)
-    ExternalData_Add_Test(TEST_DATA
-            NAME systest_compiler
-            COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/compiler --exclude-groups large --data ${SMALL_DATA} -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.taskQueueSize=100000)
+    foreach (sliceCache IN LISTS sliceCaches)
+        foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
+            ExternalData_Add_Test(TEST_DATA
+            NAME systest_compiler_${sliceCache}_${cacheSize}
+            COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/compiler_${sliceCache}_${cacheSize} --exclude-groups large --data ${SMALL_DATA} -- --worker.queryOptimizer.executionMode=COMPILER --worker.queryEngine.taskQueueSize=100000 --worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.queryOptimizer.sliceCache.sliceCacheType=${sliceCache})
+        endforeach ()
+    endforeach ()
 endif (NOT CODE_COVERAGE)
 
 
