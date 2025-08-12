@@ -68,8 +68,8 @@ nautilus::val<Timestamp> SliceCache::getSliceEnd(const nautilus::val<uint64_t>& 
 nautilus::val<int8_t*> SliceCache::getDataStructure(const nautilus::val<uint64_t>& pos)
 {
     const auto sliceEntry = startOfEntries + pos * sizeOfEntry;
-    const auto dataStructure
-        = nautilus::invoke(+[](const SliceCacheEntry* sliceCacheEntry) { return sliceCacheEntry->dataStructure; }, sliceEntry);
+    const auto dataStructureRef = Util::getMemberRef(sliceEntry, &SliceCacheEntry::dataStructure);
+    auto dataStructure = Util::readValueFromMemRef<int8_t*>(dataStructureRef);
     return dataStructure;
 }
 
