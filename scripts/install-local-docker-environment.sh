@@ -30,6 +30,36 @@ usage() {
     exit 1
 }
 
+# Function to change directory to where the specified folders are found
+change_to_directory_with_folders() {
+    local required_folders=("$@")
+    local current_dir=$(pwd)
+
+    while true; do
+        local all_folders_found=true
+        for folder in "${required_folders[@]}"; do
+            if [ ! -d "$current_dir/$folder" ]; then
+                echo "Could not find $folder under $current_dir/$folder"
+                all_folders_found=false
+                break
+            fi
+        done
+
+        if [ "$all_folders_found" = true ]; then
+            echo "Changed directory to: $current_dir"
+            return 0
+        fi
+
+        local parent_dir=$(dirname "$current_dir")
+        if [ "$parent_dir" = "$current_dir" ]; then
+            echo "Error: Reached the root directory and could not find the required folders."
+            return 1
+        fi
+
+        current_dir=$parent_dir
+    done
+}
+
 # If set we built rebuilt all docker images locally
 BUILD_LOCAL=0
 FORCE_ROOTLESS=0
@@ -112,8 +142,23 @@ if [[ ! $input =~ ^([yY][eE][sS]|[yY])$ ]]; then
   exit 1
 fi
 
-cd "$(git rev-parse --show-toplevel)"
-HASH=$(docker/dependency/hash_dependencies.sh)
+# Try to find the top-level directory of the repository
+change_to_directory_with_folders "nes-sources" "nes-sql-parser" "nes-systests"
+if [ $? -eq 0 ]; then
+    echo "Found the Nebulastream repository root."
+else
+    echo "Failed to find the Nebulastream repository root."
+fi
+
+# Check if we can change to a directory which is the root
+change_to_directory_with_folders "nes-sources" "nes-sql-parser" "nes-systests"
+if [ $? -eq 0 ]; then
+    echo "Directory changed successfully."
+else
+    echo "Failed to find the required folders."
+fi
+
+HASH=$(bash docker/dependency/hash_dependencies.sh)
 TAG=${HASH}-${STDLIB}-${SANITIZER}
 
 # Docker on macOS appears to always enable the mapping from the container root user to the hosts current
