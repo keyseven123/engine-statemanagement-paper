@@ -14,6 +14,28 @@
 
 set -e
 
+# Initialize variables to track the options
+rootless=false
+script_to_run=""
+
+# Parse command-line options
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --rootless) rootless=true ;;
+        --script)
+            if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                script_to_run="$2"
+                shift
+            else
+                echo "Error: Argument for --script is missing"
+                exit 1
+            fi
+            ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 # Check if the script is being run from the repository root
 expected_dirs=("nes-sources" "nes-sql-parser" "nes-systests")
 current_dir=$(pwd)
@@ -32,22 +54,18 @@ if [ "$valid_root" = false ]; then
 fi
 
 # Call the script to install the local Docker environment
-bash ./scripts/install-local-docker-environment.sh --libstdcxx -l
-
-# Check if the --script argument is provided
-if [ "$#" -ne 2 ] || [ "$1" != "--script" ]; then
-    echo "Usage: $0 --script <path-to-script>"
-    exit 1
+echo "rootless: $rootless"
+if [[ "$rootless" == false ]]; then
+  bash ./scripts/install-local-docker-environment.sh --libstdcxx -l
+else
+  bash ./scripts/install-local-docker-environment.sh --libstdcxx -l -r
 fi
 
-# Path to the script to be run inside the Docker container
-SCRIPT_PATH=$2
-
 # Check if the script file exists
-if [ ! -f "$SCRIPT_PATH" ]; then
-    echo "Script file $SCRIPT_PATH does not exist."
+if [ ! -f "$script_to_run" ]; then
+    echo "Script file $script_to_run does not exist."
     exit 1
 fi
 
 # Run the script inside the Docker container
-docker run --hostname docker-hostname --rm -v "$(pwd):/nebulastream" nebulastream/nes-development:local bash -c "cd /nebulastream && bash \"$SCRIPT_PATH\""
+docker run --hostname docker-hostname --rm -v "$(pwd):/nebulastream" nebulastream/nes-development:local bash -c "cd /nebulastream && bash \"$script_to_run\""
