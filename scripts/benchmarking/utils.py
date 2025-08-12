@@ -59,6 +59,8 @@ def get_vcpkg_dir():
         vcpkg_dir = "/data/vcpkg/scripts/buildsystems/vcpkg.cmake"
     elif hostname == "mif-ws":
         vcpkg_dir = "/home/nschubert/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    elif hostname == "docker-hostname":
+        vcpkg_dir = "/vcpkg"
     else:
         raise ValueError(f"Unknown hostname: {hostname}. Cannot determine vcpkg directory.")
 

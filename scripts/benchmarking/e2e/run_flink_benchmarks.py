@@ -46,7 +46,7 @@ queries = {
     "NM8_Variant": "nexmark.NM8_Variant"
 }
 
-needed_data_sets = {
+all_data_sets = {
     "CM1": ["/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
     "CM2": ["/data/cluster_monitoring/google-cluster-data-original_1G.csv"],
     "LRB1": ["/data/lrb/linear_road_benchmark_5GB.csv"],
@@ -63,7 +63,7 @@ needed_data_sets = {
 }
 
 num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
-parallelisms = ["1", "2", "4", "8", "16"] #["1", "4"]
+parallelisms = ["1", "4", "8", "16", "24"] #["1", "4"]
 MAX_RUNTIME_PER_JOB = 10  # in seconds
 
 
@@ -77,6 +77,8 @@ def get_tmp_data_dir():
     elif hostname == "hare":
         data_dir = "/data/tmp_data"
     elif hostname == "mif-ws":
+        data_dir = "/tmp/data"
+    elif hostname == "docker-hostname":
         data_dir = "/tmp/data"
     else:
         raise ValueError(f"Unknown hostname: {hostname}. Cannot determine vcpkg directory.")
@@ -122,7 +124,7 @@ def download_file_with_progress(url, local_path):
         exit(1)
 
 
-def download_data_sets():
+def download_data_sets(queries_to_run):
     """Download the data sets if they are not already present in the local folder."""
     if not os.path.exists(local_data_folder):
         os.makedirs(local_data_folder)
@@ -148,6 +150,7 @@ def download_data_sets():
             mapping[original_name] = md5_name
 
     # Check and download files
+    needed_data_sets = {k: v for k, v in all_data_sets.items() if k in queries_to_run.keys()}
     needed_files = set([item for value in needed_data_sets.values() for item in value])
     for file_name in needed_files:
         base_name = os.path.basename(file_name)
@@ -235,6 +238,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run Flink queries.")
     parser.add_argument("--all", action="store_true", help="Run all queries.")
     parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
+    parser.add_argument("-p", "--parallelism", nargs="+", help="Parallelism to run the query with.")
     args = parser.parse_args()
 
     # Determine which queries to run
@@ -244,7 +248,14 @@ def main():
         # Filter queries based on the provided list
         queries_to_run = {k: v for k, v in queries.items() if k in args.queries}
 
+    # Determine the parallelisms to run the queries with
+    parallelisms_to_run = parallelisms
+    if args.parallelism:
+        # Filter queries based on the provided list
+        parallelisms_to_run = args.parallelism
+
     print(",".join(queries_to_run.keys()))
+    print(",".join(parallelisms_to_run))
 
     # Checking if the script has been executed from the repository root
     check_repository_root()
@@ -257,7 +268,7 @@ def main():
         if not os.path.exists(flink):
             download_flink()
 
-        download_data_sets()
+        download_data_sets(queries_to_run)
 
         if os.path.exists(csv_folder):
             shutil.rmtree(csv_folder)
@@ -274,7 +285,7 @@ def main():
         subprocess.run(["mvn", "package"], check=True)
 
         for query_name, query_class in queries_to_run.items():
-            for parallelism in parallelisms:
+            for parallelism in parallelisms_to_run:
                 for num_records in num_of_records:
                     if "YSB" in query_name:
                         # If we go above 5M for YSB, we require more RAM than we have on the machine

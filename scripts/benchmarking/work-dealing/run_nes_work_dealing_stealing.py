@@ -25,6 +25,7 @@ import time
 import socket
 import yaml
 import pandas as pd
+
 from scripts.benchmarking.utils import *
 
 #### Benchmark Configurations
@@ -49,9 +50,9 @@ WAIT_BEFORE_SIGKILL = 10
 
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]
-allNumberOfWorkerThreads = [16]
+allNumberOfWorkerThreads = [24]
 allJoinStrategies = ["HASH_JOIN"]
-allNumberOfEntriesSliceCaches = [5]
+allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["SECOND_CHANCE"]
 allPageSizes = [8192]
 allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]

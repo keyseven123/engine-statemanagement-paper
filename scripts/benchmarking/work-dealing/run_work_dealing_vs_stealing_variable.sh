@@ -12,4 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-python3 -m scripts.benchmarking.work-dealing.run_nes_work_dealing_stealing --wait-between-queries 0.1 --wait-before-stopping-queries 30 --generator-rates scripts/benchmarking/work-dealing/work-dealing-variable/ingestion_queries_variable.yaml --number-of-queries 32 --buffer-size 1048576 --number-of-buffers 20000
+set -euo pipefail
+
+# Create a Python virtual environment and install the required python libraries
+python3 -m venv myenv
+source myenv/bin/activate
+pip install argparse requests pandas pyyaml
+
+myenv/bin/python3 -m scripts.benchmarking.work-dealing.run_nes_work_dealing_stealing --wait-between-queries 0.1 --wait-before-stopping-queries 30 --generator-rates scripts/benchmarking/work-dealing/work-dealing-variable/ingestion_queries_variable.yaml --number-of-queries 32 --buffer-size 1048576 --number-of-buffers 20000
+
+# Deactivate the virtual environment
+deactivate
+rm -rf myenv
