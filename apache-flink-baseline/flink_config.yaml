@@ -90,7 +90,7 @@ taskmanager.memory.process.size: 41456m
 
 # The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
 
-taskmanager.numberOfTaskSlots: 128
+taskmanager.numberOfTaskSlots: 256
 
 # The parallelism used for programs that did not specify and other parallelism.
 
@@ -317,6 +317,7 @@ rest.bind-address: localhost
 # Reduce number of floating buffers
 #taskmanager.network.memory.floating-buffers-per-gate: 2
 taskmanager.compute.numa: true
+taskmanager.task.initialization-timeout: 300s
 env.java.opts: -XX:+TieredCompilation -server -XX:+UseG1GC -Dorg.apache.flink.shaded.netty4.io.netty.buffer.bytebuf.checkAccessible=false -Dorg.apache.flink.shaded.netty4.io.netty.leakDetection.level=DISABLED --add-opens=java.base/java.util=ALL-UNNAMED -Xms2048m -Xmx32768m -XX:MaxMetaspaceSize=1024m
 #jobmanager.heap.size: 8gb
 #taskmanager.heap.size: 32gb
