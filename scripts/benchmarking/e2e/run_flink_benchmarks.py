@@ -66,7 +66,7 @@ all_data_sets = {
 
 num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
 parallelisms = ["1", "4", "8", "16", "24"] #["1", "4"]
-MAX_RUNTIME_PER_JOB = 10  # in seconds
+MAX_RUNTIME_PER_JOB = 60  # in seconds
 
 
 def get_tmp_data_dir():
@@ -283,8 +283,10 @@ def main():
             writer.writeheader()
 
         # Run Maven once
-        subprocess.run(["mvn", "clean"], check=True)
-        subprocess.run(["mvn", "package"], check=True)
+        env = os.environ.copy()
+        env["MAVEN_OPTS"] = "-Xss256k"
+        subprocess.run(["mvn", "clean"], env=env, check=True)
+        subprocess.run(["mvn", "package"], env=env, check=True)
 
         for query_name, query_class in queries_to_run.items():
             for parallelism in parallelisms_to_run:

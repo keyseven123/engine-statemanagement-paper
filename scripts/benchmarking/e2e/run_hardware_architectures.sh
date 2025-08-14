@@ -17,10 +17,12 @@ set -euo pipefail
 # Create a Python virtual environment and install the required python libraries
 python3 -m venv myenv
 source myenv/bin/activate
-pip3 install argparse requests pandas pyyaml
+# on some devices we need --progress-bar off at the end of the command
+pip install --upgrade pip --progress-bar off
+pip install argparse requests pandas pyyaml --progress-bar off
 
-myenv/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM1 NM5 YSB10k -p 24
-myenv/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM1 NM5 YSB10k -s SECOND_CHANCE -w 24
+myenv/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM1 NM5 -p 4
+myenv/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM1 NM5 -s SECOND_CHANCE -w 4
 
 # Deactivate the virtual environment
 deactivate

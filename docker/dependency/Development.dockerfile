@@ -15,8 +15,10 @@ RUN apt-get update -y && apt-get install -y \
         openjdk-21-jdk
 
 # The vcpkg port of antlr requires the jar to be available somewhere
-ADD --checksum=sha256:eae2dfa119a64327444672aff63e9ec35a20180dc5b8090b7a6ab85125df4d76 --chmod=744 \
-  https://www.antlr.org/download/antlr-${ANTLR4_VERSION}-complete.jar /opt/antlr-${ANTLR4_VERSION}-complete.jar
+# We do not use ADD --checksum as it might not work for older docker versions, e.g., v20.10.21 on an Ubuntu 18.04
+RUN wget -O /opt/antlr-${ANTLR4_VERSION}-complete.jar https://www.antlr.org/download/antlr-${ANTLR4_VERSION}-complete.jar && \
+    echo "eae2dfa119a64327444672aff63e9ec35a20180dc5b8090b7a6ab85125df4d76  /opt/antlr-${ANTLR4_VERSION}-complete.jar" | sha256sum -c - && \
+    chmod 744 /opt/antlr-${ANTLR4_VERSION}-complete.jar
 
 RUN git clone https://github.com/aras-p/ClangBuildAnalyzer.git \
     && cmake -B ClangBuildAnalyzer/build -S ClangBuildAnalyzer -DCMAKE_INSTALL_PREFIX=/usr \
@@ -25,13 +27,13 @@ RUN git clone https://github.com/aras-p/ClangBuildAnalyzer.git \
     && rm -rf ClangBuildAnalyzer \
     && ClangBuildAnalyzer --version
 
-# Install GDB Libc++ Pretty Printer
-RUN wget -P /usr/share/libcxx/  https://raw.githubusercontent.com/llvm/llvm-project/refs/tags/llvmorg-19.1.7/libcxx/utils/gdb/libcxx/printers.py && \
-    cat <<EOF > /etc/gdb/gdbinit
-    python
-    import sys
-    sys.path.insert(0, '/usr/share/libcxx')
-    import printers
-    printers.register_libcxx_printer_loader()
-    end
-EOF
+## Install GDB Libc++ Pretty Printer
+#RUN wget -P /usr/share/libcxx/  https://raw.githubusercontent.com/llvm/llvm-project/refs/tags/llvmorg-19.1.7/libcxx/utils/gdb/libcxx/printers.py && \
+#    cat <<EOF > /etc/gdb/gdbinit
+#    python
+#    import sys
+#    sys.path.insert(0, '/usr/share/libcxx')
+#    import printers
+#    printers.register_libcxx_printer_loader()
+#    end
+#EOF

@@ -233,7 +233,7 @@ if __name__ == "__main__":
              sliceCacheType, bufferSizeInBytes, pageSize] in combinations:
             workerConfigIdx += 1
 
-            # Otherwise we run out-of-memory on tower-en717
+            # Otherwise we run out-of-memory / out-of-buffers
             if query == "NM8":
                 buffersInGlobalBufferManager = 600000
                 bufferSizeInBytes = 200 * 1024

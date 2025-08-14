@@ -68,4 +68,4 @@ if [ ! -f "$script_to_run" ]; then
 fi
 
 # Run the script inside the Docker container
-docker run --hostname docker-hostname --rm -v "$(pwd):/nebulastream" nebulastream/nes-development:local bash -c "cd /nebulastream && bash \"$script_to_run\""
+docker run --hostname docker-hostname --privileged --ulimit nproc=65535:65535 --ulimit stack=-1:-1 --rm -v "$(pwd):/nebulastream" nebulastream/nes-development:local bash -c "cd /nebulastream && bash \"$script_to_run\""

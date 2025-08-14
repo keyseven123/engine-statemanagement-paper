@@ -21,6 +21,7 @@
 #include <DataTypes/DataType.hpp>
 #include <DataTypes/Schema.hpp>
 #include <MemoryLayout/ColumnLayout.hpp>
+#include <MemoryLayout/MemoryLayout.hpp>
 #include <MemoryLayout/RowLayout.hpp>
 #include <Nautilus/DataTypes/DataTypesUtil.hpp>
 #include <Nautilus/DataTypes/VarVal.hpp>
@@ -34,7 +35,6 @@
 #include <nautilus/function.hpp>
 #include <nautilus/val_ptr.hpp>
 #include <ErrorHandling.hpp>
-#include <MemoryLayout/MemoryLayout.hpp>
 
 namespace NES::Nautilus::Interface::MemoryProvider
 {
@@ -48,7 +48,8 @@ VarVal TupleBufferMemoryProvider::loadValue(
     }
     const auto combinedIdxOffset = Nautilus::Util::readValueFromMemRef<uint64_t>(fieldReference);
     const auto varSizedPtr = invoke(Memory::MemoryLayouts::loadAssociatedVarSizedValue, recordBuffer.getReference(), combinedIdxOffset);
-    return VariableSizedData(varSizedPtr);
+    VariableSizedData varSized{varSizedPtr};
+    return varSized;
 }
 
 
@@ -72,6 +73,7 @@ VarVal TupleBufferMemoryProvider::storeValue(
     }
 
     const auto varSizedValue = value.cast<VariableSizedData>();
+    // INVARIANT(varSizedValue.getTotalSize() < 500, "Value must be smaller than 500B");
     const nautilus::val<uint64_t> newCombinedIdxOffset = invoke(
         Memory::MemoryLayouts::storeAssociatedVarSizedValue,
         recordBuffer.getReference(),

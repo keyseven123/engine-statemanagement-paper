@@ -93,6 +93,10 @@ void HJProbePhysicalOperator::open(ExecutionContext& executionCtx, RecordBuffer&
     const auto rightHashMapRefs = nautilus::invoke(
         +[](const EmittedHJWindowTrigger* emittedJoinWindow) { return emittedJoinWindow->rightHashMaps; }, hashJoinWindowRef);
 
+    if (leftNumberOfHashMaps == 0 and rightNumberOfHashMaps == 0)
+    {
+        return;
+    }
 
     /// We iterate over all "left" hash maps and check if we find a tuple with the same key in the "right" hash maps
     for (nautilus::val<uint64_t> leftHashMapIndex = 0; leftHashMapIndex < leftNumberOfHashMaps; ++leftHashMapIndex)
@@ -117,6 +121,8 @@ void HJProbePhysicalOperator::open(ExecutionContext& executionCtx, RecordBuffer&
             {
                 const Interface::ChainedHashMapRef::ChainedEntryRef rightEntryRef{
                     rightEntry, rightHashMapPtr, rightHashMapOptions.fieldKeys, rightHashMapOptions.fieldValues};
+                auto rightPagedVectorMem = rightEntryRef.getValueMemArea();
+                const Interface::PagedVectorRef rightPagedVector{rightPagedVectorMem, rightMemoryProvider};
 
                 /// We use here findEntry as the other methods would insert a new entry, which is unnecessary
                 if (auto leftEntry = leftHashMap.findEntry(rightEntryRef.entryRef))
@@ -125,11 +131,10 @@ void HJProbePhysicalOperator::open(ExecutionContext& executionCtx, RecordBuffer&
                     const Interface::ChainedHashMapRef::ChainedEntryRef leftEntryRef{
                         leftEntry, leftHashMapPtr, leftHashMapOptions.fieldKeys, leftHashMapOptions.fieldValues};
                     auto leftPagedVectorMem = leftEntryRef.getValueMemArea();
-                    auto rightPagedVectorMem = rightEntryRef.getValueMemArea();
                     const Interface::PagedVectorRef leftPagedVector{leftPagedVectorMem, leftMemoryProvider};
-                    const Interface::PagedVectorRef rightPagedVector{rightPagedVectorMem, rightMemoryProvider};
                     const auto leftFields = leftMemoryProvider->getMemoryLayout()->getSchema().getFieldNames();
                     const auto rightFields = rightMemoryProvider->getMemoryLayout()->getSchema().getFieldNames();
+
                     for (auto leftIt = leftPagedVector.begin(leftFields); leftIt != leftPagedVector.end(leftFields); ++leftIt)
                     {
                         for (auto rightIt = rightPagedVector.begin(rightFields); rightIt != rightPagedVector.end(rightFields); ++rightIt)

@@ -90,7 +90,7 @@ SingleNodeWorker::SingleNodeWorker(const Configuration::SingleNodeWorkerConfigur
             bytesPerSecondMessage,
             tuplesPerSecondMessage);
     };
-    constexpr auto timeIntervalInMilliSeconds = 500;
+    constexpr auto timeIntervalInMilliSeconds = 100;
     const auto throughputListener = std::make_shared<ThroughputListener>(timeIntervalInMilliSeconds, throughputCallback);
     const auto printStatisticListener = std::make_shared<PrintingStatisticListener>(
         fmt::format("EngineStats_{:%Y-%m-%d_%H-%M-%S}_{:d}.stats", std::chrono::system_clock::now(), ::getpid()));

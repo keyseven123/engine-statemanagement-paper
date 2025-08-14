@@ -34,37 +34,22 @@ namespace
 /// (unless we have only one var sized object per child)
 uint64_t createCombinedIdxOffset(const uint64_t childIndex, const uint64_t childBufferOffset)
 {
-    PRECONDITION(childIndex < (1UL << 20UL), "Currently we only support 1024 child buffers");
-    PRECONDITION(childBufferOffset < (1UL << 44UL), "Currently we only support 4194304 offsets");
+    PRECONDITION(childIndex < (1UL << 20UL), "Currently we only support 1048576 child buffers");
+    PRECONDITION(childBufferOffset < (1UL << 44UL), "Currently we only support 17592186044416 offsets");
 
     const auto result = ((childIndex << 44UL) | childBufferOffset);
-    // NES_INFO("Created result {} from {} and {}", result, childIndex, childBufferOffset);
     return result;
 }
 
 uint64_t getChildOffset(const uint64_t combinedIdxOffset)
 {
-    return combinedIdxOffset & (0xfffffffffff);
+    const auto result = combinedIdxOffset & ((1ULL << 44UL) - 1);
+    return result;
 }
 
 uint64_t getChildIndex(const uint64_t combinedIdxOffset)
 {
     return combinedIdxOffset >> 44UL;
-}
-
-Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProvider, const uint32_t newBufferSize)
-{
-    /// If the fixed size buffers are not large enough, we get an unpooled buffer
-    if (tupleBufferProvider->getBufferSize() > newBufferSize)
-    {
-        if (auto newBuffer = tupleBufferProvider->getBufferNoBlocking(); newBuffer.has_value())
-        {
-            return newBuffer.value();
-        }
-    }
-    const auto unpooledBuffer = tupleBufferProvider->getUnpooledBuffer(newBufferSize);
-    INVARIANT(unpooledBuffer.has_value(), "Cannot allocate unpooled buffer of size {}", newBufferSize);
-    return unpooledBuffer.value();
 }
 
 /// @brief Copies the varsized to the specified location and then increments the number of tuples and used memory
@@ -78,14 +63,27 @@ void copyVarSizedAndIncrementMetaData(
     childBuffer.setNumberOfTuples(childBuffer.getNumberOfTuples() + 1);
     childBuffer.setUsedMemorySize(childBuffer.getUsedMemorySize() + varSizedValueLength);
     childBuffer.setCombinedVarSized(true);
-    // NES_INFO(
-    //     "Childbuffer has {} varsizes and uses {} B of {} B",
-    //     childBuffer.getNumberOfTuples(),
-    //     childBuffer.getUsedMemorySize(),
-    //     childBuffer.getBufferSize());
-    // NES_INFO("Wrote {} from {} to {}", varSizedValueLength, fmt::ptr(srcAddress), fmt::ptr(dstAddress));
 }
 }
+
+Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProvider, const uint32_t newBufferSize)
+{
+    const auto enoughFixedBuffers = tupleBufferProvider->getAvailableBuffers() > 50;
+
+    /// If the fixed size buffers are not large enough, we get an unpooled buffer
+    if (tupleBufferProvider->getBufferSize() > newBufferSize and enoughFixedBuffers)
+    {
+        if (auto newBuffer = tupleBufferProvider->getBufferNoBlocking(); newBuffer.has_value())
+        {
+            return newBuffer.value();
+        }
+    }
+    const auto unpooledBufferSize = newBufferSize * 10;
+    const auto unpooledBuffer = tupleBufferProvider->getUnpooledBuffer(unpooledBufferSize);
+    INVARIANT(unpooledBuffer.has_value(), "Cannot allocate unpooled buffer of size {}", unpooledBufferSize);
+    return unpooledBuffer.value();
+}
+
 
 uint64_t storeAssociatedVarSizedValue(
     const Memory::TupleBuffer* tupleBuffer,
@@ -113,26 +111,22 @@ uint64_t storeAssociatedVarSizedValue(
         return createCombinedIdxOffset(childBufferIndex, 0);
     }
 
-    /// There is enough space in the lastChildBuffer, we copy the var sized into it
+
+    /// There is enough space in the lastChildBuffer, thus, we copy the var sized into it
     const auto childOffset = lastChildBuffer.getUsedMemorySize();
     copyVarSizedAndIncrementMetaData(lastChildBuffer, childOffset, varSizedValue, varSizedValueLength);
     const auto childBufferIndex = numberOfChildBuffers - 1;
     return createCombinedIdxOffset(childBufferIndex, childOffset);
 }
 
-const uint8_t* loadAssociatedVarSizedValue(const Memory::TupleBuffer* tupleBuffer, const uint64_t combinedIdxOffset)
+const int8_t* loadAssociatedVarSizedValue(const Memory::TupleBuffer* tupleBuffer, const uint64_t combinedIdxOffset)
 {
     const auto childIndex = getChildIndex(combinedIdxOffset);
     auto childBuffer = tupleBuffer->loadChildBuffer(childIndex);
-    if (childBuffer.isCombinedVarSized())
-    {
-        /// We need to jump #countVarSized to go to the correct pointer for the var sized
-        const auto childOffset = getChildOffset(combinedIdxOffset);
-        const auto varSizedPointer = childBuffer.getBuffer<uint8_t>() + childOffset;
-        // NES_INFO("Reading from {} for {} and {}", fmt::ptr(varSizedPointer), childIndex, childOffset);
-        return varSizedPointer;
-    }
-    return childBuffer.getBuffer<uint8_t>();
+    /// We need to jump childOffset bytes to go to the correct pointer for the var sized
+    const auto childOffset = getChildOffset(combinedIdxOffset);
+    const auto varSizedPointer = childBuffer.getBuffer<int8_t>() + childOffset;
+    return varSizedPointer;
 }
 
 std::string readVarSizedDataAsString(const Memory::TupleBuffer& tupleBuffer, const uint64_t combinedIdxOffset)
@@ -140,6 +134,7 @@ std::string readVarSizedDataAsString(const Memory::TupleBuffer& tupleBuffer, con
     const auto strPtr = loadAssociatedVarSizedValue(&tupleBuffer, combinedIdxOffset);
     const auto stringSize = *reinterpret_cast<const uint32_t*>(strPtr);
     std::string str(stringSize, '\0');
+    // INVARIANT(stringSize < 500, "String must be under 500B");
     std::memcpy(str.data(), strPtr + sizeof(uint32_t), stringSize);
     return str;
 }
