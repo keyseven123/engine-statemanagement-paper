@@ -196,14 +196,17 @@ if [ $BUILD_LOCAL -eq 1 ]; then
           --build-arg STDLIB=${STDLIB} \
           --build-arg ARCH=${ARCH} \
           --build-arg SANITIZER=${SANITIZER} \
+          --no-cache \
           -t nebulastream/nes-development-dependency:local .
 
   docker build -f docker/dependency/Development.dockerfile \
             --build-arg TAG=local \
+            --no-cache \
             -t nebulastream/nes-development:default .
 
   docker build -f docker/dependency/DevelopmentLocal.dockerfile \
                -t nebulastream/nes-development:local \
+               --no-cache \
                --build-arg UID=${USE_UID} \
                --build-arg GID=${USE_GID} \
                --build-arg USERNAME=${USE_USERNAME} \
@@ -219,6 +222,7 @@ Either build locally with the -l option, or open a PR (draft) and let the CI bui
   echo "Basing local development image on remote on nebulastream/nes-development:${TAG}"
   docker build -f docker/dependency/DevelopmentLocal.dockerfile \
                -t nebulastream/nes-development:local \
+               --no-cache \
                --build-arg UID=${USE_UID} \
                --build-arg GID=${USE_GID} \
                --build-arg USERNAME=${USE_USERNAME} \

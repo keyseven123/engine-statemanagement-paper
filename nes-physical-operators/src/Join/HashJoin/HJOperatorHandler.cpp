@@ -40,7 +40,9 @@ HJOperatorHandler::getCreateNewSlicesFunction(const CreateNewSlicesArguments& ne
     PRECONDITION(
         numberOfWorkerThreads > 0, "Number of worker threads not set for window based operator. Has setWorkerThreads() being called?");
 
-    const auto newHashMapArgs = dynamic_cast<const CreateNewHashMapSliceArgs&>(newSlicesArguments);
+    auto newHashMapArgs = dynamic_cast<const CreateNewHashMapSliceArgs&>(newSlicesArguments);
+    const auto avgNumberOfKeys = std::min(10000.0, rollingAverageNumberOfKeys.getAverage());
+    newHashMapArgs.numberOfBuckets = avgNumberOfKeys == 0.0 ? newHashMapArgs.numberOfBuckets : static_cast<uint64_t>(avgNumberOfKeys);
     return std::function(
         [outputOriginId = outputOriginId, numberOfWorkerThreads = numberOfWorkerThreads, copyOfNewHashMapArgs = newHashMapArgs](
             SliceStart sliceStart, SliceEnd sliceEnd) -> std::vector<std::shared_ptr<Slice>>
@@ -91,6 +93,9 @@ void HJOperatorHandler::emitSlicesToProbe(
             if (auto* hashMap = hashJoinSlice->getHashMapPtr(WorkerThreadId(hashMapIdx), buildSide);
                 hashMap and hashMap->getNumberOfTuples() > 0)
             {
+                /// As the hashmap has one value per key, we can use the number of tuples for the number of keys
+                rollingAverageNumberOfKeys.add(hashMap->getNumberOfTuples());
+
                 allHashMaps.emplace_back(hashMap);
                 totalNumberOfTuples += hashMap->getNumberOfTuples();
             }

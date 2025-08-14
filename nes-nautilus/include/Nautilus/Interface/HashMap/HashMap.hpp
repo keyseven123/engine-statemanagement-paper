@@ -14,6 +14,7 @@
 
 #pragma once
 #include <cstdint>
+#include <unordered_set>
 #include <Nautilus/Interface/Hash/HashFunction.hpp>
 #include <Runtime/AbstractBufferProvider.hpp>
 

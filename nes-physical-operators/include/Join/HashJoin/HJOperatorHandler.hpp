@@ -27,6 +27,7 @@
 #include <SliceStore/Slice.hpp>
 #include <SliceStore/WindowSlicesStoreInterface.hpp>
 #include <HashMapSlice.hpp>
+#include <Util/RollingAverage.hpp>
 
 namespace NES
 {
@@ -50,7 +51,7 @@ public:
         const std::vector<OriginId>& inputOrigins,
         const OriginId outputOriginId,
         std::unique_ptr<WindowSlicesStoreInterface> sliceAndWindowStore)
-        : StreamJoinOperatorHandler(inputOrigins, outputOriginId, std::move(sliceAndWindowStore))
+        : StreamJoinOperatorHandler(inputOrigins, outputOriginId, std::move(sliceAndWindowStore)), rollingAverageNumberOfKeys(100)
     {
     }
 
@@ -72,6 +73,8 @@ private:
         const WindowInfo& windowInfo,
         const SequenceData& sequenceData,
         PipelineExecutionContext* pipelineCtx) override;
+
+    RollingAverage<uint64_t> rollingAverageNumberOfKeys;
 };
 
 }

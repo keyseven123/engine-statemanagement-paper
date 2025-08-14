@@ -193,6 +193,7 @@ TupleBuffer BufferManager::getBufferBlocking()
         return buffer.value();
     }
     /// Throw exception if no buffer was returned allocated after timeout.
+    std::cout << "Global buffer pool could not allocate buffer before timeout" << std::endl;
     throw BufferAllocationFailure("Global buffer pool could not allocate buffer before timeout({})", GET_BUFFER_TIMEOUT);
 }
 

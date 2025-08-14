@@ -75,6 +75,44 @@ Record ChainedHashMapRef::ChainedEntryRef::getKey() const
     return memoryProviderKeys.readRecord(entryRef);
 }
 
+nautilus::val<int8_t*> ChainedHashMapRef::ChainedEntryRef::getKeyArea() const
+{
+    /// We call this method solely, if we actually need the value memory area and not a VarVal.
+    /// Therefore, we do not store the valueOffset in the ChainedEntryRef or the ChainedEntryMemoryProvider
+    /// During tracing the offset is calculated and should be stored as a constant in the compiled code
+    nautilus::static_val<uint64_t> keyMemAreaOffset(0);
+    if (memoryProviderKeys.getAllFields().empty())
+    {
+        /// We take the max offset of the keys
+        keyMemAreaOffset = std::numeric_limits<uint64_t>::min();
+        for (const auto& field : nautilus::static_iterable(memoryProviderValues.getAllFields()))
+        {
+            const auto offset = field.fieldOffset;
+            const auto fieldSize = field.type.getSizeInBytes();
+            if (keyMemAreaOffset < offset + fieldSize)
+            {
+                keyMemAreaOffset = offset + fieldSize;
+            }
+        }
+    }
+    else
+    {
+        /// We take the min offset of the values
+        keyMemAreaOffset = std::numeric_limits<uint64_t>::max();
+        for (const auto& field : nautilus::static_iterable(memoryProviderKeys.getAllFields()))
+        {
+            const auto offset = field.fieldOffset;
+            if (keyMemAreaOffset > offset)
+            {
+                keyMemAreaOffset = offset;
+            }
+        }
+    }
+    auto castedMemArea = static_cast<nautilus::val<int8_t*>>(entryRef);
+    auto keyMemArea = castedMemArea + keyMemAreaOffset;
+    return keyMemArea;
+}
+
 Record ChainedHashMapRef::ChainedEntryRef::getValue() const
 {
     return memoryProviderValues.readRecord(entryRef);
@@ -314,14 +352,14 @@ ChainedHashMapRef::insert(const HashFunction::HashValue& hash, const nautilus::v
 
 nautilus::val<bool> ChainedHashMapRef::compareKeys(const ChainedEntryRef& entryRef, const Record& keys) const
 {
-    nautilus::val<bool> equals = true;
     for (const auto& [fieldIdentifier, type, fieldOffset] : nautilus::static_iterable(fieldKeys))
     {
-        const auto& key = keys.read(fieldIdentifier);
-        const auto& keyFromEntry = entryRef.getKey(fieldIdentifier);
-        equals = equals && (key == keyFromEntry);
+        if (keys.read(fieldIdentifier) != entryRef.getKey(fieldIdentifier))
+        {
+            return false;
+        }
     }
-    return equals;
+    return true;
 }
 
 ChainedHashMapRef::ChainedHashMapRef(

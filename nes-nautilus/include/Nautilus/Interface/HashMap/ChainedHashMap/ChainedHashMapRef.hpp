@@ -51,6 +51,7 @@ public:
         [[nodiscard]] Record getKey() const;
         [[nodiscard]] Record getValue() const;
         void updateEntryRef(const nautilus::val<ChainedHashMapEntry*>& entryRef);
+        [[nodiscard]] nautilus::val<int8_t*> getKeyArea() const;
         [[nodiscard]] nautilus::val<int8_t*> getValueMemArea() const;
         [[nodiscard]] HashFunction::HashValue getHash() const;
         [[nodiscard]] nautilus::val<ChainedHashMapEntry*> getNext() const;

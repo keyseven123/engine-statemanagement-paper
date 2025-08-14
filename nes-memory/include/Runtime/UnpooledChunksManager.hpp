@@ -90,21 +90,18 @@ struct ThreadLocalChunks
         /// Needed for deallocating memory, if we need to free-up space in the cache
         std::shared_ptr<std::pmr::memory_resource> memoryResource;
         std::multimap<size_t, MemoryChunk> chunksCache;
-        std::multimap<size_t, ChunkControlBlock> ccbCache;
         uint64_t chunkCacheSpace = 10;
 
     public:
         explicit ChunkCache(std::shared_ptr<std::pmr::memory_resource> memoryResource) : memoryResource(std::move(memoryResource)) { }
         void insertIntoCache(ChunkControlBlock& chunkControlBlock);
         std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
-        std::pair<ChunkControlBlock, Memory::detail::MemorySegment*> tryGetMemorySegment(size_t neededSize);
     };
 
     explicit ThreadLocalChunks(uint64_t windowSize, std::shared_ptr<std::pmr::memory_resource> memoryResource);
     void emplaceMemorySegment(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
     void insertIntoCache(ChunkControlBlock& chunkControlBlock);
     std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
-    Memory::detail::MemorySegment* tryGetMemorySegment(size_t neededSize);
 
 
     std::unordered_map<uint8_t*, ChunkControlBlock> chunks;

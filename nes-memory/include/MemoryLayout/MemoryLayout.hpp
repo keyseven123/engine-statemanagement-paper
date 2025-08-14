@@ -27,29 +27,32 @@ namespace NES::Memory::MemoryLayouts
 
 class MemoryLayoutTupleBuffer;
 
+/// @brief Returns a new tuple buffer of at least the newBufferSize. It tries to first get a fixed pool buffer. If this does not work, it
+/// fall-backs to an unpooled buffer
+/// @return TupleBuffer
+TupleBuffer getNewBuffer(AbstractBufferProvider* tupleBufferProvider, uint32_t newBufferSize);
+
+
 /// @brief Reads the variable sized data from the child buffer at the provided index and returns the pointer to the var sized data
 /// @return Pointer to variable sized data
-const uint8_t* loadAssociatedVarSizedValue(const Memory::TupleBuffer* tupleBuffer, const uint64_t combinedIdxOffset);
+const int8_t* loadAssociatedVarSizedValue(const TupleBuffer* tupleBuffer, uint64_t combinedIdxOffset);
 
 /// @brief Reads the variable sized data from the child buffer at the provided index. Similar as loadAssociatedVarSizedValue, but returns a string
 /// @return Variable sized data as a string
-std::string readVarSizedDataAsString(const Memory::TupleBuffer& tupleBuffer, const uint64_t combinedIdxOffset);
+std::string readVarSizedDataAsString(const TupleBuffer& tupleBuffer, uint64_t combinedIdxOffset);
 
 /// @brief Writes the varSizedValue to the tupleBuffer. Similar to writeVarSizedData, but this method expects the varSizedValue containing
 /// the length of varSizedValue as its first 32-bits
 /// @return Combined child index and offset
 uint64_t storeAssociatedVarSizedValue(
-    const Memory::TupleBuffer* tupleBuffer,
-    Memory::AbstractBufferProvider* bufferProvider,
-    const int8_t* varSizedValue,
-    const uint32_t varSizedValueLength);
+    const TupleBuffer* tupleBuffer, AbstractBufferProvider* bufferProvider, const int8_t* varSizedValue, uint32_t varSizedValueLength);
 
 /// @brief Writes the variable sized data to the buffer
 /// @param buffer
 /// @param value
 /// @param bufferProvider
 /// @return Index of the child buffer
-uint64_t writeVarSizedData(const Memory::TupleBuffer& buffer, const std::string_view value, Memory::AbstractBufferProvider& bufferProvider);
+uint64_t writeVarSizedData(const TupleBuffer& buffer, std::string_view value, AbstractBufferProvider& bufferProvider);
 
 /// @brief A MemoryLayout defines a strategy in which a specific schema / a individual tuple is mapped to a tuple buffer.
 /// To this end, it requires the definition of an schema and a specific buffer size.
