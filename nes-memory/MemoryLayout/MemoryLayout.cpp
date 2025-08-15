@@ -68,7 +68,7 @@ void copyVarSizedAndIncrementMetaData(
 
 Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProvider, const uint32_t newBufferSize)
 {
-    const auto enoughFixedBuffers = tupleBufferProvider->getAvailableBuffers() > 50;
+    const auto enoughFixedBuffers = tupleBufferProvider->getAvailableBuffers() > 20;
 
     /// If the fixed size buffers are not large enough, we get an unpooled buffer
     if (tupleBufferProvider->getBufferSize() > newBufferSize and enoughFixedBuffers)
@@ -78,7 +78,7 @@ Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProv
             return newBuffer.value();
         }
     }
-    const auto unpooledBufferSize = newBufferSize * 10;
+    const auto unpooledBufferSize = std::max(newBufferSize * 10UL, tupleBufferProvider->getBufferSize());
     const auto unpooledBuffer = tupleBufferProvider->getUnpooledBuffer(unpooledBufferSize);
     INVARIANT(unpooledBuffer.has_value(), "Cannot allocate unpooled buffer of size {}", unpooledBufferSize);
     return unpooledBuffer.value();

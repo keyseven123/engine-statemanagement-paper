@@ -111,15 +111,17 @@ void HJOperatorHandler::emitSlicesToProbe(
     /// - size of EmittedHJWindowTrigger
     const auto neededBufferSize
         = sizeof(EmittedHJWindowTrigger) + ((leftHashMaps.size() + rightHashMaps.size()) * sizeof(Nautilus::Interface::HashMap*));
-    const auto tupleBufferVal = pipelineCtx->getBufferManager()->getUnpooledBuffer(neededBufferSize);
-    if (not tupleBufferVal.has_value())
-    {
-        throw CannotAllocateBuffer("Could not get a buffer of size {} for the aggregation window trigger", neededBufferSize);
-    }
+
+    auto tupleBuffer = Memory::MemoryLayouts::getNewBuffer(pipelineCtx->getBufferManager().get(), neededBufferSize);
+    // const auto tupleBufferVal = pipelineCtx->getBufferManager()->getUnpooledBuffer(neededBufferSize);
+    // if (not tupleBufferVal.has_value())
+    // {
+    //     throw CannotAllocateBuffer("Could not get a buffer of size {} for the aggregation window trigger", neededBufferSize);
+    // }
+    // auto tupleBuffer = tupleBufferVal.value();
 
     /// As we are here "emitting" a buffer, we have to set the originId, the seq number, the watermark and the "number of tuples".
     /// The watermark cannot be the slice end as some buffers might be still waiting to get processed.
-    auto tupleBuffer = tupleBufferVal.value();
     tupleBuffer.setOriginId(outputOriginId);
     tupleBuffer.setSequenceNumber(SequenceNumber(sequenceData.sequenceNumber));
     tupleBuffer.setChunkNumber(ChunkNumber(sequenceData.chunkNumber));
@@ -127,7 +129,7 @@ void HJOperatorHandler::emitSlicesToProbe(
     tupleBuffer.setWatermark(windowInfo.windowStart);
     tupleBuffer.setNumberOfTuples(totalNumberOfTuples);
     tupleBuffer.setCreationTimestampInMS(Timestamp(
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count()));
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count()));
 
 
     /// Writing all necessary information for the probe to the buffer
