@@ -98,13 +98,13 @@ public class NM8 {
                 });
 
 
-        // Sleep maxRuntimeInSeconds seconds and then cancel
-        JobClient jobClient = env.executeAsync("NM8");
-        LOG.info("Started flink job");
-        Thread.sleep(maxRuntimeInSeconds * 1000);
-        jobClient.cancel().thenRun(() ->
-            LOG.info("Job cancelled after {} seconds.", maxRuntimeInSeconds)
-        );
-
+//         // Sleep maxRuntimeInSeconds seconds and then cancel
+//         JobClient jobClient = env.executeAsync("NM8");
+//         LOG.info("Started flink job");
+//         Thread.sleep(maxRuntimeInSeconds * 1000);
+//         jobClient.cancel().thenRun(() ->
+//             LOG.info("Job cancelled after {} seconds.", maxRuntimeInSeconds)
+//         );
+        env.execute("NM8");
     }
 }

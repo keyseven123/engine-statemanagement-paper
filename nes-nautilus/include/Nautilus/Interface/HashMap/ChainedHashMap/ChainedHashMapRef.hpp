@@ -85,7 +85,15 @@ public:
     class EntryIterator
     {
     public:
-        EntryIterator(const nautilus::val<HashMap*>& hashMapRef, const nautilus::val<uint64_t>& tupleIndex, const nautilus::val<uint64_t>& entrySize);
+        EntryIterator(
+            const nautilus::val<HashMap*>& hashMapRef,
+            const nautilus::val<ChainedHashMapEntry*>& currentEntry,
+            const nautilus::val<uint64_t>& entrySize,
+            const nautilus::val<uint64_t>& tupleIndex,
+            const nautilus::val<uint64_t>& indexOnPage,
+            const nautilus::val<uint64_t>& numberOfTuplesInCurrentPage,
+            const nautilus::val<uint64_t>& pageIndex,
+            const nautilus::val<uint64_t>& numberOfPages);
         EntryIterator& operator++();
         nautilus::val<bool> operator==(const EntryIterator& other) const;
         nautilus::val<bool> operator!=(const EntryIterator& other) const;

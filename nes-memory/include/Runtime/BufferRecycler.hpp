@@ -53,8 +53,8 @@ public:
 
     /// @brief Interface method for unpooled buffer recycling
     /// @param buffer the buffer to recycle
-    /// @param threadCopyLastChunkPtr stores the thread id and last chunk ptr
-    virtual void recycleUnpooledBuffer(detail::MemorySegment* buffer, const ThreadIdCopyLastChunkPtr& threadCopyLastChunkPtr) = 0;
+    /// @param threadIdCopyLastChunkPtr stores the thread id and last chunk ptr
+    virtual void recycleUnpooledBuffer(detail::MemorySegment* buffer, const ThreadIdCopyLastChunkPtr& threadIdCopyLastChunkPtr) = 0;
 };
 
 }

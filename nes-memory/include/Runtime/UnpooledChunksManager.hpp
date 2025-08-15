@@ -90,17 +90,17 @@ struct ThreadLocalChunks
         /// Needed for deallocating memory, if we need to free-up space in the cache
         std::shared_ptr<std::pmr::memory_resource> memoryResource;
         std::multimap<size_t, MemoryChunk> chunksCache;
-        uint64_t chunkCacheSpace = 10;
+        uint64_t chunkCacheSpace = 10000;
 
     public:
         explicit ChunkCache(std::shared_ptr<std::pmr::memory_resource> memoryResource) : memoryResource(std::move(memoryResource)) { }
-        void insertIntoCache(ChunkControlBlock& chunkControlBlock);
+        std::optional<MemoryChunk> insertIntoCache(ChunkControlBlock& chunkControlBlock);
         std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
     };
 
     explicit ThreadLocalChunks(uint64_t windowSize, std::shared_ptr<std::pmr::memory_resource> memoryResource);
     void emplaceMemorySegment(uint8_t* chunkKey, std::unique_ptr<Memory::detail::MemorySegment> newMemorySegment);
-    void insertIntoCache(ChunkControlBlock& chunkControlBlock);
+    std::optional<MemoryChunk> insertIntoCache(ChunkControlBlock& chunkControlBlock);
     std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
 
 
@@ -116,7 +116,7 @@ private:
 /// Stores and tracks all memory chunks for unpooled / variable sized buffers
 class UnpooledChunksManager final : public std::enable_shared_from_this<UnpooledChunksManager>, public Memory::BufferRecycler
 {
-    static constexpr auto NUM_PRE_ALLOCATED_CHUNKS = 10;
+    static constexpr auto NUM_PRE_ALLOCATED_CHUNKS = 100;
     static constexpr auto ROLLING_AVERAGE_UNPOOLED_BUFFER_SIZE = 100;
 
     /// Needed for allocating and deallocating memory
@@ -136,7 +136,7 @@ class UnpooledChunksManager final : public std::enable_shared_from_this<Unpooled
 
     void recyclePooledBuffer(Memory::detail::MemorySegment* buffer) override;
     void
-    recycleUnpooledBuffer(Memory::detail::MemorySegment* buffer, const Memory::ThreadIdCopyLastChunkPtr& threadCopyLastChunkPtr) override;
+    recycleUnpooledBuffer(Memory::detail::MemorySegment* memorySegment, const Memory::ThreadIdCopyLastChunkPtr& threadIdCopyLastChunkPtr) override;
 
 public:
     explicit UnpooledChunksManager(std::shared_ptr<std::pmr::memory_resource> memoryResource);

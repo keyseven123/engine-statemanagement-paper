@@ -43,19 +43,20 @@ ThreadLocalChunks::ThreadLocalChunks(const uint64_t windowSize, std::shared_ptr<
 {
 }
 
-void ThreadLocalChunks::ChunkCache::insertIntoCache(ChunkControlBlock& chunkControlBlock)
+std::optional<ThreadLocalChunks::MemoryChunk> ThreadLocalChunks::ChunkCache::insertIntoCache(ChunkControlBlock& chunkControlBlock)
 {
     /// Checking if we need to remove and deallocate a chunk control block
     /// If this is the case, we opt for the smallest chunk as the larger a chunk is, the higher the chance we can reuse it
+    std::optional<MemoryChunk> chunkToDelete{};
     if (chunksCache.size() >= chunkCacheSpace)
     {
-        const auto [startOfChunk, alignment, totalSize] = chunksCache.begin()->second;
+        chunkToDelete = chunksCache.begin()->second;
         chunksCache.erase(chunksCache.begin());
-        memoryResource->deallocate(startOfChunk, totalSize, alignment);
     }
 
     /// Inserting the chunk control block from the CCB-cache as we have enough space for it now
     chunksCache.insert({chunkControlBlock.memoryChunk.totalSize, chunkControlBlock.memoryChunk});
+    return chunkToDelete;
 }
 
 std::optional<ThreadLocalChunks::MemoryChunk> ThreadLocalChunks::ChunkCache::tryGetChunk(const size_t neededSize)
@@ -77,9 +78,9 @@ void ThreadLocalChunks::emplaceMemorySegment(uint8_t* chunkKey, std::unique_ptr<
     curUnpooledChunk.unpooledMemorySegments.emplace_back(std::move(newMemorySegment));
 }
 
-void ThreadLocalChunks::insertIntoCache(ChunkControlBlock& chunkControlBlock)
+std::optional<ThreadLocalChunks::MemoryChunk> ThreadLocalChunks::insertIntoCache(ChunkControlBlock& chunkControlBlock)
 {
-    chunkCache.insertIntoCache(chunkControlBlock);
+    return chunkCache.insertIntoCache(chunkControlBlock);
 }
 
 std::optional<ThreadLocalChunks::MemoryChunk> ThreadLocalChunks::tryGetChunk(const size_t neededSize)
@@ -151,11 +152,6 @@ std::pair<uint8_t*, uint8_t*> UnpooledChunksManager::allocateSpace(const size_t 
             const auto localKeyForUnpooledBufferChunk = localLastAllocatedChunkKey;
             currentAllocatedChunk.activeMemorySegments += 1;
             currentAllocatedChunk.usedSize += neededSize;
-            // NES_TRACE(
-            //     "Added tuple buffer {} of {}B to: {}",
-            //     fmt::ptr(localMemoryForNewTupleBuffer),
-            //     neededSize,
-            //     fmt::format("{}", currentAllocatedChunk));
             return {localKeyForUnpooledBufferChunk, localMemoryForNewTupleBuffer};
         }
     }
@@ -201,7 +197,6 @@ std::pair<uint8_t*, uint8_t*> UnpooledChunksManager::allocateSpace(const size_t 
     currentAllocatedChunk.memoryChunk.alignment = alignment;
     currentAllocatedChunk.usedSize = neededSize;
     currentAllocatedChunk.activeMemorySegments = 1;
-    // NES_TRACE("Created new chunk {} for tuple buffer {} of {}B", currentAllocatedChunk, fmt::ptr(localMemoryForNewTupleBuffer), neededSize);
     return {localKeyForUnpooledBufferChunk, localMemoryForNewTupleBuffer};
 }
 
@@ -211,11 +206,11 @@ void UnpooledChunksManager::recyclePooledBuffer(Memory::detail::MemorySegment*)
 }
 
 void UnpooledChunksManager::recycleUnpooledBuffer(
-    Memory::detail::MemorySegment*, const Memory::ThreadIdCopyLastChunkPtr& threadCopyLastChunkPtr)
+    Memory::detail::MemorySegment*, const Memory::ThreadIdCopyLastChunkPtr& threadIdCopyLastChunkPtr)
 {
-    const auto chunk = getThreadLocalChunkFromOtherThread(threadCopyLastChunkPtr.threadId);
+    const auto chunk = getThreadLocalChunkFromOtherThread(threadIdCopyLastChunkPtr.threadId);
     auto lockedLocalUnpooledBufferData = chunk->wlock();
-    auto& curUnpooledChunk = lockedLocalUnpooledBufferData->chunks[threadCopyLastChunkPtr.lastChunkPtr];
+    auto& curUnpooledChunk = lockedLocalUnpooledBufferData->chunks[threadIdCopyLastChunkPtr.lastChunkPtr];
     INVARIANT(
         curUnpooledChunk.activeMemorySegments > 0,
         "curUnpooledChunk.activeMemorySegments must be larger than 0 but is {}",
@@ -224,19 +219,19 @@ void UnpooledChunksManager::recycleUnpooledBuffer(
     if (curUnpooledChunk.activeMemorySegments == 0)
     {
         /// All memory segments have been removed, therefore, we move the ccb into the cache
-        const auto extractedChunk = lockedLocalUnpooledBufferData->chunks.extract(threadCopyLastChunkPtr.lastChunkPtr);
+        const auto extractedChunk = lockedLocalUnpooledBufferData->chunks.extract(threadIdCopyLastChunkPtr.lastChunkPtr);
         lockedLocalUnpooledBufferData->lastAllocateChunkKey = nullptr;
-        lockedLocalUnpooledBufferData->insertIntoCache(extractedChunk.mapped());
+        const auto memoryChunkToDelete = lockedLocalUnpooledBufferData->insertIntoCache(extractedChunk.mapped());
+        if (memoryChunkToDelete.has_value())
+        {
+            lockedLocalUnpooledBufferData.unlock();
+            memoryResource->deallocate(memoryChunkToDelete->startOfChunk, memoryChunkToDelete->totalSize, memoryChunkToDelete->alignment);
+        }
     }
 }
 
 Memory::TupleBuffer UnpooledChunksManager::getUnpooledBuffer(const size_t neededSize, const size_t alignment)
 {
-    /// We first check if there are some recycled chunks/memory segments that we can use
-    /// If this is not the case, we ask the chunk manager to allocate new space
-    const auto chunk = this->getThreadLocalChunkForCurrentThread();
-    Memory::detail::MemorySegment* leakedMemSegment = nullptr;
-
     /// we have to align the buffer size as ARM throws an SIGBUS if we have unaligned accesses on atomics.
     const auto alignedBufferSizePlusControlBlock = Memory::alignBufferSize(neededSize, alignment);
 
@@ -257,9 +252,10 @@ Memory::TupleBuffer UnpooledChunksManager::getUnpooledBuffer(const size_t needed
             recycler->recycleUnpooledBuffer(memorySegment, threadIdCopyLastChunkPtr);
         });
 
-    leakedMemSegment = memSegment.get();
+    const auto leakedMemSegment = memSegment.get();
     {
         /// Inserting the memory segment into the unpooled buffer storage
+        const auto chunk = this->getThreadLocalChunkForCurrentThread();
         const auto lockedLocalUnpooledBufferData = chunk->wlock();
         lockedLocalUnpooledBufferData->emplaceMemorySegment(localKeyForUnpooledBufferChunk, std::move(memSegment));
     }

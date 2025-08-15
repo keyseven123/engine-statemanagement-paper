@@ -36,6 +36,7 @@ namespace NES
 struct EmittedAggregationWindow
 {
     WindowInfo windowInfo;
+    Nautilus::Interface::HashMap* finalHashMapPtr;
     std::unique_ptr<Nautilus::Interface::HashMap>
         finalHashMap; /// Pointer to the final hash map that the probe should use to combine all hash maps
     uint64_t numberOfHashMaps;
