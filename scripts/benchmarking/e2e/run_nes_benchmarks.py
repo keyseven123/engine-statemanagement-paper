@@ -106,6 +106,7 @@ def parse_average_throughput_from_throughput_listener(console_output):
 
             # Append the extracted data to the list
             data.append(throughput_value)
+    data = data[:-1]
 
     # Calculate average of the query
     if len(data) == 0:
@@ -124,8 +125,10 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
                      f"--worker.numberOfBuffersInGlobalBufferManager={buffersInGlobalBufferManager} "
                      f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.joinStrategy={joinStrategy} "
+                     f"--worker.queryEngine.taskQueueSize=10000 "
+                     f"--worker.queryEngine.admissionQueueSize=1000000 "
+                     f"--worker.numberOfBuffersInSourceLocalPools=1024 "
                      f"--worker.queryOptimizer.pageSize={pageSize} "
-                     "--worker.numberOfBuffersInSourceLocalPools=1024 "
                      f"--worker.queryOptimizer.operatorBufferSize={bufferSizeInBytes} "
                      f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
                      f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")
