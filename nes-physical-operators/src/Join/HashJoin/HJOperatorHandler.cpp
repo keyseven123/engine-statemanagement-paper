@@ -116,7 +116,7 @@ void HJOperatorHandler::emitSlicesToProbe(
     // const auto tupleBufferVal = pipelineCtx->getBufferManager()->getUnpooledBuffer(neededBufferSize);
     // if (not tupleBufferVal.has_value())
     // {
-    //     throw CannotAllocateBuffer("Could not get a buffer of size {} for the aggregation window trigger", neededBufferSize);
+    // throw CannotAllocateBuffer("Could not get a buffer of size {} for the aggregation window trigger", neededBufferSize);
     // }
     // auto tupleBuffer = tupleBufferVal.value();
 

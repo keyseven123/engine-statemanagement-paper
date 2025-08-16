@@ -238,8 +238,13 @@ if __name__ == "__main__":
 
             # Otherwise we run out-of-memory / out-of-buffers
             if query == "NM8":
-                buffersInGlobalBufferManager = 600000
-                bufferSizeInBytes = 200 * 1024
+                buffersInGlobalBufferManager = 1225000
+                bufferSizeInBytes = 100 * 1024
+
+            if query == "NM8" and  socket.gethostname() == "mif-ws":
+                buffersInGlobalBufferManager = 250000
+                bufferSizeInBytes = 250 * 1024
+
 
             config = {
                 'executionMode': executionMode,

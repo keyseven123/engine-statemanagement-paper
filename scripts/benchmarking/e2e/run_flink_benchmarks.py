@@ -284,7 +284,7 @@ def main():
 
         # Run Maven once
         env = os.environ.copy()
-        env["MAVEN_OPTS"] = "-Xss256k"
+        # env["MAVEN_OPTS"] = "-Xss256k"
         subprocess.run(["mvn", "clean"], env=env, check=True)
         subprocess.run(["mvn", "package"], env=env, check=True)
 

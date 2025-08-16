@@ -125,6 +125,7 @@ void AggregationOperatorHandler::triggerSlices(
         auto* bufferMemory = tupleBuffer.getBuffer<EmittedAggregationWindow>();
         bufferMemory->windowInfo = windowInfo.windowInfo;
         bufferMemory->numberOfHashMaps = allHashMaps.size();
+        bufferMemory->finalHashMapPtr = finalHashMap.get();
         bufferMemory->finalHashMap = std::move(finalHashMap);
         auto* addressFirstHashMapPtr = reinterpret_cast<int8_t*>(bufferMemory) + sizeof(EmittedAggregationWindow);
         bufferMemory->hashMaps = reinterpret_cast<Nautilus::Interface::HashMap**>(addressFirstHashMapPtr);

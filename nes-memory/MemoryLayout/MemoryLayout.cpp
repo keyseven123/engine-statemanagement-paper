@@ -68,7 +68,7 @@ void copyVarSizedAndIncrementMetaData(
 
 Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProvider, const uint32_t newBufferSize)
 {
-    const auto enoughFixedBuffers = tupleBufferProvider->getAvailableBuffers() > 20;
+    const auto enoughFixedBuffers = tupleBufferProvider->getAvailableBuffers() > 10;
 
     /// If the fixed size buffers are not large enough, we get an unpooled buffer
     if (tupleBufferProvider->getBufferSize() > newBufferSize and enoughFixedBuffers)

@@ -32,6 +32,11 @@ namespace NES
 class UnpooledChunksManager;
 }
 
+namespace NES::Nautilus
+{
+class RecordBuffer;
+}
+
 namespace NES::Memory
 {
 namespace detail
@@ -68,6 +73,7 @@ class TupleBuffer
     friend class BufferManager;
     friend class NES::UnpooledChunksManager;
     friend class FixedSizeBufferPool;
+    friend class NES::Nautilus::RecordBuffer;
     friend class LocalBufferPool;
     friend class detail::MemorySegment;
 
