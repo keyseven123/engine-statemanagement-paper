@@ -245,6 +245,10 @@ if __name__ == "__main__":
                 buffersInGlobalBufferManager = 250000
                 bufferSizeInBytes = 250 * 1024
 
+            if query == "NM8" and  socket.gethostname() == "docker-hostname":
+                buffersInGlobalBufferManager = 20000
+                bufferSizeInBytes = 1048576
+
 
             config = {
                 'executionMode': executionMode,
