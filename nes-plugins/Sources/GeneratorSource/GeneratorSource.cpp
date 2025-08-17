@@ -84,11 +84,21 @@ size_t GeneratorSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, c
             return 0;
         }
 
-        /// Asking the generatorRate how many tuples we should generate for this interval [now, now + flushInterval]
-        const auto startOfInterval = std::chrono::system_clock::now();
-        const auto endOfInterval = startOfInterval + flushInterval;
-        const auto numberOfTuplesToGenerate = generatorRate->calcNumberOfTuplesForInterval(startOfInterval, endOfInterval);
-        NES_DEBUG("numberOfTuplesToGenerate: {}", numberOfTuplesToGenerate);
+        /// Asking the generatorRate how many tuples we should generate for this interval [now, now + flushInterval].
+        /// If we receive 0 tuples, we do not return but wait till another interval, as a return value of 0 tuples results in the query being terminated.
+        uint64_t numberOfTuplesToGenerate = 0;
+        std::chrono::time_point<std::chrono::system_clock> startOfInterval;
+        while (numberOfTuplesToGenerate == 0)
+        {
+            startOfInterval = std::chrono::system_clock::now();
+            const auto endOfInterval = startOfInterval + flushInterval;
+            numberOfTuplesToGenerate = generatorRate->calcNumberOfTuplesForInterval(startOfInterval, endOfInterval);
+            NES_DEBUG("numberOfTuplesToGenerate: {}", numberOfTuplesToGenerate);
+            if (numberOfTuplesToGenerate == 0)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds{flushInterval});
+            }
+        }
 
         /// Generating the required number of tuples. Any tuples that do not fit into the tuple buffer, we add to the orphanTuples and emit
         /// a warning. Also, we first add the orphanTuples to the tuple buffer, before adding newly-created once.
