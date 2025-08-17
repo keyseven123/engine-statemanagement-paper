@@ -56,7 +56,7 @@ allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["SECOND_CHANCE"]
 allPageSizes = [8192]
 allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]
-FLUSH_INTERVAL_MS = 10
+FLUSH_INTERVAL_MS = 100
 
 #### Queries
 allQueries = {
