@@ -79,13 +79,13 @@ uint64_t SinusGeneratorRate::calcNumberOfTuplesForInterval(
     const std::chrono::time_point<std::chrono::system_clock>& start, const std::chrono::time_point<std::chrono::system_clock>& end)
 {
     /// To calculate the number of tuples for a non-negative sinus, we take the integral of the sinus from end to start
-    /// As the sinus must be non-negative, the sin-function is emit_rate_at_x = amplitude * |sin(freq * (x - phaseShift))|
-    /// Thus, the integral of the function is: - (amplitude * sin(2 * freq * (x - phaseShift))) / (2 * freq * |sin(freq * (x - phaseShift))|)
+    /// As the sinus must be non-negative, the sin-function is emit_rate_at_x = amplitude * sin(freq * (x - phaseShift)) + amplitude
+    /// Thus, the integral of the function is: amplitude * x - (amplitude * cos(freq*(x-phaseShift)) / (freq) + C
     auto integral = [](const double timepoint, const double amplitude, const double frequency, const double phaseShift)
     {
-        const auto dividend = amplitude * std::sin(2 * frequency * (timepoint - phaseShift));
-        const auto divisor = 2 * frequency * std::abs(std::sin(frequency * (timepoint - phaseShift)));
-        return -1.0 * dividend / divisor;
+        const auto dividend = amplitude * std::cos(frequency * (timepoint - phaseShift));
+        const auto divisor = frequency;
+        return amplitude * timepoint * (dividend / divisor);
     };
 
     /// Calculating the integral of end --> start, resulting in the required number of tuples
