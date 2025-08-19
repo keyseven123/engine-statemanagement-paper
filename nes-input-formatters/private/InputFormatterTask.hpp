@@ -155,6 +155,7 @@ void processSpanningTuple(
         processTuple<typename FormatterType::FieldIndexFunctionType>(
             completeSpanningTuple, fieldIndexFunction, 0, formattedBuffer, schemaInfo, parseFunctions, bufferProvider);
         formattedBuffer.setNumberOfTuples(formattedBuffer.getNumberOfTuples() + 1);
+        formattedBuffer.setUsedMemorySize(formattedBuffer.getUsedMemorySize() + schemaInfo.getSizeOfTupleInBytes());
     }
 }
 
@@ -242,6 +243,7 @@ public:
         /// @Note: We assume that '.getNumberOfBytes()' ALWAYS returns the number of bytes at this point (set by source)
         const auto numberOfTuplesInFormattedBuffer = rawBuffer.getNumberOfBytes() / this->schemaInfo.getSizeOfTupleInBytes();
         rawBuffer.setNumberOfTuples(numberOfTuplesInFormattedBuffer);
+        rawBuffer.setUsedMemorySize(numberOfTuplesInFormattedBuffer * this->schemaInfo.getSizeOfTupleInBytes());
         /// The 'rawBuffer' is already formatted, so we can use it without any formatting.
         rawBuffer.emit(pec, PipelineExecutionContext::ContinuationPolicy::POSSIBLE);
     }
@@ -344,6 +346,7 @@ private:
                     this->parseFunctions,
                     *bufferProvider);
                 formattedBuffer.setNumberOfTuples(formattedBuffer.getNumberOfTuples() + 1);
+                formattedBuffer.setUsedMemorySize(formattedBuffer.getUsedMemorySize() + this->schemaInfo.getSizeOfTupleInBytes());
                 ++numTuplesReadFromRawBuffer;
             }
             numberOfFormattedTuplesToProduce -= formattedBuffer.getNumberOfTuples();

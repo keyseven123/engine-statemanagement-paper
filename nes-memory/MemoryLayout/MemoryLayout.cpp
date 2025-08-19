@@ -92,7 +92,7 @@ uint64_t storeAssociatedVarSizedValue(
     const uint32_t varSizedValueLength)
 {
     /// If there are no child buffers, we get a new buffer and copy the var sized into the newly acquired
-    const auto numberOfChildBuffers = tupleBuffer->getNumberOfChildrenBuffer();
+    const auto numberOfChildBuffers = tupleBuffer->getNumberOfChildBuffers();
     if (numberOfChildBuffers == 0)
     {
         auto newChildBuffer = getNewBuffer(bufferProvider, varSizedValueLength);
@@ -134,7 +134,6 @@ std::string readVarSizedDataAsString(const Memory::TupleBuffer& tupleBuffer, con
     const auto strPtr = loadAssociatedVarSizedValue(&tupleBuffer, combinedIdxOffset);
     const auto stringSize = *reinterpret_cast<const uint32_t*>(strPtr);
     std::string str(stringSize, '\0');
-    // INVARIANT(stringSize < 500, "String must be under 500B");
     std::memcpy(str.data(), strPtr + sizeof(uint32_t), stringSize);
     return str;
 }

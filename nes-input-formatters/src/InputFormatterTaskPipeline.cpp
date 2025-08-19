@@ -33,12 +33,13 @@ void NES::InputFormatters::InputFormatterTaskPipeline::stop(PipelineExecutionCon
 void NES::InputFormatters::InputFormatterTaskPipeline::execute(const Memory::TupleBuffer& rawTupleBuffer, PipelineExecutionContext& pec)
 {
     /// If the buffer is empty, we simply return without submitting any unnecessary work on empty buffers.
-    if (rawTupleBuffer.getBufferSize() == 0)
+    if (rawTupleBuffer.getBufferSize() == 0 or rawTupleBuffer.getUsedMemorySize() == 0)
     {
         NES_WARNING("Received empty buffer in InputFormatterTask.");
         return;
     }
 
+    pec.formattingTask = true;
     this->inputFormatterTask->executeTask(RawTupleBuffer{rawTupleBuffer}, pec);
 }
 
