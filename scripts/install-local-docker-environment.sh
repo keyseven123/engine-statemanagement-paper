@@ -36,10 +36,10 @@ change_to_directory_with_folders() {
     local current_dir=$(pwd)
 
     while true; do
+        cd $current_dir
         local all_folders_found=true
         for folder in "${required_folders[@]}"; do
             if [ ! -d "$current_dir/$folder" ]; then
-                echo "Could not find $folder under $current_dir/$folder"
                 all_folders_found=false
                 break
             fi
