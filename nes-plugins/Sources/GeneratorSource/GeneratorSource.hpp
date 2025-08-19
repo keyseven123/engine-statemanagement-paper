@@ -115,33 +115,33 @@ struct ConfigParametersGenerator
         std::chrono::high_resolution_clock::now().time_since_epoch().count(),
         [](const std::unordered_map<std::string, std::string>& config) { return DescriptorConfig::tryGet(SEED, config); }};
 
-    static inline const Configurations::DescriptorConfig::ConfigParameter<Configurations::EnumWrapper, GeneratorRate::Type>
+    static inline const DescriptorConfig::ConfigParameter<EnumWrapper, GeneratorRate::Type>
         GENERATOR_RATE_TYPE{
             "generatorRateType",
-            {},
-            [](const std::unordered_map<std::string, std::string>& config)
+            EnumWrapper{GeneratorRate::Type::FIXED},
+        [](const std::unordered_map<std::string, std::string>& config)
             {
-                const auto optToken = Configurations::DescriptorConfig::tryGet(GENERATOR_RATE_TYPE, config);
+                const auto optToken = DescriptorConfig::tryGet(GENERATOR_RATE_TYPE, config);
                 if (not optToken.has_value() || not optToken.value().asEnum<GeneratorRate::Type>().has_value())
                 {
-                    return std::optional<Configurations::EnumWrapper>();
+                    return std::optional<EnumWrapper>();
                 }
                 switch (optToken.value().asEnum<GeneratorRate::Type>().value())
                 {
                     case GeneratorRate::Type::FIXED:
-                        return std::optional(Configurations::EnumWrapper(GeneratorRate::Type::FIXED));
+                        return std::optional(EnumWrapper(GeneratorRate::Type::FIXED));
                     case GeneratorRate::Type::SINUS:
-                        return std::optional(Configurations::EnumWrapper(GeneratorRate::Type::SINUS));
+                        return std::optional(EnumWrapper(GeneratorRate::Type::SINUS));
                 }
-                return std::optional<Configurations::EnumWrapper>();
+                return std::optional<EnumWrapper>();
             }};
 
-    static inline const Configurations::DescriptorConfig::ConfigParameter<std::string> GENERATOR_RATE_CONFIG{
+    static inline const DescriptorConfig::ConfigParameter<std::string> GENERATOR_RATE_CONFIG{
         "generatorRateConfig",
-        "",
+        "emitRate 1000",
         [](const std::unordered_map<std::string, std::string>& config)
         {
-            const auto optToken = Configurations::DescriptorConfig::tryGet(GENERATOR_RATE_CONFIG, config);
+            const auto optToken = DescriptorConfig::tryGet(GENERATOR_RATE_CONFIG, config);
             if (not optToken.has_value())
             {
                 return std::optional<std::string>();
@@ -149,7 +149,7 @@ struct ConfigParametersGenerator
             if (SinusGeneratorRate::parseAndValidateConfigString(optToken.value()).has_value()
                 or FixedGeneratorRate::parseAndValidateConfigString(optToken.value()).has_value())
             {
-                return Configurations::DescriptorConfig::tryGet(GENERATOR_RATE_CONFIG, config);
+                return DescriptorConfig::tryGet(GENERATOR_RATE_CONFIG, config);
             }
             return std::optional<std::string>();
         }};
@@ -191,12 +191,12 @@ struct ConfigParametersGenerator
             return DescriptorConfig::tryGet(GENERATOR_SCHEMA, config);
         }};
 
-    static inline const NES::Configurations::DescriptorConfig::ConfigParameter<uint64_t> FLUSH_INTERVAL_MS{
+    static inline const NES::DescriptorConfig::ConfigParameter<uint64_t> FLUSH_INTERVAL_MS{
         "flushIntervalMS",
         10,
         [](const std::unordered_map<std::string, std::string>& config)
         {
-            const auto value = Configurations::DescriptorConfig::tryGet(FLUSH_INTERVAL_MS, config);
+            const auto value = DescriptorConfig::tryGet(FLUSH_INTERVAL_MS, config);
             return value;
         }};
 

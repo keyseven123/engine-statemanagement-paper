@@ -249,7 +249,7 @@ void NormalDistributionField::validate(std::string_view rawSchemaLine)
     if (const auto type = magic_enum::enum_cast<NES::DataType::Type>(typeParam); not type.has_value())
     {
         constexpr auto allDataTypes = magic_enum::enum_names<DataType::Type>();
-        NES_FATAL_ERROR("Invalid Type in NORMAL_DISTRIBUTION, supported are only {} {}", fmt::join(allDataTypes, ","), rawSchemaLine);
+        NES_ERROR("Invalid Type in NORMAL_DISTRIBUTION, supported are only {} {}", fmt::join(allDataTypes, ","), rawSchemaLine);
         throw NES::InvalidConfigParameter(
             "Invalid Type in NORMAL_DISTRIBUTION, supported are only {}: {}", fmt::join(allDataTypes, ","), rawSchemaLine);
     }
