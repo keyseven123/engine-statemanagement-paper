@@ -14,20 +14,14 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <Configurations/ConfigurationsNames.hpp>
 #include <Configurations/Descriptor.hpp>
-#include <Identifiers/Identifiers.hpp>
 #include <Runtime/TupleBuffer.hpp>
 #include <Sinks/Sink.hpp>
 #include <Sinks/SinkDescriptor.hpp>
-#include <SinksParsing/CSVFormat.hpp>
-#include <folly/Synchronized.h>
 #include <PipelineExecutionContext.hpp>
 
 namespace NES::Sinks
@@ -49,7 +43,7 @@ public:
     void execute(const Memory::TupleBuffer& inputTupleBuffer, PipelineExecutionContext& pipelineExecutionContext) override;
     void stop(PipelineExecutionContext& pipelineExecutionContext) override;
 
-    static Configurations::DescriptorConfig::Config validateAndFormat(std::unordered_map<std::string, std::string> config);
+    static DescriptorConfig::Config validateAndFormat(std::unordered_map<std::string, std::string> config);
 
 protected:
     std::ostream& toString(std::ostream& str) const override;
@@ -58,14 +52,14 @@ protected:
 
 struct ConfigParametersDiscard
 {
-    static inline const Configurations::DescriptorConfig::ConfigParameter<std::string> FILEPATH{
+    static inline const DescriptorConfig::ConfigParameter<std::string> FILEPATH{
         "filePath",
         std::nullopt,
         [](const std::unordered_map<std::string, std::string>& config)
-        { return Configurations::DescriptorConfig::tryGet(FILEPATH, config); }};
+        { return DescriptorConfig::tryGet(FILEPATH, config); }};
 
-    static inline std::unordered_map<std::string, Configurations::DescriptorConfig::ConfigParameterContainer> parameterMap
-        = Configurations::DescriptorConfig::createConfigParameterContainerMap(FILEPATH);
+    static inline std::unordered_map<std::string, DescriptorConfig::ConfigParameterContainer> parameterMap
+        = DescriptorConfig::createConfigParameterContainerMap(FILEPATH);
 };
 
 }

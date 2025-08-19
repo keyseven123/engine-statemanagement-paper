@@ -18,7 +18,6 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <Configurations/ConfigurationsNames.hpp>
 #include <Configurations/Descriptor.hpp>
 #include <Runtime/TupleBuffer.hpp>
 #include <Sinks/SinkDescriptor.hpp>
@@ -81,9 +80,9 @@ std::ostream& DiscardSink::toString(std::ostream& str) const
     return str;
 }
 
-Configurations::DescriptorConfig::Config DiscardSink::validateAndFormat(std::unordered_map<std::string, std::string> config)
+DescriptorConfig::Config DiscardSink::validateAndFormat(std::unordered_map<std::string, std::string> config)
 {
-    return NES::Configurations::DescriptorConfig::validateAndFormat<ConfigParametersDiscard>(std::move(config), NAME);
+    return NES::DescriptorConfig::validateAndFormat<ConfigParametersDiscard>(std::move(config), NAME);
 }
 
 SinkValidationRegistryReturnType SinkValidationGeneratedRegistrar::RegisterDiscardSinkValidation(SinkValidationRegistryArguments sinkConfig)
