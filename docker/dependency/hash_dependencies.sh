@@ -19,20 +19,39 @@
 # exit if any command (even inside a pipe) fails or an undefined variable is used.
 set -euo pipefail
 
-# Check if the script is being run from the repository root
-expected_dirs=("nes-sources" "nes-sql-parser" "nes-systests")
-current_dir=$(pwd)
-valid_root=true
+# Function to change directory to where the specified folders are found
+change_to_directory_with_folders() {
+    local required_folders=("$@")
+    local current_dir=$(pwd)
 
-for dir in "${expected_dirs[@]}"; do
-    if [ ! -d "$current_dir/$dir" ]; then
-        valid_root=false
-        break
-    fi
-done
+    while true; do
+        cd $current_dir
+        local all_folders_found=true
+        for folder in "${required_folders[@]}"; do
+            if [ ! -d "$current_dir/$folder" ]; then
+                all_folders_found=false
+                break
+            fi
+        done
 
-if [ "$valid_root" = false ]; then
-    echo "Error: The script is not being run from the repository root."
+        if [ "$all_folders_found" = true ]; then
+            return 0
+        fi
+
+        local parent_dir=$(dirname "$current_dir")
+        if [ "$parent_dir" = "$current_dir" ]; then
+            echo "Error: Reached the root directory and could not find the required folders."
+            return 1
+        fi
+
+        current_dir=$parent_dir
+    done
+}
+
+# Try to find the top-level directory of the repository
+change_to_directory_with_folders "vcpkg" "grpc"
+if [ $? -eq 1 ]; then
+    echo "Failed to find the Nebulastream repository root."
     exit 1
 fi
 
