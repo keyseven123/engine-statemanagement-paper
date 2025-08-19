@@ -14,7 +14,7 @@
 
 #pragma once
 #include <memory>
-#include <Configurations/Worker/SliceCacheConfiguration.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <SliceCache/SliceCache.hpp>
 #include <val.hpp>
 

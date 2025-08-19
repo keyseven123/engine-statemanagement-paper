@@ -68,6 +68,7 @@ getHJSliceProxy(const HJOperatorHandler* operatorHandler, const Timestamp timest
     INVARIANT(hjSlice != nullptr, "HJSlice can not be null");
     return hjSlice;
 }
+
 Interface::HashMap* getHashJoinHashMapProxy(
     const HJOperatorHandler* operatorHandler,
     const Timestamp timestamp,
@@ -88,8 +89,8 @@ void HJBuildPhysicalOperator::setup(ExecutionContext& executionCtx, const nautil
     /// We are not allowed to use const or const references for the lambda function params, as nautilus does not support this in the registerFunction method.
     /// ReSharper disable once CppPassValueParameterByConstReference
     /// NOLINTBEGIN(performance-unnecessary-value-param)
-    const auto cleanupStateNautilusFunction
-        = std::make_shared<CreateNewHashMapSliceArgs::NautilusCleanupExec>(engine.registerFunction(std::function(
+    const auto cleanupStateNautilusFunction = std::make_shared<CreateNewHashMapSliceArgs::NautilusCleanupExec>(engine.registerFunction(
+        std::function(
             [copyOfFieldKeys = hashMapOptions.fieldKeys,
              copyOfFieldValues = hashMapOptions.fieldValues,
              copyOfEntriesPerPage = hashMapOptions.entriesPerPage,
@@ -105,8 +106,8 @@ void HJBuildPhysicalOperator::setup(ExecutionContext& executionCtx, const nautil
                         +[](int8_t* pagedVectorMemArea) -> void
                         {
                             /// Calls the destructor of the PagedVector
-                            /// NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)auto* pagedVector = reinterpret_cast<Nautilus::Interface::PagedVector*>(
-                                pagedVectorMemArea);
+                            /// NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                            auto* pagedVector = reinterpret_cast<Nautilus::Interface::PagedVector*>(pagedVectorMemArea);
                             pagedVector->~PagedVector();
                         },
                         state);

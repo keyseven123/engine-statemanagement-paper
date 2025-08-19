@@ -87,8 +87,8 @@ const int8_t* StreamJoinOperatorHandler::getStartOfSliceCacheEntries(const Start
 {
     PRECONDITION(numberOfWorkerThreads > 0, "Number of worker threads should be set before calling this method");
     const auto startSliceCacheEntriesJoin = dynamic_cast<const StartSliceCacheEntriesStreamJoin&>(startSliceCacheEntriesArgs);
-    const auto pos = startSliceCacheEntriesJoin.workerThreadId % sliceCacheEntriesBufferForWorkerThreads.size()
-        + numberOfWorkerThreads * static_cast<uint64_t>(startSliceCacheEntriesJoin.joinBuildSide);
+    const auto pos = startSliceCacheEntriesJoin.workerThreadId % (sliceCacheEntriesBufferForWorkerThreads.size() / 2)
+        + (sliceCacheEntriesBufferForWorkerThreads.size() / 2) * static_cast<uint64_t>(startSliceCacheEntriesJoin.joinBuildSide);
     INVARIANT(
         not sliceCacheEntriesBufferForWorkerThreads.empty() and pos < sliceCacheEntriesBufferForWorkerThreads.size(),
         "Position should be smaller than the size of the sliceCacheEntriesBufferForWorkerThreads");

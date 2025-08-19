@@ -16,7 +16,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <Configurations/Worker/SliceCacheConfiguration.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <Join/NestedLoopJoin/NLJBuildPhysicalOperator.hpp>
 #include <Join/StreamJoinUtil.hpp>
 #include <Nautilus/Interface/MemoryProvider/TupleBufferMemoryProvider.hpp>

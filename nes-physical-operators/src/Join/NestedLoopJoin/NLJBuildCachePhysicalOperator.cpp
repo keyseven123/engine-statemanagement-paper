@@ -15,7 +15,7 @@
 
 #include <memory>
 #include <utility>
-#include <Configurations/Worker/SliceCacheConfiguration.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <Join/NestedLoopJoin/NLJOperatorHandler.hpp>
 #include <Join/NestedLoopJoin/NLJSlice.hpp>
 #include <Join/StreamJoinBuildPhysicalOperator.hpp>

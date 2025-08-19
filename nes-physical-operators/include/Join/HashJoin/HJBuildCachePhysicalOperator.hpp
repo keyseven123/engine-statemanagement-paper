@@ -14,7 +14,7 @@
 
 #pragma once
 #include <memory>
-#include <Configurations/Worker/SliceCacheConfiguration.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <Join/HashJoin/HJBuildPhysicalOperator.hpp>
 #include <Join/HashJoin/HJOperatorHandler.hpp>

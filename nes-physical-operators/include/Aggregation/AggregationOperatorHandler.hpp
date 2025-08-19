@@ -59,11 +59,16 @@ public:
         const uint64_t sizeOfEntry, const uint64_t numberOfEntries, Memory::AbstractBufferProvider* bufferProvider) override;
     const int8_t* getStartOfSliceCacheEntries(const StartSliceCacheEntriesArgs& startSliceCacheEntriesArgs) const override;
 
+    /// shared_ptr as multiple slices need access to it
+    using NautilusCleanupExec = nautilus::engine::CallableFunction<void, Nautilus::Interface::HashMap*>;
+    std::shared_ptr<NautilusCleanupExec> cleanupStateNautilusFunction;
+
 protected:
     void triggerSlices(
         const std::map<WindowInfoAndSequenceNumber, std::vector<std::shared_ptr<Slice>>>& slicesAndWindowInfo,
         PipelineExecutionContext* pipelineCtx) override;
     RollingAverage<uint64_t> rollingAverageNumberOfKeys;
+
 };
 
 }
