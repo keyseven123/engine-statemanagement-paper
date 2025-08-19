@@ -16,13 +16,13 @@
 
 #include <cstdint>
 #include <memory>
-#include <SliceCacheConfiguration.hpp>
 #include <Join/NestedLoopJoin/NLJBuildPhysicalOperator.hpp>
 #include <Join/StreamJoinUtil.hpp>
 #include <Nautilus/Interface/MemoryProvider/TupleBufferMemoryProvider.hpp>
 #include <Nautilus/Interface/Record.hpp>
 #include <Runtime/Execution/OperatorHandler.hpp>
 #include <Watermark/TimeFunction.hpp>
+#include <SliceCacheConfiguration.hpp>
 
 namespace NES
 {

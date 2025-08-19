@@ -36,7 +36,6 @@ nautilus::val<bool*> SliceCacheSecondChance::getSecondChanceBit(const nautilus::
     return secondChanceBitRef;
 }
 
-
 nautilus::val<int8_t*> SliceCacheSecondChance::getDataStructureRef(
     const nautilus::val<Timestamp>& timestamp, const SliceCache::SliceCacheReplacement& replacementFunction)
 {

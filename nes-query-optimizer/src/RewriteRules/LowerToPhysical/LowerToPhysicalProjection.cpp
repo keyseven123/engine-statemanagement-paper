@@ -25,11 +25,11 @@
 #include <Operators/LogicalOperator.hpp>
 #include <Operators/ProjectionLogicalOperator.hpp>
 #include <RewriteRules/AbstractRewriteRule.hpp>
-#include <Util/PlanRenderer.hpp>
-#include <MapPhysicalOperator.hpp>
 #include <Runtime/Execution/OperatorHandler.hpp>
+#include <Util/PlanRenderer.hpp>
 #include <EmitOperatorHandler.hpp>
 #include <EmitPhysicalOperator.hpp>
+#include <MapPhysicalOperator.hpp>
 #include <PhysicalOperator.hpp>
 #include <RewriteRuleRegistry.hpp>
 #include <ScanPhysicalOperator.hpp>

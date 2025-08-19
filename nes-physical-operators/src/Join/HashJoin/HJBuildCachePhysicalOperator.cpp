@@ -18,7 +18,6 @@
 #include <functional>
 #include <memory>
 #include <utility>
-#include <SliceCacheConfiguration.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <Join/HashJoin/HJOperatorHandler.hpp>
 #include <Join/HashJoin/HJSlice.hpp>
@@ -39,13 +38,13 @@
 #include <Engine.hpp>
 #include <ErrorHandling.hpp>
 #include <ExecutionContext.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <WindowBuildPhysicalOperator.hpp>
 #include <function.hpp>
 #include <options.hpp>
 #include <static.hpp>
 #include <val_enum.hpp>
 #include <val_ptr.hpp>
-
 
 namespace NES
 {

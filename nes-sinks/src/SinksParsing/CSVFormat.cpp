@@ -82,7 +82,8 @@ std::string CSVFormat::tupleBufferToFormattedCSVString(Memory::TupleBuffer tbuff
                               const auto physicalType = formattingContext.physicalTypes[index];
                               if (physicalType.type == DataType::Type::VARSIZED)
                               {
-                                  const auto combinedIdxOffset = *reinterpret_cast<const uint64_t*>(&tuple[formattingContext.offsets[index]]);
+                                  const auto combinedIdxOffset
+                                      = *reinterpret_cast<const uint64_t*>(&tuple[formattingContext.offsets[index]]);
                                   auto varSizedData = Memory::MemoryLayouts::readVarSizedDataAsString(tbuffer, combinedIdxOffset);
                                   if (copyOfEscapeStrings)
                                   {

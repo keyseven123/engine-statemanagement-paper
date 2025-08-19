@@ -61,6 +61,7 @@ DiscardSink::DiscardSink(const SinkDescriptor& sinkDescriptor)
     outputFileStream << "S$Count:UINT64,S$Checksum:UINT64" << '\n';
     outputFileStream.close();
 }
+
 void DiscardSink::start(PipelineExecutionContext&)
 {
 }

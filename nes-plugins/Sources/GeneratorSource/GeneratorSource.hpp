@@ -115,26 +115,25 @@ struct ConfigParametersGenerator
         std::chrono::high_resolution_clock::now().time_since_epoch().count(),
         [](const std::unordered_map<std::string, std::string>& config) { return DescriptorConfig::tryGet(SEED, config); }};
 
-    static inline const DescriptorConfig::ConfigParameter<EnumWrapper, GeneratorRate::Type>
-        GENERATOR_RATE_TYPE{
-            "generatorRateType",
-            EnumWrapper{GeneratorRate::Type::FIXED},
+    static inline const DescriptorConfig::ConfigParameter<EnumWrapper, GeneratorRate::Type> GENERATOR_RATE_TYPE{
+        "generatorRateType",
+        EnumWrapper{GeneratorRate::Type::FIXED},
         [](const std::unordered_map<std::string, std::string>& config)
+        {
+            const auto optToken = DescriptorConfig::tryGet(GENERATOR_RATE_TYPE, config);
+            if (not optToken.has_value() || not optToken.value().asEnum<GeneratorRate::Type>().has_value())
             {
-                const auto optToken = DescriptorConfig::tryGet(GENERATOR_RATE_TYPE, config);
-                if (not optToken.has_value() || not optToken.value().asEnum<GeneratorRate::Type>().has_value())
-                {
-                    return std::optional<EnumWrapper>();
-                }
-                switch (optToken.value().asEnum<GeneratorRate::Type>().value())
-                {
-                    case GeneratorRate::Type::FIXED:
-                        return std::optional(EnumWrapper(GeneratorRate::Type::FIXED));
-                    case GeneratorRate::Type::SINUS:
-                        return std::optional(EnumWrapper(GeneratorRate::Type::SINUS));
-                }
                 return std::optional<EnumWrapper>();
-            }};
+            }
+            switch (optToken.value().asEnum<GeneratorRate::Type>().value())
+            {
+                case GeneratorRate::Type::FIXED:
+                    return std::optional(EnumWrapper(GeneratorRate::Type::FIXED));
+                case GeneratorRate::Type::SINUS:
+                    return std::optional(EnumWrapper(GeneratorRate::Type::SINUS));
+            }
+            return std::optional<EnumWrapper>();
+        }};
 
     static inline const DescriptorConfig::ConfigParameter<std::string> GENERATOR_RATE_CONFIG{
         "generatorRateConfig",
@@ -208,7 +207,8 @@ struct ConfigParametersGenerator
 
     static inline std::unordered_map<std::string, DescriptorConfig::ConfigParameterContainer> parameterMap
         = DescriptorConfig::createConfigParameterContainerMap(
-            SourceDescriptor::parameterMap, SEED,
+            SourceDescriptor::parameterMap,
+            SEED,
             GENERATOR_SCHEMA,
             MAX_RUNTIME_MS,
             SEQUENCE_STOPS_GENERATOR,

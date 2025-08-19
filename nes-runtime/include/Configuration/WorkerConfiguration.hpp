@@ -77,8 +77,7 @@ private:
             &numberOfBuffersInSourceLocalPools,
             &bufferSizeInBytes,
             &dumpQueryCompilationIntermediateRepresentations,
-            &latencyListener
-        };
+            &latencyListener};
     }
 };
 }

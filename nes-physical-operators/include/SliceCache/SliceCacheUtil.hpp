@@ -14,8 +14,8 @@
 
 #pragma once
 #include <memory>
-#include <SliceCacheConfiguration.hpp>
 #include <SliceCache/SliceCache.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <val.hpp>
 
 namespace NES::Util

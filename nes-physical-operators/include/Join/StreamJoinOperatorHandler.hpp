@@ -46,20 +46,25 @@ public:
             : StartSliceCacheEntriesArgs(workerThreadId), joinBuildSide(joinBuildSide)
         {
         }
+
         StartSliceCacheEntriesStreamJoin(StartSliceCacheEntriesStreamJoin&& other) = default;
         StartSliceCacheEntriesStreamJoin& operator=(StartSliceCacheEntriesStreamJoin&& other) = default;
+
         StartSliceCacheEntriesStreamJoin(const StartSliceCacheEntriesStreamJoin& other)
             : StartSliceCacheEntriesArgs(other.workerThreadId), joinBuildSide(other.joinBuildSide)
         {
         }
+
         StartSliceCacheEntriesStreamJoin& operator=(const StartSliceCacheEntriesStreamJoin& other)
         {
             joinBuildSide = other.joinBuildSide;
             workerThreadId = other.workerThreadId;
             return *this;
         };
+
         ~StartSliceCacheEntriesStreamJoin() override = default;
     };
+
     const int8_t* getStartOfSliceCacheEntries(const StartSliceCacheEntriesArgs& startSliceCacheEntriesArgs) const override;
 
 protected:

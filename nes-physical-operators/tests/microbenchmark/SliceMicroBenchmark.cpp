@@ -18,7 +18,6 @@
 #include <iostream>
 #include <random>
 #include <ranges>
-#include <Configurations/Worker/SliceCacheConfiguration.hpp>
 #include <Nautilus/Interface/TimestampRef.hpp>
 #include <Nautilus/Util.hpp>
 #include <SliceCache/SliceCache.hpp>
@@ -32,6 +31,7 @@
 #include <Time/Timestamp.hpp>
 #include <fmt/ranges.h>
 #include <magic_enum/magic_enum.hpp>
+#include <SliceCacheConfiguration.hpp>
 
 #include <Engine.hpp>
 #include <val.hpp>
@@ -46,8 +46,11 @@ struct SliceCacheOptionsMicroBenchmark : public Configurations::SliceCacheOption
         : Configurations::SliceCacheOptions({sliceCacheType, numberOfEntries})
     {
     }
+
     std::string getValuesAsCsv() const { return fmt::format("{},{}", magic_enum::enum_name(sliceCacheType), numberOfEntries); }
+
     std::string getOptimalValuesAsCsv() const { return fmt::format("Optimal,{}", numberOfEntries); }
+
     static std::string getCsvHeader() { return fmt::format("sliceCacheType,numberOfEntries"); }
 };
 
@@ -123,57 +126,54 @@ public:
 auto createSliceCacheFillFunction(
     const nautilus::engine::NautilusEngine& nautilusEngine, const Configurations::SliceCacheOptions& sliceCacheOptions)
 {
-    return nautilusEngine.registerFunction(
-        std::function(
-            [copyOfSliceCacheOptions = sliceCacheOptions](
-                nautilus::val<Timestamp*> inputData,
-                nautilus::val<uint64_t> sizeInputData,
-                nautilus::val<int8_t*> startOfSliceEntries,
-                nautilus::val<Timestamp::Underlying> windowSize,
-                nautilus::val<Timestamp::Underlying> windowSlide)
+    return nautilusEngine.registerFunction(std::function(
+        [copyOfSliceCacheOptions = sliceCacheOptions](
+            nautilus::val<Timestamp*> inputData,
+            nautilus::val<uint64_t> sizeInputData,
+            nautilus::val<int8_t*> startOfSliceEntries,
+            nautilus::val<Timestamp::Underlying> windowSize,
+            nautilus::val<Timestamp::Underlying> windowSlide)
+        {
+            using namespace nautilus;
+            /// Creating a slice cache and filling all input timestamps
+            /// We are not using the operator handler, therefore we set it to nullptr
+            const nautilus::val<int8_t*> globalOperatorHandler = nullptr;
+            const auto sliceCache = NES::Util::createSliceCache(copyOfSliceCacheOptions, globalOperatorHandler, startOfSliceEntries);
+            for (val<uint64_t> i = 0; i < sizeInputData; ++i)
             {
-                using namespace nautilus;
-                /// Creating a slice cache and filling all input timestamps
-                /// We are not using the operator handler, therefore we set it to nullptr
-                const nautilus::val<int8_t*> globalOperatorHandler = nullptr;
-                const auto sliceCache = NES::Util::createSliceCache(copyOfSliceCacheOptions, globalOperatorHandler, startOfSliceEntries);
-                for (val<uint64_t> i = 0; i < sizeInputData; ++i)
+                val<Timestamp> ts(Nautilus::Util::readValueFromMemRef<Timestamp::Underlying>(inputData + i));
                 {
-                    val<Timestamp> ts(Nautilus::Util::readValueFromMemRef<Timestamp::Underlying>(inputData + i));
+                    const SliceAssignerRef sliceAssigner(windowSize, windowSlide);
+                    const auto sliceStart = sliceAssigner.getSliceStartTs(ts);
+                    const auto sliceEnd = sliceAssigner.getSliceEndTs(ts);
+                }
+                sliceCache->getDataStructureRef(
+                    ts,
+                    [&](const val<SliceCacheEntry*>& sliceCacheEntryToReplace, const nautilus::val<uint64_t>& replacementIndex)
                     {
+                        /// To simulate adding a slice, we use a slice assigner to create slice start and end
                         const SliceAssignerRef sliceAssigner(windowSize, windowSlide);
                         const auto sliceStart = sliceAssigner.getSliceStartTs(ts);
                         const auto sliceEnd = sliceAssigner.getSliceEndTs(ts);
-                    }
-                    sliceCache->getDataStructureRef(
-                        ts,
-                        [&](const val<SliceCacheEntry*>& sliceCacheEntryToReplace, const nautilus::val<uint64_t>& replacementIndex)
-                        {
-                            /// To simulate adding a slice, we use a slice assigner to create slice start and end
-                            const SliceAssignerRef sliceAssigner(windowSize, windowSlide);
-                            const auto sliceStart = sliceAssigner.getSliceStartTs(ts);
-                            const auto sliceEnd = sliceAssigner.getSliceEndTs(ts);
 
 
-                            const auto sliceStartReplacement = sliceCache->getSliceStart(replacementIndex);
-                            const auto sliceEndReplacement = sliceCache->getSliceEnd(replacementIndex);
+                        const auto sliceStartReplacement = sliceCache->getSliceStart(replacementIndex);
+                        const auto sliceEndReplacement = sliceCache->getSliceEnd(replacementIndex);
 
-                            /// Writing the slice start and end. We assume first the slice start and then the slice end
-                            const auto sliceStartMemory
-                                = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceStart);
-                            const auto sliceEndMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceEnd);
-                            *static_cast<nautilus::val<uint64_t*>>(sliceStartMemory) = sliceStart;
-                            *static_cast<nautilus::val<uint64_t*>>(sliceEndMemory) = sliceEnd;
+                        /// Writing the slice start and end. We assume first the slice start and then the slice end
+                        const auto sliceStartMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceStart);
+                        const auto sliceEndMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::sliceEnd);
+                        *static_cast<nautilus::val<uint64_t*>>(sliceStartMemory) = sliceStart;
+                        *static_cast<nautilus::val<uint64_t*>>(sliceEndMemory) = sliceEnd;
 
-                            /// Write any value to the datastructure
-                            auto dataStructureMemory
-                                = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::dataStructure);
-                            *dataStructureMemory = nautilus::val<uint64_t>(0x12345678);
+                        /// Write any value to the datastructure
+                        auto dataStructureMemory = Nautilus::Util::getMemberRef(sliceCacheEntryToReplace, &SliceCacheEntry::dataStructure);
+                        *dataStructureMemory = nautilus::val<uint64_t>(0x12345678);
 
-                            return sliceCacheEntryToReplace;
-                        });
-                }
-            }));
+                        return sliceCacheEntryToReplace;
+                    });
+            }
+        }));
 }
 
 /// This function creates timestamps following the "Poster: Generating Reproducible Out-of-Order Data Streams" by Grulich et al.
@@ -294,6 +294,7 @@ struct BenchmarkParameters
     size_t minDelay;
     size_t maxDelay;
     std::pair<Timestamp::Underlying, Timestamp::Underlying> windowSizeSlide;
+
     std::string getValuesAsCsv() const
     {
         return fmt::format(
@@ -356,11 +357,13 @@ struct BenchmarkRunMeasurements
     {
         return fmt::format("{},{},{},{},{}", executionTime.count(), cacheHits, cacheMisses, optimalCacheHits, optimalCacheMisses);
     }
+
     std::string getOptimalValuesAsCsv() const
     {
         return fmt::format(
             "{},{},{},{},{}", executionTime.count(), optimalCacheHits, optimalCacheMisses, optimalCacheHits, optimalCacheMisses);
     }
+
     static std::string getCsvHeader() { return "executionTime,cacheHits,cacheMisses,optimalCacheHits,optimalCacheMisses"; }
 };
 

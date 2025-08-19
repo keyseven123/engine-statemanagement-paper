@@ -20,7 +20,6 @@
 #include <Configurations/Validation/NonZeroValidation.hpp>
 #include <fmt/ranges.h>
 
-
 namespace NES::Configurations
 {
 
@@ -45,12 +44,12 @@ public:
     SliceCacheConfiguration() = default;
     SliceCacheConfiguration(const std::string& name, const std::string& description) : BaseConfiguration(name, description) { };
 
-    NES::Configurations::EnumOption<SliceCacheType> sliceCacheType
+    EnumOption<SliceCacheType> sliceCacheType
         = {"sliceCacheType",
            SliceCacheType::NONE,
            fmt::format("Type of slice cache {}", fmt::join(magic_enum::enum_names<SliceCacheType>(), ", "))};
-    NES::Configurations::UIntOption numberOfEntriesSliceCache
-        = {"numberOfEntriesSliceCache", "1", "Size of the slice cache", {std::make_shared<NES::Configurations::NonZeroValidation>()}};
+    UIntOption numberOfEntriesSliceCache
+        = {"numberOfEntriesSliceCache", "1", "Size of the slice cache", {std::make_shared<NonZeroValidation>()}};
 
 private:
     std::vector<BaseOption*> getOptions() override { return {&sliceCacheType, &numberOfEntriesSliceCache}; }

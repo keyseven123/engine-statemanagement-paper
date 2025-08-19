@@ -23,9 +23,9 @@
 #include <Runtime/Execution/OperatorHandler.hpp>
 #include <SliceStore/Slice.hpp>
 #include <SliceStore/WindowSlicesStoreInterface.hpp>
+#include <Util/RollingAverage.hpp>
 #include <nautilus/Engine.hpp>
 #include <WindowBasedOperatorHandler.hpp>
-#include <Util/RollingAverage.hpp>
 
 namespace NES
 {
@@ -68,7 +68,6 @@ protected:
         const std::map<WindowInfoAndSequenceNumber, std::vector<std::shared_ptr<Slice>>>& slicesAndWindowInfo,
         PipelineExecutionContext* pipelineCtx) override;
     RollingAverage<uint64_t> rollingAverageNumberOfKeys;
-
 };
 
 }

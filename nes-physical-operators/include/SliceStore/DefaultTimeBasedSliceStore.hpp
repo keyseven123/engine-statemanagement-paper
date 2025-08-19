@@ -39,6 +39,7 @@ struct SlicesAndState
     {
         windowSlices.reserve(numberOfExpectedSlices);
     }
+
     // explicit SlicesAndState() : windowSlices(10), windowState(WindowInfoState::WINDOW_FILLING) {}
     std::vector<std::shared_ptr<Slice>> windowSlices;
     WindowInfoState windowState;

@@ -162,7 +162,6 @@ std::ostream& SequenceField::generate(std::ostream& os, std::default_random_engi
     return os;
 }
 
-
 NormalDistributionField::NormalDistributionField(const std::string_view rawSchemaLine)
 {
     auto view = rawSchemaLine | std::ranges::views::split(' ')

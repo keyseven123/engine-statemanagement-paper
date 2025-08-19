@@ -19,8 +19,8 @@ Licensed under the Apache License, Version 2.0 (the "License");
 #include <Util/Overloaded.hpp>
 #include <Util/ThreadNaming.hpp>
 #include <folly/Synchronized.h>
-#include <LatencyListener.hpp>
 #include <ErrorHandling.hpp>
+#include <LatencyListener.hpp>
 
 namespace NES
 {
@@ -41,7 +41,12 @@ struct TaskIntermediateStore
         : queryId(std::move(queryId)), bytes(bytes), numberOfTuples(numberOfTuples), startTimePoint(std::move(startTimePoint))
     {
     }
-    explicit TaskIntermediateStore() : queryId(INVALID_QUERY_ID), bytes(0), numberOfTuples(0), startTimePoint(std::chrono::high_resolution_clock::now()) { }
+
+    explicit TaskIntermediateStore()
+        : queryId(INVALID_QUERY_ID), bytes(0), numberOfTuples(0), startTimePoint(std::chrono::high_resolution_clock::now())
+    {
+    }
+
     QueryId queryId;
     uint64_t bytes;
     uint64_t numberOfTuples;
@@ -51,6 +56,7 @@ struct TaskIntermediateStore
 struct TimestampAndLatencies
 {
     explicit TimestampAndLatencies() : firstTimePoint(std::chrono::high_resolution_clock::now()) { }
+
     ChronoClock::time_point firstTimePoint;
     std::vector<std::chrono::duration<double>> latencies;
 };
@@ -138,7 +144,6 @@ void threadRoutine(
 
 }
 
-
 void LatencyListener::onEvent(Event event)
 {
     std::visit(
@@ -173,7 +178,6 @@ void LatencyListener::onNodeShutdown()
         }
     }
 }
-
 
 LatencyListener::LatencyListener(const std::function<void(const CallBackParams&)>& callBack, const uint64_t numberOfTasks)
     : callBack(callBack)

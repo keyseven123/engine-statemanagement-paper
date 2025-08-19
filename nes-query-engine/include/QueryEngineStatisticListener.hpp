@@ -27,6 +27,7 @@ using ChronoClock = std::chrono::system_clock;
 struct EventBase
 {
     EventBase(const WorkerThreadId threadId, const QueryId queryId) : threadId(threadId), queryId(queryId) { }
+
     EventBase() = default;
 
     ChronoClock::time_point timestamp = ChronoClock::now();
@@ -118,12 +119,14 @@ struct TaskExpired : EventBase
 struct QueryStart : EventBase
 {
     QueryStart(const WorkerThreadId threadId, const QueryId queryId) : EventBase(threadId, queryId) { }
+
     QueryStart() = default;
 };
 
 struct QueryStop : EventBase
 {
     QueryStop(const WorkerThreadId threadId, const QueryId queryId) : EventBase(threadId, queryId) { }
+
     QueryStop() = default;
 };
 
@@ -133,6 +136,7 @@ struct PipelineStart : EventBase
         : EventBase(threadId, queryId), pipelineId(pipelineId)
     {
     }
+
     PipelineStart() = default;
 
     PipelineId pipelineId = INVALID<PipelineId>;

@@ -68,7 +68,6 @@ public:
     /// For example, size of 10 and slide of 20 would mean that there does not exist a window from [10-20]
     [[nodiscard]] std::vector<WindowInfo> getAllWindowsForSlice(const Slice& slice) const
     {
-
         const auto sliceStart = slice.getSliceStart().getRawValue();
         const auto sliceEnd = slice.getSliceEnd().getRawValue();
 

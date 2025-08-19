@@ -17,9 +17,11 @@
 #include <fstream>
 #include <QueryEngineStatisticListener.hpp>
 
-namespace NES {
+namespace NES
+{
 
-class LatencyListener : public QueryEngineStatisticListener {
+class LatencyListener : public QueryEngineStatisticListener
+{
 public:
     struct CallBackParams
     {

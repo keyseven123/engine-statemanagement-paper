@@ -24,10 +24,15 @@ class SingleTaskQueue final : public TaskQueue
 
 public:
     explicit SingleTaskQueue(const size_t taskQueueSize) : taskQueue(detail::Queue{taskQueueSize}) { }
+
     ~SingleTaskQueue() override = default;
+
     ssize_t size(const QueryId&, const WorkerThreadId&) override { return taskQueue.size(); }
+
     detail::Queue& accessQueueForReading(const QueryId&, const WorkerThreadId&) override { return taskQueue; }
+
     detail::Queue& accessQueueForWriting(const QueryId&, const WorkerThreadId&) override { return taskQueue; }
+
     void addedQuery(const QueryId&, const WorkerThreadId&) override
     {
         /// We do not care if a new query gets added, as we have one queue for every query and worker thread

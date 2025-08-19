@@ -14,7 +14,6 @@
 
 #pragma once
 #include <memory>
-#include <SliceCacheConfiguration.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <Join/HashJoin/HJBuildPhysicalOperator.hpp>
 #include <Join/HashJoin/HJOperatorHandler.hpp>
@@ -27,6 +26,7 @@
 #include <Watermark/TimeFunction.hpp>
 #include <ExecutionContext.hpp>
 #include <HashMapOptions.hpp>
+#include <SliceCacheConfiguration.hpp>
 
 namespace NES
 {

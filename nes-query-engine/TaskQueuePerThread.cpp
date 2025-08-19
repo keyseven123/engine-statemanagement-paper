@@ -13,5 +13,6 @@
 */
 #include <TaskQueuePerThread.hpp>
 
-namespace NES {
+namespace NES
+{
 }

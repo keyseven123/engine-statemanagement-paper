@@ -56,6 +56,7 @@ struct ThreadLocalChunks
 
         ChunkControlBlock() = default;
         ChunkControlBlock(const ChunkControlBlock& other) = delete;
+
         ChunkControlBlock(ChunkControlBlock&& other) noexcept
             : memoryChunk(std::move(other.memoryChunk))
             , usedSize(std::move(other.usedSize))
@@ -63,7 +64,9 @@ struct ThreadLocalChunks
             , activeMemorySegments(std::move(other.activeMemorySegments))
         {
         }
+
         ChunkControlBlock& operator=(const ChunkControlBlock& other) = delete;
+
         ChunkControlBlock& operator=(ChunkControlBlock&& other) noexcept
         {
             memoryChunk = std::move(other.memoryChunk);
@@ -94,6 +97,7 @@ struct ThreadLocalChunks
 
     public:
         explicit ChunkCache(std::shared_ptr<std::pmr::memory_resource> memoryResource) : memoryResource(std::move(memoryResource)) { }
+
         std::optional<MemoryChunk> insertIntoCache(ChunkControlBlock& chunkControlBlock);
         std::optional<MemoryChunk> tryGetChunk(size_t neededSize);
     };
@@ -135,8 +139,8 @@ class UnpooledChunksManager final : public std::enable_shared_from_this<Unpooled
     std::shared_ptr<folly::Synchronized<ThreadLocalChunks>> getThreadLocalChunkFromOtherThread(std::thread::id threadId);
 
     void recyclePooledBuffer(Memory::detail::MemorySegment* buffer) override;
-    void
-    recycleUnpooledBuffer(Memory::detail::MemorySegment* memorySegment, const Memory::ThreadIdCopyLastChunkPtr& threadIdCopyLastChunkPtr) override;
+    void recycleUnpooledBuffer(
+        Memory::detail::MemorySegment* memorySegment, const Memory::ThreadIdCopyLastChunkPtr& threadIdCopyLastChunkPtr) override;
 
 public:
     explicit UnpooledChunksManager(std::shared_ptr<std::pmr::memory_resource> memoryResource);

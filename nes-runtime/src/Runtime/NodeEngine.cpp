@@ -106,8 +106,7 @@ void NodeEngine::startQuery(QueryId queryId)
     if (auto qep = queryTracker->moveToExecuting(queryId))
     {
         systemEventListener->onEvent(StartQuerySystemEvent(queryId));
-        queryEngine->start(
-            ExecutableQueryPlan::instantiate(*qep, bufferManager, numberOfBuffersInSourceLocalPools, bufferManager));
+        queryEngine->start(ExecutableQueryPlan::instantiate(*qep, bufferManager, numberOfBuffersInSourceLocalPools, bufferManager));
     }
     else
     {

@@ -25,7 +25,6 @@ class RoundRobinTaskQueue final : public TaskQueue
     std::vector<detail::Queue> taskQueues;
     std::atomic<uint64_t> nextQueueForWriting = 0;
 
-
     detail::Queue& getOwnQueue(const WorkerThreadId& threadId)
     {
         thread_local auto pos = threadId % taskQueues.size();
@@ -43,13 +42,16 @@ public:
     }
 
     ssize_t size(const QueryId&, const WorkerThreadId& threadId) override { return getOwnQueue(threadId).size(); }
+
     detail::Queue& accessQueueForReading(const QueryId&, const WorkerThreadId& threadId) override { return getOwnQueue(threadId); }
+
     detail::Queue& accessQueueForWriting(const QueryId&, const WorkerThreadId&) override
     {
         const auto queuePos = nextQueueForWriting % taskQueues.size();
         ++nextQueueForWriting;
         return taskQueues[queuePos];
     }
+
     void addedQuery(const QueryId&, const WorkerThreadId&) override {
         /// We do not care if a new query gets added, as we map the queries to the worker threads
     };

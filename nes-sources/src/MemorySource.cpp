@@ -40,7 +40,6 @@
 #include <SourceValidationRegistry.hpp>
 #include "Runtime/BufferManager.hpp"
 
-
 namespace NES::Sources
 {
 
@@ -57,7 +56,8 @@ bool MemorySource::setup()
     static constexpr std::string tupleDelimiter = "\n";
     static constexpr std::string fieldDelimiter = ",";
     ParserConfig parserConfig{"CSV", tupleDelimiter, fieldDelimiter};
-    auto inputFormatterTask = InputFormatters::InputFormatterProvider::provideInputFormatterTask(INVALID_ORIGIN_ID, inputSchema, parserConfig);
+    auto inputFormatterTask
+        = InputFormatters::InputFormatterProvider::provideInputFormatterTask(INVALID_ORIGIN_ID, inputSchema, parserConfig);
 
     /// Reading the file in bufferSizeInBytes large chunks
     const auto realCSVPath = std::unique_ptr<char, decltype(std::free)*>{realpath(filePath.c_str(), nullptr), std::free};

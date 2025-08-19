@@ -23,21 +23,23 @@ namespace NES::Memory
 struct ThreadIdCopyLastChunkPtr
 {
     ThreadIdCopyLastChunkPtr(std::thread::id threadId, uint8_t* lastChunkPtr)
-        : threadId(std::move(threadId)), lastChunkPtr(lastChunkPtr)
-    {
-    }
+        : threadId(std::move(threadId)), lastChunkPtr(lastChunkPtr) { }
+
     ThreadIdCopyLastChunkPtr(ThreadIdCopyLastChunkPtr&& other) = default;
     ThreadIdCopyLastChunkPtr(const ThreadIdCopyLastChunkPtr& other) = default;
+
     ThreadIdCopyLastChunkPtr& operator=(const ThreadIdCopyLastChunkPtr& other)
     {
         threadId = other.threadId;
         lastChunkPtr = other.lastChunkPtr;
         return *this;
     }
+
     bool operator==(const ThreadIdCopyLastChunkPtr& other) const
     {
         return threadId == other.threadId && lastChunkPtr == other.lastChunkPtr;
     }
+
     std::thread::id threadId;
     uint8_t* lastChunkPtr;
 };

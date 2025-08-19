@@ -35,7 +35,7 @@ public:
     explicit EmitPhysicalOperator(
         OperatorHandlerId operatorHandlerId, std::shared_ptr<Interface::MemoryProvider::TupleBufferMemoryProvider> memoryProvider);
 
-    void setup(ExecutionContext&) const override { /*noop*/ }
+    void setup(ExecutionContext&, const nautilus::engine::NautilusEngine&) const override { /*noop*/ }
 
     void terminate(ExecutionContext&) const override { /*noop*/ }
 
@@ -43,10 +43,7 @@ public:
     void execute(ExecutionContext& ctx, Record& record) const override;
     void close(ExecutionContext& ctx, RecordBuffer& recordBuffer) const override;
     void emitRecordBuffer(
-        ExecutionContext& ctx,
-        RecordBuffer& recordBuffer,
-        const nautilus::val<uint64_t>& numRecords,
-        bool potentialLastChunk) const;
+        ExecutionContext& ctx, RecordBuffer& recordBuffer, const nautilus::val<uint64_t>& numRecords, bool potentialLastChunk) const;
 
     [[nodiscard]] std::optional<PhysicalOperator> getChild() const override;
     void setChild(PhysicalOperator child) override;

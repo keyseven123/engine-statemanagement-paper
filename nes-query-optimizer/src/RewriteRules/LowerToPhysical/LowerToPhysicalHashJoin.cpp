@@ -99,6 +99,7 @@ public:
     }
 
     static TimestampField ingestionTime() { return {"IngestionTime", Windowing::TimeUnit(1), INGESTION_TIME}; }
+
     static TimestampField eventTime(std::string fieldName, const Windowing::TimeUnit& timeUnit)
     {
         return {std::move(fieldName), timeUnit, EVENT_TIME};
@@ -114,7 +115,6 @@ private:
     {
     }
 };
-
 
 namespace
 {

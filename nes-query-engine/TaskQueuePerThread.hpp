@@ -25,17 +25,17 @@ class TaskQueuePerQuery final : public TaskQueue
     size_t taskQueueSize;
     std::map<QueryId, detail::Queue> taskQueues;
 
-
-    detail::Queue& getOwnQueue(const QueryId& queryId)
-    {
-        return taskQueues[queryId];
-    }
+    detail::Queue& getOwnQueue(const QueryId& queryId) { return taskQueues[queryId]; }
 
 public:
-    explicit TaskQueuePerQuery(const size_t taskQueueSize) : taskQueueSize(taskQueueSize) {}
+    explicit TaskQueuePerQuery(const size_t taskQueueSize) : taskQueueSize(taskQueueSize) { }
+
     ssize_t size(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId).size(); }
+
     detail::Queue& accessQueueForReading(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId); }
+
     detail::Queue& accessQueueForWriting(const QueryId& queryId, const WorkerThreadId&) override { return getOwnQueue(queryId); }
+
     void addedQuery(const QueryId& queryId, const WorkerThreadId&) override
     {
         PRECONDITION(not taskQueues.contains(queryId), "QueryId {} should not exist already ", queryId);
@@ -43,6 +43,7 @@ public:
         /// We need to add a new queue for the new query
         taskQueues[queryId] = detail::Queue{taskQueueSize};
     };
+
     ~TaskQueuePerQuery() override = default;
 };
 

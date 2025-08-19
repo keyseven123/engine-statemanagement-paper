@@ -36,6 +36,7 @@ struct SliceCacheEntry
     Timestamp sliceEnd;
     int8_t* dataStructure;
 };
+
 /// Represents the C++ struct that is stored in the operator handler vector before all SliceCacheEntry structs
 struct HitsAndMisses
 {

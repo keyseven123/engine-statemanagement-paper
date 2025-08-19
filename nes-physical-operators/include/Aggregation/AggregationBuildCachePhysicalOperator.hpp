@@ -20,7 +20,6 @@
 #include <Aggregation/AggregationBuildPhysicalOperator.hpp>
 #include <Aggregation/AggregationOperatorHandler.hpp>
 #include <Aggregation/Function/AggregationPhysicalFunction.hpp>
-#include <SliceCacheConfiguration.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <Nautilus/Interface/HashMap/HashMap.hpp>
 #include <Runtime/Execution/OperatorHandler.hpp>
@@ -28,6 +27,7 @@
 #include <Time/Timestamp.hpp>
 #include <Watermark/TimeFunction.hpp>
 #include <HashMapOptions.hpp>
+#include <SliceCacheConfiguration.hpp>
 
 namespace NES
 {
@@ -38,6 +38,7 @@ int8_t* createAndAddAggregationSliceToCache(
     const Timestamp timestamp,
     const WorkerThreadId workerThreadId,
     const AggregationBuildPhysicalOperator* buildOperator);
+
 class AggregationBuildCachePhysicalOperator final : public AggregationBuildPhysicalOperator
 {
 public:

@@ -26,8 +26,8 @@
 #include <Sequencing/SequenceData.hpp>
 #include <SliceStore/Slice.hpp>
 #include <SliceStore/WindowSlicesStoreInterface.hpp>
-#include <HashMapSlice.hpp>
 #include <Util/RollingAverage.hpp>
+#include <HashMapSlice.hpp>
 
 namespace NES
 {

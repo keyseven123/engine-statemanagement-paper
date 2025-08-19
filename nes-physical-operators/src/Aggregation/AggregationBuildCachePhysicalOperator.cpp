@@ -21,7 +21,6 @@
 #include <vector>
 #include <Aggregation/AggregationOperatorHandler.hpp>
 #include <Aggregation/Function/AggregationPhysicalFunction.hpp>
-#include <SliceCacheConfiguration.hpp>
 #include <Identifiers/Identifiers.hpp>
 #include <Nautilus/Interface/HashMap/ChainedHashMap/ChainedHashMapRef.hpp>
 #include <Nautilus/Interface/HashMap/HashMap.hpp>
@@ -38,6 +37,7 @@
 #include <ErrorHandling.hpp>
 #include <ExecutionContext.hpp>
 #include <HashMapSlice.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <WindowBuildPhysicalOperator.hpp>
 #include <function.hpp>
 #include <options.hpp>
@@ -63,7 +63,6 @@ int8_t* createAndAddAggregationSliceToCache(
     sliceCacheEntry->dataStructure = reinterpret_cast<int8_t*>(aggregationSlice->getHashMapPtrOrCreate(workerThreadId));
     return sliceCacheEntry->dataStructure;
 }
-
 
 void AggregationBuildCachePhysicalOperator::setup(ExecutionContext& executionCtx, const nautilus::engine::NautilusEngine& engine) const
 {

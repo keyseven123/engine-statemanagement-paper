@@ -135,10 +135,7 @@ void EmitPhysicalOperator::close(ExecutionContext& ctx, RecordBuffer&) const
 }
 
 void EmitPhysicalOperator::emitRecordBuffer(
-    ExecutionContext& ctx,
-    RecordBuffer& recordBuffer,
-    const nautilus::val<uint64_t>& numRecords,
-    const bool potentialLastChunk) const
+    ExecutionContext& ctx, RecordBuffer& recordBuffer, const nautilus::val<uint64_t>& numRecords, const bool potentialLastChunk) const
 {
     const auto tupleSize = memoryProvider->getMemoryLayout()->getSchema().getSizeOfSchemaInBytes();
     const auto usedMemorySize = numRecords * tupleSize;

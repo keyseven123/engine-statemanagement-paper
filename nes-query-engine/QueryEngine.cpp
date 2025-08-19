@@ -304,27 +304,25 @@ public:
     {
         PRECONDITION(ThreadPool::WorkerThread::id == INVALID<WorkerThreadId>, "This should only be called from a non-worker thread");
         admissionQueue->accessQueueForWriting(id, WorkerThread::id)
-            .blockingWrite(
-                FailSourceTask{
-                    id,
-                    std::move(source),
-                    std::move(exception),
-                    [id, sourceId, listener = listener]
-                    { listener->logSourceTermination(id, sourceId, QueryTerminationType::Failure, std::chrono::system_clock::now()); },
-                    {}});
+            .blockingWrite(FailSourceTask{
+                id,
+                std::move(source),
+                std::move(exception),
+                [id, sourceId, listener = listener]
+                { listener->logSourceTermination(id, sourceId, QueryTerminationType::Failure, std::chrono::system_clock::now()); },
+                {}});
     }
 
     void initializeSourceStop(QueryId id, OriginId sourceId, std::weak_ptr<RunningSource> source) override
     {
         PRECONDITION(ThreadPool::WorkerThread::id == INVALID<WorkerThreadId>, "This should only be called from a non-worker thread");
         admissionQueue->accessQueueForWriting(id, WorkerThread::id)
-            .blockingWrite(
-                StopSourceTask{
-                    id,
-                    std::move(source),
-                    [id, sourceId, listener = listener]
-                    { listener->logSourceTermination(id, sourceId, QueryTerminationType::Graceful, std::chrono::system_clock::now()); },
-                    {}});
+            .blockingWrite(StopSourceTask{
+                id,
+                std::move(source),
+                [id, sourceId, listener = listener]
+                { listener->logSourceTermination(id, sourceId, QueryTerminationType::Graceful, std::chrono::system_clock::now()); },
+                {}});
     }
 
     void emitPendingPipelineStop(
@@ -482,16 +480,15 @@ bool ThreadPool::WorkerThread::operator()(const WorkTask& task) const
                         pool.statistic,
                         [&](auto& listener)
                         {
-                            listener->onEvent(
-                                TaskEmit{
-                                    id,
-                                    task.queryId,
-                                    pipeline->id,
-                                    pipeline->id,
-                                    taskId,
-                                    tupleBuffer.getNumberOfTuples(),
-                                    tupleBuffer.getUsedMemorySize(),
-                                    pec.formattingTask});
+                            listener->onEvent(TaskEmit{
+                                id,
+                                task.queryId,
+                                pipeline->id,
+                                pipeline->id,
+                                taskId,
+                                tupleBuffer.getNumberOfTuples(),
+                                tupleBuffer.getUsedMemorySize(),
+                                pec.formattingTask});
                         });
                     return pool.emitWork(task.queryId, pipeline, tupleBuffer, {}, {}, continuationPolicy);
                 }
@@ -504,16 +501,15 @@ bool ThreadPool::WorkerThread::operator()(const WorkTask& task) const
                             pool.statistic,
                             [&](auto& listener)
                             {
-                                listener->onEvent(
-                                    TaskEmit{
-                                        id,
-                                        task.queryId,
-                                        pipeline->id,
-                                        successor->id,
-                                        taskId,
-                                        tupleBuffer.getNumberOfTuples(),
-                                        tupleBuffer.getUsedMemorySize(),
-                                        pec.formattingTask});
+                                listener->onEvent(TaskEmit{
+                                    id,
+                                    task.queryId,
+                                    pipeline->id,
+                                    successor->id,
+                                    taskId,
+                                    tupleBuffer.getNumberOfTuples(),
+                                    tupleBuffer.getUsedMemorySize(),
+                                    pec.formattingTask});
                             });
                         return pool.emitWork(task.queryId, successor, tupleBuffer, {}, {}, continuationPolicy);
                     });
@@ -522,9 +518,8 @@ bool ThreadPool::WorkerThread::operator()(const WorkTask& task) const
             pool.statistic,
             [&](auto& listener)
             {
-                listener->onEvent(
-                    TaskExecutionStart{
-                        WorkerThread::id, task.queryId, pipeline->id, taskId, task.buf.getNumberOfTuples(), task.buf.getUsedMemorySize()});
+                listener->onEvent(TaskExecutionStart{
+                    WorkerThread::id, task.queryId, pipeline->id, taskId, task.buf.getNumberOfTuples(), task.buf.getUsedMemorySize()});
             });
         pipeline->stage->execute(task.buf, pec);
         std::ranges::for_each(

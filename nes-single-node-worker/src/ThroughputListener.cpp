@@ -45,12 +45,14 @@ void threadRoutine(
 
     /// All variables necessary for performing a simple tumbling window average aggregation per query id
     const SliceAssigner sliceAssigner(timeIntervalInMilliSeconds, timeIntervalInMilliSeconds);
+
     struct ThroughputWindow
     {
         explicit ThroughputWindow()
             : startTime(Timestamp::INVALID_VALUE), endTime(Timestamp::INVALID_VALUE), bytesProcessed(0), tuplesProcessed(0)
         {
         }
+
         Timestamp startTime;
         Timestamp endTime;
         uint64_t bytesProcessed;

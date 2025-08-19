@@ -17,5 +17,6 @@
 #include <folly/MPMCQueue.h>
 #include <Task.hpp>
 
-namespace NES {
+namespace NES
+{
 }

@@ -23,8 +23,8 @@
 #include <Configurations/Enums/EnumOption.hpp>
 #include <Configurations/ScalarOption.hpp>
 #include <Configurations/Validation/NumberValidation.hpp>
-#include <Configurations/Worker/SliceCacheConfiguration.hpp>
 #include <Util/ExecutionMode.hpp>
+#include <SliceCacheConfiguration.hpp>
 
 namespace NES
 {

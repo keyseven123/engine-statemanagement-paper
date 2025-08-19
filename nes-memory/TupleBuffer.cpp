@@ -145,12 +145,14 @@ uint64_t TupleBuffer::getUsedMemorySize() const noexcept
     INVARIANT(controlBlock != nullptr, "Control block must NOT be null!");
     return controlBlock->getUsedMemorySize();
 }
+
 void TupleBuffer::setUsedMemorySize(uint64_t usedMemorySize) const noexcept
 {
     INVARIANT(controlBlock != nullptr, "Control block must NOT be null!");
     INVARIANT(usedMemorySize <= size, "Total size of tuple buffer {} must be larger than the usedMemorySize {}", size, usedMemorySize);
     controlBlock->setUsedMemorySize(usedMemorySize);
 }
+
 void TupleBuffer::setWatermark(const Timestamp value) const noexcept
 {
     controlBlock->setWatermark(value);

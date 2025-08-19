@@ -84,7 +84,6 @@ Memory::TupleBuffer getNewBuffer(Memory::AbstractBufferProvider* tupleBufferProv
     return unpooledBuffer.value();
 }
 
-
 uint64_t storeAssociatedVarSizedValue(
     const Memory::TupleBuffer* tupleBuffer,
     Memory::AbstractBufferProvider* bufferProvider,

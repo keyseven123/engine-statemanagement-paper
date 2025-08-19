@@ -15,8 +15,8 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
-#include <string_view>
 #include <ratio>
+#include <string_view>
 #include <thread>
 #include <fmt/format.h>
 #include <FixedGeneratorRate.hpp>

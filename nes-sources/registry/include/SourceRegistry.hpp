@@ -17,10 +17,10 @@
 #include <memory>
 #include <string>
 
+#include <Runtime/AbstractBufferProvider.hpp>
 #include <Sources/Source.hpp>
 #include <Sources/SourceDescriptor.hpp>
 #include <Util/Registry.hpp>
-#include <Runtime/AbstractBufferProvider.hpp>
 
 namespace NES::Sources
 {

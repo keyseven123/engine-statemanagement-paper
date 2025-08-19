@@ -31,12 +31,14 @@ public:
         WorkerThreadId workerThreadId;
 
         explicit StartSliceCacheEntriesArgs(const WorkerThreadId& workerThreadId) : workerThreadId(workerThreadId) { }
+
         StartSliceCacheEntriesArgs(StartSliceCacheEntriesArgs&& other) = default;
         StartSliceCacheEntriesArgs& operator=(StartSliceCacheEntriesArgs&& other) = default;
         StartSliceCacheEntriesArgs(StartSliceCacheEntriesArgs& other) = default;
         StartSliceCacheEntriesArgs& operator=(StartSliceCacheEntriesArgs& other) = default;
         virtual ~StartSliceCacheEntriesArgs() = default;
     };
+
     virtual const int8_t* getStartOfSliceCacheEntries(const StartSliceCacheEntriesArgs& startSliceCacheEntriesArgs) const = 0;
 
 protected:

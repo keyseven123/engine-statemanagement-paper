@@ -15,7 +15,6 @@
 
 #include <memory>
 #include <utility>
-#include <SliceCacheConfiguration.hpp>
 #include <Join/NestedLoopJoin/NLJOperatorHandler.hpp>
 #include <Join/NestedLoopJoin/NLJSlice.hpp>
 #include <Join/StreamJoinBuildPhysicalOperator.hpp>
@@ -36,6 +35,7 @@
 #include <nautilus/val_enum.hpp>
 #include <ErrorHandling.hpp>
 #include <ExecutionContext.hpp>
+#include <SliceCacheConfiguration.hpp>
 #include <WindowBuildPhysicalOperator.hpp>
 #include <function.hpp>
 

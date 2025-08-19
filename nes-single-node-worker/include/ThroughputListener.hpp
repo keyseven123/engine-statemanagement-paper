@@ -15,11 +15,10 @@
 #pragma once
 #include <filesystem>
 #include <fstream>
-#include <thread>
 #include <queue>
+#include <thread>
 #include <folly/Synchronized.h>
 #include <QueryEngineStatisticListener.hpp>
-
 
 namespace NES
 {

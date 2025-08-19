@@ -24,7 +24,6 @@ struct SliceCacheEntry2Q : SliceCacheEntry
     ~SliceCacheEntry2Q() override = default;
 };
 
-
 /// This slice cache uses the replacement algorithm of "2Q: A Low Overhead High Performance Buffer Management Replacement Algorithm" by Johnson et al.
 /// Simplified it contains an LRU and a FIFO queue. In the memory area of the slice cache, we first store the LRU queue and then the FIFO queue.
 class SliceCache2Q final : public SliceCache

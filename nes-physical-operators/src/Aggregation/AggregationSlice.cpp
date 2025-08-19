@@ -35,7 +35,6 @@ AggregationSlice::AggregationSlice(
 {
 }
 
-
 Nautilus::Interface::HashMap* AggregationSlice::getHashMapPtr(const WorkerThreadId workerThreadId) const
 {
     const auto pos = workerThreadId % hashMaps.size();

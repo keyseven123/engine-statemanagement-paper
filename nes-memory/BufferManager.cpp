@@ -242,7 +242,7 @@ void BufferManager::recyclePooledBuffer(detail::MemorySegment* segment)
     numOfAvailableBuffers.fetch_add(1);
 }
 
-void BufferManager::recycleUnpooledBuffer(detail::MemorySegment*, const Memory::ThreadIdCopyLastChunkPtr& )
+void BufferManager::recycleUnpooledBuffer(detail::MemorySegment*, const Memory::ThreadIdCopyLastChunkPtr&)
 {
     INVARIANT(false, "This method should not be called!");
 }

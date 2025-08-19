@@ -49,14 +49,12 @@ protected:
     std::ostream& toString(std::ostream& str) const override;
 };
 
-
 struct ConfigParametersDiscard
 {
     static inline const DescriptorConfig::ConfigParameter<std::string> FILEPATH{
         "filePath",
         std::nullopt,
-        [](const std::unordered_map<std::string, std::string>& config)
-        { return DescriptorConfig::tryGet(FILEPATH, config); }};
+        [](const std::unordered_map<std::string, std::string>& config) { return DescriptorConfig::tryGet(FILEPATH, config); }};
 
     static inline std::unordered_map<std::string, DescriptorConfig::ConfigParameterContainer> parameterMap
         = DescriptorConfig::createConfigParameterContainerMap(FILEPATH);

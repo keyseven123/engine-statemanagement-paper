@@ -20,7 +20,6 @@
 #include <SliceCache/SliceCacheLRU.hpp>
 #include <SliceCache/SliceCacheSecondChance.hpp>
 
-
 namespace NES::Util
 {
 std::unique_ptr<SliceCache> createSliceCache(
