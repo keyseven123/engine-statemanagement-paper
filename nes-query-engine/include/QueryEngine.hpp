@@ -17,6 +17,7 @@
 #include <Identifiers/Identifiers.hpp>
 #include <Listeners/AbstractQueryStatusListener.hpp>
 #include <Runtime/BufferManager.hpp>
+#include <Util/Pointers.hpp>
 #include <ExecutableQueryPlan.hpp>
 #include <QueryEngineConfiguration.hpp>
 #include <QueryEngineStatisticListener.hpp>

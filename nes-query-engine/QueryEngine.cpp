@@ -117,6 +117,7 @@ public:
         QueryLifetimeController& controller,
         WorkEmitter& emitter);
     void stopQuery(QueryId id);
+
     void clear()
     {
         const std::scoped_lock lock(mutex);

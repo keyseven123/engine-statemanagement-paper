@@ -49,7 +49,7 @@ public:
         = {"taskQueueSize", "10000", "Size of the bounded task queue used within the QueryEngine", {taskQueueSizeValidator()}};
     UIntOption admissionQueueSize
         = {"admissionQueueSize", "1000", "Size of the bounded admission queue used within the QueryEngine", {taskQueueSizeValidator()}};
-    NES::Configurations::EnumOption<ResourceAssignment> resourceAssignments
+    EnumOption<ResourceAssignment> resourceAssignments
         = {"resourceAssignment", ResourceAssignment::WORK_STEALING, "Task assignment used within the QueryEngine"};
 
 protected:
