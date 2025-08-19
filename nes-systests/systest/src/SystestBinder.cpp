@@ -520,6 +520,11 @@ struct SystestBinder::Impl
                             }
                             throw CannotLoadConfig("An InlineData source must have tuples, but tuples was null.");
                         }
+                        case TestDataIngestionType::MEMORY: {
+                            return Sources::SourceDataProvider::provideFileDataSource(
+                                initialPhysicalSourceConfig, attachSource, testDataDir);
+                        }
+
                         case TestDataIngestionType::FILE: {
                             return Sources::SourceDataProvider::provideFileDataSource(
                                 initialPhysicalSourceConfig, attachSource, testDataDir);

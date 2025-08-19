@@ -28,11 +28,11 @@
 #include <utility>
 
 #include <Configurations/Descriptor.hpp>
+#include <InputFormatters/InputFormatterProvider.hpp>
 #include <Runtime/Allocator/NesDefaultMemoryAllocator.hpp>
 #include <Runtime/TupleBuffer.hpp>
 #include <Sources/SourceDescriptor.hpp>
 #include <SystestSources/SourceTypes.hpp>
-#include <CSVInputFormatter.hpp>
 #include <ErrorHandling.hpp>
 #include <FileDataRegistry.hpp>
 #include <InlineDataRegistry.hpp>
@@ -56,8 +56,8 @@ bool MemorySource::setup()
 {
     static constexpr std::string tupleDelimiter = "\n";
     static constexpr std::string fieldDelimiter = ",";
-    InputFormatters::CSVInputFormatter csvInputFormatter(inputSchema, tupleDelimiter, fieldDelimiter);
-    InputFormatters::SequenceShredder sequenceShredder(tupleDelimiter.size());
+    ParserConfig parserConfig{"CSV", tupleDelimiter, fieldDelimiter};
+    auto inputFormatterTask = InputFormatters::InputFormatterProvider::provideInputFormatterTask(INVALID_ORIGIN_ID, inputSchema, parserConfig);
 
     /// Reading the file in bufferSizeInBytes large chunks
     const auto realCSVPath = std::unique_ptr<char, decltype(std::free)*>{realpath(filePath.c_str(), nullptr), std::free};
@@ -83,7 +83,7 @@ bool MemorySource::setup()
         tupleBufferRaw.setUsedMemorySize(numberOfBytesRead);
         tupleBufferRaw.setSequenceNumber(SequenceNumber(sequenceNumberGenerator++));
         totalBytesRead += numberOfBytesRead;
-        csvInputFormatter.parseTupleBufferRaw(tupleBufferRaw, *this, numberOfBytesRead, sequenceShredder);
+        inputFormatterTask->execute(tupleBufferRaw, *this);
         if (totalBytesRead - lastTotalBytesReadMessage > percentageDifferenceForMessage)
         {
             lastTotalBytesReadMessage = totalBytesRead;
@@ -93,7 +93,7 @@ bool MemorySource::setup()
     } while (numberOfBytesRead != 0);
 
     /// Invalid originId should be fine, as the origin id gets overwrittern once the source emits the tuple buffer to the first operator pipeline
-    csvInputFormatter.flushFinalTuple(INVALID<OriginId>, *this, sequenceShredder);
+    inputFormatterTask->stop(*this);
 
     nextBufferIterator = storedBuffers.begin();
     return true;
@@ -124,9 +124,9 @@ size_t MemorySource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, cons
     return tupleBuffer.getBufferSize();
 }
 
-NES::Configurations::DescriptorConfig::Config MemorySource::validateAndFormat(std::unordered_map<std::string, std::string> config)
+DescriptorConfig::Config MemorySource::validateAndFormat(std::unordered_map<std::string, std::string> config)
 {
-    return NES::Configurations::DescriptorConfig::validateAndFormat<ConfigParametersCSVMemory>(std::move(config), NAME);
+    return DescriptorConfig::validateAndFormat<ConfigParametersCSVMemory>(std::move(config), NAME);
 }
 
 std::ostream& MemorySource::toString(std::ostream& str) const

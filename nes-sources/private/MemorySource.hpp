@@ -54,42 +54,52 @@ public:
     size_t fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, const std::stop_token& stopToken) override;
 
     bool setup() override;
+
     void open() override { }
+
     void close() override { }
+
     void recyclePooledBuffer(Memory::detail::MemorySegment*) override { INVARIANT(false, "This method should not be called!"); }
+
     void recycleUnpooledBuffer(Memory::detail::MemorySegment*, const Memory::ThreadIdCopyLastChunkPtr&) override
     {
         INVARIANT(false, "This method should not be called!");
     }
 
     /// validates and formats a string to string configuration
-    static NES::Configurations::DescriptorConfig::Config validateAndFormat(std::unordered_map<std::string, std::string> config);
+    static DescriptorConfig::Config validateAndFormat(std::unordered_map<std::string, std::string> config);
 
     [[nodiscard]] std::ostream& toString(std::ostream& str) const override;
 
     bool emitBuffer(const Memory::TupleBuffer&, ContinuationPolicy) override;
     Memory::TupleBuffer allocateTupleBuffer() override;
+
     [[nodiscard]] WorkerThreadId getId() const override
     {
         INVARIANT(false, "This method should not be called!");
         return WorkerThreadId(WorkerThreadId::INVALID);
     }
+
     [[nodiscard]] uint64_t getNumberOfWorkerThreads() const override
     {
         INVARIANT(false, "This method should not be called!");
         return 0;
     }
+
     [[nodiscard]] std::shared_ptr<Memory::AbstractBufferProvider> getBufferManager() const override { return bufferProvider; }
+
     [[nodiscard]] PipelineId getPipelineId() const override
     {
         INVARIANT(false, "This method should not be called!");
         return PipelineId(PipelineId::INVALID);
     }
+
     std::unordered_map<OperatorHandlerId, std::shared_ptr<OperatorHandler>>& getOperatorHandlers() override
     {
         INVARIANT(false, "This method should not be called!");
         throw std::runtime_error("This method should not be called!");
     }
+
     void setOperatorHandlers(std::unordered_map<OperatorHandlerId, std::shared_ptr<OperatorHandler>>&) override
     {
         INVARIANT(false, "This method should not be called!");
@@ -107,14 +117,13 @@ private:
 
 struct ConfigParametersCSVMemory
 {
-    static inline const NES::Configurations::DescriptorConfig::ConfigParameter<std::string> FILEPATH{
+    static inline const DescriptorConfig::ConfigParameter<std::string> FILEPATH{
         std::string(SYSTEST_FILE_PATH_PARAMETER),
         std::nullopt,
-        [](const std::unordered_map<std::string, std::string>& config)
-        { return NES::Configurations::DescriptorConfig::tryGet(FILEPATH, config); }};
+        [](const std::unordered_map<std::string, std::string>& config) { return DescriptorConfig::tryGet(FILEPATH, config); }};
 
-    static inline std::unordered_map<std::string, NES::Configurations::DescriptorConfig::ConfigParameterContainer> parameterMap
-        = NES::Configurations::DescriptorConfig::createConfigParameterContainerMap(FILEPATH);
+    static inline std::unordered_map<std::string, DescriptorConfig::ConfigParameterContainer> parameterMap
+        = DescriptorConfig::createConfigParameterContainerMap(FILEPATH);
 };
 
 }

@@ -622,7 +622,8 @@ std::pair<SystestParser::SystestLogicalSource, std::optional<SystestAttachSource
                         .testDataIngestionType = dataIngestionType.value(),
                         .tuples = {},
                         .fileDataPath = expectFilePath(),
-                        .serverThreads = nullptr};
+                        .serverThreads = nullptr,
+                        .inlineGeneratorConfiguration = {}};
                 }
                 case TestDataIngestionType::GENERATOR: {
                     return SystestAttachSource{
