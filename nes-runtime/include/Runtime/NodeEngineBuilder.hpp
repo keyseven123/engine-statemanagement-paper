@@ -17,6 +17,7 @@
 #include <Configuration/WorkerConfiguration.hpp>
 #include <Listeners/SystemEventListener.hpp>
 #include <Runtime/NodeEngine.hpp>
+#include <Util/Pointers.hpp>
 #include <QueryEngineStatisticListener.hpp>
 
 namespace NES
@@ -30,7 +31,7 @@ public:
     explicit NodeEngineBuilder(
         const WorkerConfiguration& workerConfiguration,
         std::shared_ptr<SystemEventListener> systemEventListener,
-        std::vector<std::shared_ptr<QueryEngineStatisticListener>> statisticListener);
+        std::vector<std::shared_ptr<QueryEngineStatisticListener>> statisticEventListener);
 
     std::unique_ptr<NodeEngine> build();
 

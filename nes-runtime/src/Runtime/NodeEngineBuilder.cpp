@@ -22,6 +22,8 @@
 #include <Listeners/SystemEventListener.hpp>
 #include <Runtime/BufferManager.hpp>
 #include <Runtime/NodeEngine.hpp>
+#include <Util/Pointers.hpp>
+
 #include <QueryEngine.hpp>
 #include <QueryEngineStatisticListener.hpp>
 
@@ -47,11 +49,11 @@ std::unique_ptr<NodeEngine> NodeEngineBuilder::build()
 
 
 
-    auto queryEngine = std::make_unique<QueryEngine>(workerConfiguration.queryEngine, statisticEventListener, queryLog, bufferManager);
+    auto queryEngine = std::make_unique<QueryEngine>(workerConfiguration.queryEngine, std::move(statisticEventListener), queryLog, bufferManager);
 
     return std::make_unique<NodeEngine>(
         std::move(bufferManager),
-        systemEventListener,
+        std::move(systemEventListener),
         std::move(queryLog),
         std::move(queryEngine),
         workerConfiguration.numberOfBuffersInSourceLocalPools.getValue());
