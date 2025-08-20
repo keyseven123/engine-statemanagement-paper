@@ -21,6 +21,7 @@
 #include <Configurations/Descriptor.hpp>
 #include <Runtime/TupleBuffer.hpp>
 #include <Sinks/SinkDescriptor.hpp>
+#include <SinksParsing/CSVFormat.hpp>
 #include <fmt/format.h>
 #include <ErrorHandling.hpp>
 #include <PipelineExecutionContext.hpp>
@@ -58,8 +59,18 @@ DiscardSink::DiscardSink(const SinkDescriptor& sinkDescriptor)
             outputFileStream.good());
     }
 
-    outputFileStream << "S$Count:UINT64,S$Checksum:UINT64" << '\n';
-    outputFileStream.close();
+    switch (const auto inputFormat = sinkDescriptor.getFromConfig(ConfigParametersDiscard::INPUT_FORMAT))
+    {
+        case InputFormat::CSV: {
+            const auto formatter = std::make_unique<CSVFormat>(*sinkDescriptor.getSchema());
+            const auto schemaStr = formatter->getFormattedSchema();
+            outputFileStream << schemaStr;
+            outputFileStream.close();
+            break;
+        }
+        default:
+            throw UnknownSinkFormat(fmt::format("Sink format: {} not supported.", magic_enum::enum_name(inputFormat)));
+    }
 }
 
 void DiscardSink::start(PipelineExecutionContext&)

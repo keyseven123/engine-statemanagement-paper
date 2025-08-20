@@ -51,13 +51,18 @@ protected:
 
 struct ConfigParametersDiscard
 {
+    static inline const DescriptorConfig::ConfigParameter<EnumWrapper, InputFormat> INPUT_FORMAT{
+        "inputFormat",
+        std::nullopt,
+        [](const std::unordered_map<std::string, std::string>& config) { return DescriptorConfig::tryGet(INPUT_FORMAT, config); }};
+
     static inline const DescriptorConfig::ConfigParameter<std::string> FILEPATH{
         "filePath",
         std::nullopt,
         [](const std::unordered_map<std::string, std::string>& config) { return DescriptorConfig::tryGet(FILEPATH, config); }};
 
     static inline std::unordered_map<std::string, DescriptorConfig::ConfigParameterContainer> parameterMap
-        = DescriptorConfig::createConfigParameterContainerMap(FILEPATH);
+        = DescriptorConfig::createConfigParameterContainerMap(FILEPATH, INPUT_FORMAT);
 };
 
 }
