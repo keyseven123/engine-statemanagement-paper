@@ -49,7 +49,7 @@ void SourceHandle::stop() const
     this->sourceThread->stop();
 }
 
-bool SourceHandle::setup()
+bool SourceHandle::setup() const
 {
     return this->sourceThread->setup();
 }

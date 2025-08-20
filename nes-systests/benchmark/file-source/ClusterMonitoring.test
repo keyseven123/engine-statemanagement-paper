@@ -16,7 +16,6 @@ TESTDATA/large/cluster_monitoring/google-cluster-data-original_1G.csv
 
 SINK q1Checksum TYPE Checksum UINT64 monitoringClusterData$start UINT64 monitoringClusterData$end FLOAT64 monitoringClusterData$totalCpu UINT64 monitoringClusterData$jobId
 SINK q2Checksum TYPE Checksum UINT64 monitoringLightsaber$start UINT64 monitoringLightsaber$end FLOAT32 monitoringLightsaber$totalCpu UINT64 monitoringLightsaber$jobId
-SINK q2Sink UINT64 monitoringLightsaber$start UINT64 monitoringLightsaber$end FLOAT32 monitoringLightsaber$totalCpu UINT64 monitoringLightsaber$jobId
 
 # These test is currently disabled, as we cannot ensure deterministic results for the queries
 # The problem is that the queries perform a floating point aggregation. Due to our out-of-order processing, the results may differ slightly.

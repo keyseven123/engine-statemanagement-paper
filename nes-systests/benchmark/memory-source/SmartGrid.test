@@ -10,12 +10,15 @@
 Source smartGrid UINT64 creationTS FLOAT32 value FLOAT32 property INT16 plugId INT16 householdId INT16 houseId MEMORY
 TESTDATA/large/smartgrid/smartgrid-data_2GB.csv
 
+SINK q1Discard TYPE Discard UINT64 smartGrid$start UINT64 smartGrid$end FLOAT64 smartGrid$avg_value
+SINK q2Discard TYPE Discard  UINT64 smartGrid$start UINT64 smartGrid$end INT16 smartGrid$plugId INT16 smartGrid$householdId INT16 smartGrid$houseId FLOAT64 smartGrid$avg_value
+SINK q3Discard TYPE Discard  UINT64 smartGrid$start UINT64 smartGrid$end INT16 smartGrid$plugId INT16 smartGrid$householdId INT16 smartGrid$houseId FLOAT64 smartGrid$avg_value
 
 # Query 1
 SELECT start, end, AVG(value) AS avg_value
 FROM smartGrid
 WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q1Discard;
 ----
 
 # Query 2
@@ -23,7 +26,7 @@ SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
 WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q2Discard;
 ----
 
 # Query 3
@@ -31,5 +34,5 @@ SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
 WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q3Discard;
 ----

@@ -39,10 +39,10 @@ std::unique_ptr<SourceHandle> SourceProvider::lower(
     if (auto source = SourceRegistry::instance().create(sourceDescriptor.getSourceType(), sourceArguments))
     {
         /// The source-specific configuration of numberOfBuffersInLocalPool takes priority.
-        /// If not specified (-1), we take the NodeEngine-wide configuration.
-        auto numberOfBuffersInLocalPool = (sourceDescriptor.getFromConfig(SourceDescriptor::NUMBER_OF_BUFFERS_IN_LOCAL_POOL) > 0)
-            ? sourceDescriptor.getFromConfig(SourceDescriptor::NUMBER_OF_BUFFERS_IN_LOCAL_POOL)
-            : defaultNumberOfBuffersInLocalPool;
+        /// If not specified, we take the NodeEngine-wide configuration.
+        auto numberOfBuffersInLocalPool = (sourceDescriptor.tryGetFromConfig(SourceDescriptor::NUMBER_OF_BUFFERS_IN_LOCAL_POOL).has_value())
+            ? defaultNumberOfBuffersInLocalPool
+            : sourceDescriptor.getFromConfig(SourceDescriptor::NUMBER_OF_BUFFERS_IN_LOCAL_POOL);
         auto sourceHandle = std::make_unique<SourceHandle>(
             std::move(originId), std::move(bufferPool), numberOfBuffersInLocalPool, std::move(source.value()));
         sourceHandle->setup();

@@ -1,12 +1,13 @@
 # name: milestone/LinearRoadBenchmark.test
 # description: LinearRoadBenchmark from https://www.cs.brandeis.edu/~linearroad/linear-road.pdf
-# Datafile generated via https://github.com/antonis-papaioannou/linearRoad/tree/main
 # groups: [milestone, benchmark, large, Memory]
 
 # Source definitions
 Source lrb UINT64 creationTS INT32 vehicle FLOAT32 speed INT16 highway INT16 lane INT16 direction INT32 position MEMORY
 TESTDATA/large/lrb/linear_road_benchmark_5GB.csv
 
+SINK q1Discard TYPE Discard UINT64 lrb$start UINT64 lrb$end INT16 lrb$highway INT16 lrb$direction INT32 positionDiv5280 FLOAT64 lrb$avgSpeed
+SINK q2Discard TYPE Discard UINT64 lrb$start UINT64 lrb$end INT16 lrb$vehicle INT16 lrb$highway INT16 lrb$direction INT32 positionDiv5280 UINT64 lrb$cntSpeed
 
 # Query 1
 SELECT start, end, highway, direction, positionDiv5280, AVG(speed) AS avgSpeed
@@ -14,7 +15,7 @@ FROM (SELECT creationTS, highway, direction, position / INT32(5280) AS positionD
 GROUP BY (highway, direction, positionDiv5280)
 WINDOW SLIDING(creationTS, SIZE 5 MINUTES, ADVANCE BY 1 SEC)
 HAVING avgSpeed < FLOAT32(40)
-INTO DISCARD;
+INTO q1Discard;
 ----
 
 # Query 2
@@ -22,5 +23,5 @@ SELECT start, end, vehicle, highway, direction, positionDiv5280, COUNT(speed) AS
 FROM (SELECT creationTS, vehicle, highway, direction, position / INT32(5280) AS positionDiv5280, speed FROM lrb)
 GROUP BY (vehicle, highway, direction, positionDiv5280)
 WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q2Discard;
 ----

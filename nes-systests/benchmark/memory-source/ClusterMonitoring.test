@@ -13,6 +13,12 @@ TESTDATA/large/cluster_monitoring/google-cluster-data-lightsaber_1M.csv
 Source monitoringClusterData UINT64 creationTS UINT64 jobId UINT64 taskId INT64 machineId INT16 eventType INT16 userId INT16 category INT16 priority FLOAT64 cpu FLOAT64 ram FLOAT64 disk BOOLEAN constraints MEMORY
 TESTDATA/large/cluster_monitoring/google-cluster-data-original_1G.csv
 
+SINK q1Original TYPE Discard UINT64 monitoringClusterData$start UINT64 monitoringClusterData$end FLOAT64 monitoringClusterData$totalCpu
+SINK q1LightSaber TYPE Discard UINT64 monitoringLightsaber$start UINT64 monitoringLightsaber$end FLOAT32 monitoringLightsaber$totalCpu
+SINK q2Original TYPE Discard UINT64 monitoringClusterData$start UINT64 monitoringClusterData$end FLOAT64 monitoringClusterData$totalCpu UINT64 monitoringClusterData$jobId
+SINK q2LightSaber TYPE Discard UINT64 monitoringLightsaber$start UINT64 monitoringLightsaber$end FLOAT32 monitoringLightsaber$totalCpu UINT64 monitoringLightsaber$jobId
+
+
 # These test is currently disabled, as we cannot ensure deterministic results for the queries
 # The problem is that the queries perform a floating point aggregation. Due to our out-of-order processing, the results may differ slightly.
 # This is fine for the query 2 but not for the query 1.
@@ -20,14 +26,14 @@ TESTDATA/large/cluster_monitoring/google-cluster-data-original_1G.csv
 SELECT start, end, SUM(cpu) AS totalCpu
 FROM monitoringClusterData
 WINDOW SLIDING(creationTS, SIZE 60 SEC, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q1Original;
 ----
 
 # Query 1 with Lightsaber data
 SELECT start, end, SUM(cpu) AS totalCpu
 FROM monitoringLightsaber
 WINDOW SLIDING(creationTS, SIZE 60 SEC, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q1LightSaber;
 ----
 
 
@@ -37,7 +43,7 @@ FROM monitoringClusterData
 WHERE eventType == INT16(3)
 GROUP BY jobId
 WINDOW SLIDING(creationTS, SIZE 60 SEC, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q2Original;
 ----
 
 # Query 2 with Lightsaber data
@@ -46,5 +52,5 @@ FROM monitoringLightsaber
 WHERE eventType == INT16(3)
 GROUP BY jobId
 WINDOW SLIDING(creationTS, SIZE 60 SEC, ADVANCE BY 1 SEC)
-INTO DISCARD;
+INTO q2LightSaber;
 ----

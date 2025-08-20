@@ -41,7 +41,7 @@ class MemorySource final : public Source,
                            public PipelineExecutionContext
 {
 public:
-    static constexpr std::string_view NAME = "MemorySource";
+    static constexpr std::string_view NAME = "Memory";
 
     explicit MemorySource(const SourceDescriptor& sourceDescriptor, const std::shared_ptr<Memory::AbstractBufferProvider>& bufferProvider);
     ~MemorySource() override = default;
@@ -110,6 +110,7 @@ private:
     std::atomic<size_t> totalNumBytesRead;
     std::string filePath;
     Schema inputSchema;
+    std::atomic<bool> setupFinished = false;
     std::shared_ptr<Memory::AbstractBufferProvider> bufferProvider;
     std::map<SequenceData, Memory::TupleBuffer> storedBuffers;
     std::map<SequenceData, Memory::TupleBuffer>::const_iterator nextBufferIterator;

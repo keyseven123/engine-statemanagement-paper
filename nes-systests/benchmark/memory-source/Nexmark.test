@@ -8,16 +8,21 @@ TESTDATA/large/nexmark/bid_653M.csv
 Source auction UINT64 timestamp INT32 id INT32 initialbid INT32 reserve INT64 expires INT32 seller INT32 category MEMORY
 TESTDATA/large/nexmark/auction_modified_74M.csv
 
+SINK q1CheckSum TYPE Discard FLOAT64 price
+SINK q2CheckSum TYPE Discard UINT64 bid$timestamp INT32 bid$auctionId INT32 bid$bidder INT64 bid$datetime FLOAT64 bid$price
+SINK q5Discard TYPE Discard UINT64 bidbid$start UINT64 bidbid$end INT32 bid$auctionId UINT64 bid$num UINT64 bid$max_tmp
+SINK q8VariantDiscard TYPE Discard UINT64 bidauction$start UINT64 bidauction$end UINT64 bid_timestamp INT32 bid$auctionId INT32 bid$bidder INT64 bid$datetime FLOAT64 bid$price UINT64 auction_timestamp INT32 auction$id INT32 auction$initialbid INT32 auction$reserve INT64 auction$expires INT32 auction$seller INT32 auction$category
+
 # Query 0
-SELECT * FROM bid INTO DISCARD;
+SELECT * FROM bid INTO q2CheckSum;
 ----
 
 # Query 1
-SELECT price * FLOAT64(89) / FLOAT64(100) AS price FROM bid INTO DISCARD;
+SELECT price * FLOAT64(89) / FLOAT64(100) AS price FROM bid INTO q1CheckSum;
 ----
 
 # Query 2
-SELECT * FROM bid WHERE auctionId % INT32(123) = INT32(0) INTO DISCARD;
+SELECT * FROM bid WHERE auctionId % INT32(123) = INT32(0) INTO q2CheckSum;
 ----
 
 # Query 5
@@ -33,18 +38,16 @@ INNER JOIN (SELECT MAX(num_ids) AS max_tmp, start, end
                      GROUP BY auctionId
                      WINDOW SLIDING(timestamp, SIZE 10 SEC, ADVANCE BY 2 SEC))
               WINDOW TUMBLING(start, SIZE 2 SEC))
-ON num >= max_tmp
+ON num == max_tmp
 WINDOW TUMBLING(start, SIZE 2 SEC)
-INTO DISCARD;
+INTO q5Discard;
 ----
 
 
 # Query 8 Variant (We are not using the actual Q8 but a variant, as we have swapped the Person stream with the Bid stream)
-# TODO #700 The projection type inference cannot differentiate between bid.timestamp and auction.timestamp, so we removed them.
-# The projection simply sees twice the string timestamp and thus differentiate between bid.timestamp and auction.timestamp.
-SELECT start, end, auctionId, bidder, datetime, price, id, initialbid, reserve, expires, seller, category
-    FROM (SELECT * FROM bid)
+SELECT start, end, bid_timestamp, auctionId, bidder, datetime, price, auction_timestamp, id, initialbid, reserve, expires, seller, category
+    FROM (SELECT *, timestamp as bid_timestamp FROM bid)
 INNER JOIN
-    (SELECT * FROM auction)
-ON auctionId = id WINDOW TUMBLING (timestamp, size 10 sec) INTO DISCARD;
+    (SELECT *, timestamp as auction_timestamp FROM auction)
+ON auctionId = id WINDOW TUMBLING (timestamp, size 10 sec) INTO q8VariantDiscard;
 ----

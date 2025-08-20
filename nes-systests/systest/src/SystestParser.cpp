@@ -615,7 +615,7 @@ std::pair<SystestParser::SystestLogicalSource, std::optional<SystestAttachSource
                     return SystestAttachSource{
                         .sourceType = "Memory",
                         .sourceConfigurationPath = std::filesystem::path(TEST_CONFIGURATION_DIR) / "sources/memory_default.yaml",
-                        .inputFormatterType = "NoOp",
+                        .inputFormatterType = "Native",
                         .inputFormatterConfigurationPath
                         = std::filesystem::path(TEST_CONFIGURATION_DIR) / "inputFormatters/memory_default.yaml",
                         .logicalSourceName = source.name,

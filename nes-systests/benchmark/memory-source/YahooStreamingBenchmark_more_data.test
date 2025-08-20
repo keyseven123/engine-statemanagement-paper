@@ -8,6 +8,9 @@ TESTDATA/large/ysb/ysb1k_more_data_3GB.csv
 Source ysb10k VARSIZED user_id VARSIZED page_id VARSIZED campaign_id VARSIZED ad_id VARSIZED ad_type VARSIZED event_type UINT64 event_time VARSIZED ip_address MEMORY
 TESTDATA/large/ysb/ysb10k_more_data_3GB.csv
 
+SINK ysb1kDiscard TYPE Discard UINT64 ysb1k$start UINT64 ysb1k$end VARSIZED ysb1k$campaign_id UINT64 ysb1k$count_user_id
+SINK ysb10kDiscard TYPE Discard UINT64 ysb10k$start UINT64 ysb10k$end VARSIZED ysb10k$campaign_id UINT64 ysb10k$count_user_id
+
 # Adapt the YSB Query to already have the campaign_id, as we currently do not support stream-batch joins
 # YSB Query
 SELECT
@@ -19,7 +22,7 @@ FROM ysb1k
 WHERE event_type == VARSIZED("view")
 GROUP BY campaign_id
 WINDOW TUMBLING(event_time, SIZE 30 SEC)
-INTO DISCARD;
+INTO ysb1kDiscard;
 ----
 
 # Adapt the YSB Query to already have the campaign_id, as we currently do not support stream-batch joins
@@ -33,5 +36,5 @@ FROM ysb10k
 WHERE event_type == VARSIZED("view")
 GROUP BY campaign_id
 WINDOW TUMBLING(event_time, SIZE 30 SEC)
-INTO DISCARD;
+INTO ysb10kDiscard;
 ----

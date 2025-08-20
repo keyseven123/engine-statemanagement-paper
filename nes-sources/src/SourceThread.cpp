@@ -222,7 +222,7 @@ bool SourceThread::start(SourceReturnType::EmitFunction&& emitFunction)
     return true;
 }
 
-bool SourceThread::setup()
+bool SourceThread::setup() const
 {
     return sourceImplementation->setup();
 }

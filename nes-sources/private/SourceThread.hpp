@@ -75,7 +75,7 @@ public:
     [[nodiscard]] bool start(SourceReturnType::EmitFunction&& emitFunction);
 
     /// If applicable, setups the source. This function is called after the source has been lowered
-    bool setup();
+    bool setup() const;
 
     /// Blocks the current thread until the source is terminated
     void stop();

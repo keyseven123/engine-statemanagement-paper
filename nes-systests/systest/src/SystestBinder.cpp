@@ -78,7 +78,7 @@ public:
                 const std::string_view assignedSinkName, std::filesystem::path filePath) -> std::expected<Sinks::SinkDescriptor, Exception>
             {
                 std::unordered_map<std::string, std::string> config{{"filePath", std::move(filePath)}};
-                if (sinkType == "File")
+                if (sinkType == "File" or sinkType == "Discard")
                 {
                     config["inputFormat"] = "CSV";
                 }

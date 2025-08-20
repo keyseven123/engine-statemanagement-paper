@@ -95,6 +95,8 @@ bool MemorySource::setup()
     /// Invalid originId should be fine, as the origin id gets overwrittern once the source emits the tuple buffer to the first operator pipeline
     inputFormatterTask->stop(*this);
 
+    setupFinished = true;
+
     nextBufferIterator = storedBuffers.begin();
     return true;
 }
@@ -112,6 +114,8 @@ Memory::TupleBuffer MemorySource::allocateTupleBuffer()
 
 size_t MemorySource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, const std::stop_token&)
 {
+    while (not setupFinished) {}
+
     if (nextBufferIterator == storedBuffers.end())
     {
         return 0;
@@ -119,9 +123,9 @@ size_t MemorySource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, cons
 
     auto& nextBuffer = nextBufferIterator->second;
     tupleBuffer = std::move(nextBuffer);
-    totalNumBytesRead += tupleBuffer.getBufferSize();
+    totalNumBytesRead += tupleBuffer.getUsedMemorySize();
     ++nextBufferIterator;
-    return tupleBuffer.getBufferSize();
+    return tupleBuffer.getUsedMemorySize();
 }
 
 DescriptorConfig::Config MemorySource::validateAndFormat(std::unordered_map<std::string, std::string> config)
@@ -156,6 +160,7 @@ FileDataRegistryReturnType FileDataGeneratedRegistrar::RegisterMemoryFileData(Fi
             filePath != systestAdaptorArguments.physicalSourceConfig.sourceConfig.end())
         {
             filePath->second = attachSourceFilePath.value();
+            systestAdaptorArguments.physicalSourceConfig.type = "Memory";
             return systestAdaptorArguments.physicalSourceConfig;
         }
         throw InvalidConfigParameter("A MemorySource config must contain filePath parameter.");
