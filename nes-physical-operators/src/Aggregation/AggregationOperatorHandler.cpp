@@ -174,11 +174,11 @@ const int8_t* AggregationOperatorHandler::getStartOfSliceCacheEntries(const Star
 {
     PRECONDITION(
         numberOfWorkerThreads > 0, "Number of worker threads not set for window based operator. Was setWorkerThreads() being called?");
-    const auto pos = startSliceCacheEntriesArgs.workerThreadId % sliceCacheEntriesBufferForWorkerThreads.size();
+    const auto pos = startSliceCacheEntriesArgs.workerThreadId % numberOfWorkerThreads;
     INVARIANT(
         not sliceCacheEntriesBufferForWorkerThreads.empty() or pos < sliceCacheEntriesBufferForWorkerThreads.size(),
         "Position should be smaller than the size of the sliceCacheEntriesBufferForWorkerThreads");
-    return sliceCacheEntriesBufferForWorkerThreads[pos].getBuffer();
+    return sliceCacheEntriesBufferForWorkerThreads.at(pos).getBuffer();
 }
 
 }
