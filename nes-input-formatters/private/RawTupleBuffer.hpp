@@ -61,6 +61,8 @@ public:
 
     [[nodiscard]] uint64_t getNumberOfTuples() const noexcept { return rawBuffer.getNumberOfTuples(); }
 
+    [[nodiscard]] uint64_t getUsedMemorySize() const noexcept { return rawBuffer.getUsedMemorySize(); }
+
     void setNumberOfTuples(const uint64_t numberOfTuples) const noexcept { rawBuffer.setNumberOfTuples(numberOfTuples); }
 
     void setUsedMemorySize(const uint64_t usedMemorySize) const noexcept { rawBuffer.setUsedMemorySize(usedMemorySize); }

@@ -234,7 +234,7 @@ public:
         /// the InputFormatterTask does not need to do anything.
         /// @Note: with a Nautilus implementation, we can skip the proxy function call that triggers formatting/indexing during tracing,
         /// leading to generated code that immediately operates on the data.
-        const auto [div, mod] = std::lldiv(static_cast<int64_t>(rawBuffer.getNumberOfTuples()), this->schemaInfo.getSizeOfTupleInBytes());
+        const auto [div, mod] = std::lldiv(static_cast<int64_t>(rawBuffer.getUsedMemorySize()), this->schemaInfo.getSizeOfTupleInBytes());
         PRECONDITION(
             mod == 0,
             "Raw buffer contained {} bytes, which is not a multiple of the tuple size {} bytes.",
@@ -346,9 +346,9 @@ private:
                     this->parseFunctions,
                     *bufferProvider);
                 formattedBuffer.setNumberOfTuples(formattedBuffer.getNumberOfTuples() + 1);
-                formattedBuffer.setUsedMemorySize(formattedBuffer.getUsedMemorySize() + this->schemaInfo.getSizeOfTupleInBytes());
                 ++numTuplesReadFromRawBuffer;
             }
+            formattedBuffer.setUsedMemorySize(formattedBuffer.getNumberOfTuples() * this->schemaInfo.getSizeOfTupleInBytes());
             numberOfFormattedTuplesToProduce -= formattedBuffer.getNumberOfTuples();
         }
     }
