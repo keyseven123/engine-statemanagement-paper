@@ -1,9 +1,17 @@
 query: SELECT * FROM tcp_source WHERE id > UINT64(123456789) INTO discard_sink
-sink:
-  name: discard_sink
-  type: Discard
-  config:
-    filePath: "/tmp/discard_sink.csv"
+sinks:
+  - name: discard_sink
+    schema:
+      - name: tcp_source$id
+        type: UINT64
+      - name: tcp_source$value
+        type: UINT64
+      - name: tcp_source$timestamp
+        type: UINT64
+    type: Discard
+    config:
+      filePath: "/tmp/discard_sink.csv"
+      inputFormat: CSV
 logical:
   - name: tcp_source
     schema:
@@ -15,13 +23,13 @@ logical:
         type: UINT64
 physical:
   - logical: tcp_source
+    type: Generator
     parserConfig:
       type: CSV
     sourceConfig:
-      type: Generator
       stopGeneratorWhenSequenceFinishes: ONE
-      maxRuntimeMS: 1000000000
-      flushIntervalMS: TBA
+      maxRuntimeMs: 1000000000
+      flushIntervalMs: TBA
       seed: 42
       generatorRateType: TBD
       generatorRateConfig: |

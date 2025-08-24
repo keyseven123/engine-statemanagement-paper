@@ -56,7 +56,7 @@ allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["SECOND_CHANCE"]
 allPageSizes = [8192]
 allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_NEW_QUEUE_AND_THREAD"]
-FLUSH_INTERVAL_MS = 100
+
 
 #### Queries
 allQueries = {
@@ -88,15 +88,15 @@ def start_single_node_worker(file_path_stdout):
     # Running the query with a particular worker configuration
     worker_config = (f"--worker.queryEngine.numberOfWorkerThreads={numberOfWorkerThreads} "
                      f"--worker.queryEngine.resourceAssignment={resourceAssignment} "
-                     f"--worker.queryOptimizer.executionMode={executionMode} "
+                     f"--worker.defaultQueryExecution.executionMode={executionMode} "
                      f"--worker.numberOfBuffersInGlobalBufferManager={buffersInGlobalBufferManager} "
                      f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
-                     f"--worker.queryOptimizer.joinStrategy={joinStrategy} "
-                     f"--worker.queryOptimizer.pageSize={pageSize} "
+                     f"--worker.defaultQueryExecution.joinStrategy={joinStrategy} "
+                     f"--worker.defaultQueryExecution.pageSize={pageSize} "
                      f"--worker.latencyListener=true "
-                     f"--worker.queryOptimizer.operatorBufferSize={bufferSizeInBytes} "
-                     f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
-                     f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")
+                     f"--worker.defaultQueryExecution.operatorBufferSize={bufferSizeInBytes} "
+                     f"--worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
+                     f"--worker.defaultQueryExecution.sliceCache.sliceCacheType={sliceCacheType}")
 
     cmd = f"{single_node_executable} {worker_config}"
     print(f"Starting the single node worker with {cmd}")
@@ -107,7 +107,7 @@ def start_single_node_worker(file_path_stdout):
 
 
 def submitting_query(query_file):
-    cmd = f"cat {query_file} | {nebuli_executable} register -x -s localhost:8080"
+    cmd = f"cat {query_file} | {nebuli_executable} -s localhost:8080 register -x"
     print(f"Submitting the query via {cmd}...")
     # shell=True is needed to pipe the output of cat to the register command
     try:
@@ -124,6 +124,12 @@ def submitting_query(query_file):
         print("Error output:", e.stderr)
         exit(1)
 
+def start_query(query_id):
+    cmd = f"{nebuli_executable} start {query_id} -s localhost:8080"
+    # print(f"Stopping the query via {cmd}...")
+    process = subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL)
+    return process
+
 
 def stop_query(query_id):
     cmd = f"{nebuli_executable} stop {query_id} -s localhost:8080"
@@ -132,25 +138,29 @@ def stop_query(query_id):
     return process
 
 
-def copy_and_modify_query_config(old_config, new_config, tcp_source_name, generatorRateConfig, generatorType):
+def copy_and_modify_query_config(old_config, new_config, new_source_name, generator_rate_config, generator_type, flush_interval):
     # Loading the yaml file
     with open(old_config, 'r') as input_yaml_file:
         yaml_query_config = yaml.safe_load(input_yaml_file)
 
     # Update the logical name in the logical section
-    yaml_query_config['logical'][0]['name'] = tcp_source_name
+    yaml_query_config['logical'][0]['name'] = new_source_name
 
     # Update the query to use the new logical name
     old_logical_name = "tcp_source"  # Assuming the old name is tcp_source
-    yaml_query_config['query'] = yaml_query_config['query'].replace(old_logical_name, tcp_source_name)
+    yaml_query_config['query'] = yaml_query_config['query'].replace(old_logical_name, new_source_name)
+    yaml_query_config['query'] = yaml_query_config['query'].replace(old_logical_name, new_source_name)
+    for field in yaml_query_config['sinks'][0]['schema']:
+        field['name'] = field['name'].replace(old_logical_name, new_source_name)
+
 
     # Update the physical logical reference to use the new logical name
-    yaml_query_config['physical'][0]['logical'] = tcp_source_name
+    yaml_query_config['physical'][0]['logical'] = new_source_name
 
     # Update the generator rate type
-    yaml_query_config['physical'][0]['sourceConfig']['generatorRateConfig'] = generatorRateConfig
-    yaml_query_config['physical'][0]['sourceConfig']['generatorRateType'] = generatorType
-    yaml_query_config['physical'][0]['sourceConfig']['flushIntervalMS'] = FLUSH_INTERVAL_MS
+    yaml_query_config['physical'][0]['sourceConfig']['generatorRateConfig'] = generator_rate_config
+    yaml_query_config['physical'][0]['sourceConfig']['generatorRateType'] = generator_type
+    yaml_query_config['physical'][0]['sourceConfig']['flushIntervalMs'] = flush_interval
 
     # Save the updated content back to the YAML file
     with open(new_config, 'w') as file:
@@ -305,6 +315,7 @@ if __name__ == "__main__":
     parser.add_argument("--number-of-queries", type=int, required=True, help="Number of queries to run concurrently. If there are more queries to be run than generator rates are provided, we use the last generator rates for the remaining queries.")
     parser.add_argument("--buffer-size", type=int, required=True, help="Buffer size for NebulaStream.")
     parser.add_argument("--number-of-buffers", type=int, required=True, help="Number of buffers in the buffer manager of NebulaStream")
+    parser.add_argument("--flush-interval", type=int, default=5, help="Flush Interval for the generator source")
     args = parser.parse_args()
 
     # Printing all arguments with their parsed values
@@ -396,7 +407,7 @@ if __name__ == "__main__":
                 new_query_config_name = os.path.join(folder_name, f"{query}_{concurrent_query_number}.yaml")
                 copy_and_modify_query_config(allQueries[query], new_query_config_name,
                                              f"{query}_{concurrent_query_number}_source",
-                                             generatorRateConfig, generatorRateType)
+                                             generatorRateConfig, generatorRateType, args.flush_interval)
                 # Submitting the query
                 query_id = submitting_query(new_query_config_name)
                 query_ids.append(query_id)

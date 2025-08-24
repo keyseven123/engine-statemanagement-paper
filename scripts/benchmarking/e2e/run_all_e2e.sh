@@ -20,7 +20,8 @@ source myenv/bin/activate
 pip3 install argparse requests pandas pyyaml
 
 #/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks --all
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all -s SECOND_CHANCE NONE
+#/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all -s SECOND_CHANCE NONE
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM8 -s SECOND_CHANCE NONE
 
 # Deactivate the virtual environment
 deactivate

@@ -121,19 +121,19 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
 
     # Running the query with a particular worker configuration
     worker_config = (f"--worker.queryEngine.numberOfWorkerThreads={numberOfWorkerThreads} "
-                     f"--worker.queryOptimizer.executionMode={executionMode} "
+                     f"--worker.defaultQueryExecution.executionMode={executionMode} "
                      f"--worker.numberOfBuffersInGlobalBufferManager={buffersInGlobalBufferManager} "
                      f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
-                     f"--worker.queryOptimizer.joinStrategy={joinStrategy} "
+                     f"--worker.defaultQueryExecution.joinStrategy={joinStrategy} "
                      f"--worker.queryEngine.taskQueueSize=10000 "
                      f"--worker.queryEngine.admissionQueueSize=1000000 "
                      f"--worker.numberOfBuffersInSourceLocalPools=1024 "
-                     f"--worker.queryOptimizer.pageSize={pageSize} "
-                     f"--worker.queryOptimizer.operatorBufferSize={bufferSizeInBytes} "
-                     f"--worker.queryOptimizer.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
-                     f"--worker.queryOptimizer.sliceCache.sliceCacheType={sliceCacheType}")
+                     f"--worker.defaultQueryExecution.pageSize={pageSize} "
+                     f"--worker.defaultQueryExecution.operatorBufferSize={bufferSizeInBytes} "
+                     f"--worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
+                     f"--worker.defaultQueryExecution.sliceCache.sliceCacheType={sliceCacheType}")
 
-    benchmark_command = f"{systest_executable} -b -t {queries[query]} --data {test_data_dir} --workingDir={working_dir} -- {worker_config}"
+    benchmark_command = f"{systest_executable} -b -t {os.path.abspath(queries[query])} --data {os.path.abspath(test_data_dir)} --workingDir={working_dir} -- {worker_config}"
 
     print(
         f"Running {query} [{queryIdx}/{no_queries}] for worker configuration [{workerConfigIdx}/{no_combinations}]...")
@@ -238,8 +238,8 @@ if __name__ == "__main__":
 
             # Otherwise we run out-of-memory / out-of-buffers
             if query == "NM8":
-                buffersInGlobalBufferManager = 1225000
-                bufferSizeInBytes = 100 * 1024
+                buffersInGlobalBufferManager = 312000
+                bufferSizeInBytes = 400 * 1024
 
             if query == "NM8" and  socket.gethostname() == "mif-ws":
                 buffersInGlobalBufferManager = 250000

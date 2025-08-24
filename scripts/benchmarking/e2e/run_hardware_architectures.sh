@@ -21,8 +21,8 @@ source myenv/bin/activate
 pip install --upgrade pip --progress-bar off
 pip install argparse requests pandas pyyaml --progress-bar off
 
-myenv/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM8 NM8_Variant -p 96
-myenv/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM8 NM8_Variant -s SECOND_CHANCE -w 96
+#myenv/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM1 NM2 NM5 NM8 NM8_Variant -p 16
+myenv/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -q NM1 NM2 NM5 NM8 NM8_Variant -s SECOND_CHANCE -w 16
 
 # Deactivate the virtual environment
 deactivate

@@ -19,7 +19,7 @@ python3 -m venv myenv
 source myenv/bin/activate
 pip install argparse requests pandas pyyaml
 
-myenv/bin/python3 -m scripts.benchmarking.work-dealing.run_nes_work_dealing_stealing --wait-between-queries 0.0 --wait-before-stopping-queries 30 --generator-rates scripts/benchmarking/work-dealing/work-dealing-variable/ingestion_queries_variable.yaml --number-of-queries 32 --buffer-size 8192 --number-of-buffers 200000
+myenv/bin/python3 -m scripts.benchmarking.work-dealing.run_nes_work_dealing_stealing --wait-between-queries 0.001 --wait-before-stopping-queries 30 --generator-rates scripts/benchmarking/work-dealing/work-dealing-variable/ingestion_queries_variable.yaml --number-of-queries 32 --buffer-size 10240 --number-of-buffers 200000 --flush-interval 5
 
 # Deactivate the virtual environment
 deactivate
