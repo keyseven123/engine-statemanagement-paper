@@ -7,7 +7,7 @@ Source lrb UINT64 creationTS INT32 vehicle FLOAT32 speed INT16 highway INT16 lan
 TESTDATA/large/lrb/linear_road_benchmark_5GB.csv
 
 SINK q1Discard TYPE Discard UINT64 lrb$start UINT64 lrb$end INT16 lrb$highway INT16 lrb$direction INT32 positionDiv5280 FLOAT64 lrb$avgSpeed
-SINK q2Discard TYPE Discard UINT64 lrb$start UINT64 lrb$end INT16 lrb$vehicle INT16 lrb$highway INT16 lrb$direction INT32 positionDiv5280 UINT64 lrb$cntSpeed
+SINK q2Discard TYPE Discard UINT64 lrb$start UINT64 lrb$end INT32 lrb$vehicle INT16 lrb$highway INT16 lrb$direction INT32 positionDiv5280 UINT64 lrb$cntSpeed
 
 # Query 1
 SELECT start, end, highway, direction, positionDiv5280, AVG(speed) AS avgSpeed
