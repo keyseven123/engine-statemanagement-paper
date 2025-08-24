@@ -27,6 +27,7 @@
 #include <Runtime/TupleBuffer.hpp>
 #include <Sources/SourceDescriptor.hpp>
 #include <Util/Logger/Logger.hpp>
+#include <fmt/chrono.h>
 #include <Generator.hpp>
 #include <GeneratorDataRegistry.hpp>
 #include <SourceRegistry.hpp>
@@ -62,6 +63,7 @@ GeneratorSource::GeneratorSource(const SourceDescriptor& sourceDescriptor)
 void GeneratorSource::open()
 {
     this->generatorStartTime = std::chrono::system_clock::now();
+    this->startOfInterval = std::chrono::system_clock::now();
     NES_TRACE("Opening GeneratorSource.");
 }
 
@@ -87,16 +89,16 @@ size_t GeneratorSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, c
         /// Asking the generatorRate how many tuples we should generate for this interval [now, now + flushInterval].
         /// If we receive 0 tuples, we do not return but wait till another interval, as a return value of 0 tuples results in the query being terminated.
         uint64_t numberOfTuplesToGenerate = 0;
-        std::chrono::time_point<std::chrono::system_clock> startOfInterval;
+        uint64_t noIntervals = 1;
         while (numberOfTuplesToGenerate == 0)
         {
-            startOfInterval = std::chrono::system_clock::now();
-            const auto endOfInterval = startOfInterval + flushInterval;
+            const auto endOfInterval = startOfInterval + (flushInterval * noIntervals);
             numberOfTuplesToGenerate = generatorRate->calcNumberOfTuplesForInterval(startOfInterval, endOfInterval);
             NES_DEBUG("numberOfTuplesToGenerate: {}", numberOfTuplesToGenerate);
             if (numberOfTuplesToGenerate == 0)
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds{flushInterval});
+                std::this_thread::sleep_for(std::chrono::microseconds{flushInterval});
+                ++noIntervals;
             }
         }
 
@@ -134,16 +136,19 @@ size_t GeneratorSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, c
         /// sleep for the remaining duration. If there is no time left, we print a warning.
         const auto durationGeneratingTuples
             = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startOfInterval);
-        if (durationGeneratingTuples > flushInterval)
+        if (durationGeneratingTuples > (flushInterval * noIntervals))
         {
             NES_WARNING(
-                "Can not produce all required tuples in the flushInterval of {} as it took us {}", flushInterval, durationGeneratingTuples);
+                "Can not produce all required tuples in the flushInterval of {} as it took us {}",
+                (flushInterval * noIntervals),
+                durationGeneratingTuples);
         }
         else
         {
-            const auto sleepDuration = flushInterval - durationGeneratingTuples;
+            const auto sleepDuration = (flushInterval * noIntervals) - durationGeneratingTuples;
             std::this_thread::sleep_for(sleepDuration);
         }
+        this->startOfInterval = std::chrono::system_clock::now();
         return writtenBytes;
     }
     catch (const std::exception& e)

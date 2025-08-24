@@ -29,17 +29,15 @@ namespace NES::Sources
 SinusGeneratorRate::SinusGeneratorRate(const std::string_view configString)
 {
     /// We can assume that the parsing will work, as the config has been validated
-    auto [amplitude, frequency, phaseShift] = parseAndValidateConfigString(configString).value();
+    auto [amplitude, frequency] = parseAndValidateConfigString(configString).value();
     this->amplitude = amplitude;
     this->frequency = frequency;
-    this->phaseShift = phaseShift;
 }
 
-std::optional<std::tuple<double, double, double>> SinusGeneratorRate::parseAndValidateConfigString(std::string_view configString)
+std::optional<std::tuple<double, double>> SinusGeneratorRate::parseAndValidateConfigString(std::string_view configString)
 {
     std::optional<double> amplitude = {};
     std::optional<double> frequency = {};
-    std::optional<double> phaseShift = {};
     for (const auto& line : configString | std::views::split('\n'))
     {
         auto lineView{std::string_view(line.begin(), line.end())};
@@ -60,17 +58,13 @@ std::optional<std::tuple<double, double, double>> SinusGeneratorRate::parseAndVa
             {
                 frequency = std::stod(std::string(value));
             }
-            else if (keyLower == "phase_shift")
-            {
-                phaseShift = std::stod(std::string(value));
-            }
         }
     }
 
 
-    if (amplitude.has_value() and frequency.has_value() and phaseShift.has_value())
+    if (amplitude.has_value() and frequency.has_value())
     {
-        return std::make_tuple(amplitude.value(), frequency.value(), phaseShift.value());
+        return std::make_tuple(amplitude.value(), frequency.value());
     }
     return {};
 }
@@ -80,22 +74,21 @@ uint64_t SinusGeneratorRate::calcNumberOfTuplesForInterval(
 {
     /// To calculate the number of tuples for a non-negative sinus, we take the integral of the sinus from end to start
     /// As the sinus must be non-negative, the sin-function is emit_rate_at_x = amplitude * sin(freq * (x - phaseShift)) + amplitude
-    /// Thus, the integral of the function is: amplitude * x - (amplitude * cos(freq*(x-phaseShift)) / (freq) + C
-    auto integral = [](const double timepoint, const double amplitude, const double frequency, const double phaseShift)
+    /// Thus, the integral from startTimePoint to endTimePoint is the following:
+    auto integralStartEnd = [](const double startTimePoint, const double endTimePoint, const double amplitude, const double frequency)
     {
-        const auto dividend = amplitude * std::cos(frequency * (timepoint - phaseShift));
-        const auto divisor = frequency;
-        return amplitude * timepoint * (dividend / divisor);
+        const auto firstCos = std::cos(frequency * startTimePoint);
+        const auto secondCos = frequency * (startTimePoint - endTimePoint);
+        const auto thirdCos = std::cos(endTimePoint * frequency);
+        return (amplitude * (firstCos - secondCos - thirdCos)) / (2 * frequency);
     };
 
     /// Calculating the integral of end --> start, resulting in the required number of tuples
     /// As the interval of start and end might share the same seconds, we need to first cast it to milliseconds and then convert it to a
-    /// double. Otherwise, we would have the exact same value for startTimePoint and endTimePoint, resulting in no tuples to generate
+    /// double. Otherwise, we would have the exact same value for startTimePoint and endTimePoint, resulting in number of tuples to generate.
     const auto startTimePoint = std::chrono::duration<double>(start.time_since_epoch()).count();
     const auto endTimePoint = std::chrono::duration<double>(end.time_since_epoch()).count();
-    const auto startIntegralValue = integral(startTimePoint, amplitude, frequency, phaseShift);
-    const auto endIntegralValue = integral(endTimePoint, amplitude, frequency, phaseShift);
-    const auto numberOfTuples = endIntegralValue - startIntegralValue;
+    const auto numberOfTuples = integralStartEnd(startTimePoint, endTimePoint, amplitude, frequency);
     return numberOfTuples;
 }
 

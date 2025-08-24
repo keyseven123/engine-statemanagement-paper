@@ -26,11 +26,10 @@ class SinusGeneratorRate final : public GeneratorRate
 {
     double frequency = 0;
     double amplitude = 0;
-    double phaseShift = 0;
 
 public:
     /// @brief Tries to parse the amplitude and the frequency. If successful returns them in this order
-    static std::optional<std::tuple<double, double, double>> parseAndValidateConfigString(std::string_view configString);
+    static std::optional<std::tuple<double, double>> parseAndValidateConfigString(std::string_view configString);
     explicit SinusGeneratorRate(std::string_view configString);
     ~SinusGeneratorRate() override = default;
     uint64_t calcNumberOfTuplesForInterval(

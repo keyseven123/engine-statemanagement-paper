@@ -73,6 +73,7 @@ private:
     std::chrono::time_point<std::chrono::system_clock> generatorStartTime;
     Generator generator;
     std::stringstream tuplesStream;
+    std::chrono::time_point<std::chrono::system_clock> startOfInterval;
     std::chrono::milliseconds flushInterval;
     std::unique_ptr<GeneratorRate> generatorRate;
 
@@ -191,7 +192,7 @@ struct ConfigParametersGenerator
         }};
 
     static inline const NES::DescriptorConfig::ConfigParameter<uint64_t> FLUSH_INTERVAL_MS{
-        "flushIntervalMS",
+        "flushIntervalMs",
         10,
         [](const std::unordered_map<std::string, std::string>& config)
         {
