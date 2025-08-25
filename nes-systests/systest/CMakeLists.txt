@@ -104,8 +104,8 @@ if (NOT CODE_COVERAGE)
     foreach (sliceCache IN LISTS sliceCaches)
         foreach (cacheSize IN LISTS numberOfEntriesSliceCaches)
             ExternalData_Add_Test(test-data
-            NAME systest_compiler_${sliceCache}_${cacheSize}
-            COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/compiler_${sliceCache}_${cacheSize} --exclude-groups large --data ${EXPANDED_TEST_DATA_PATH} -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.taskQueueSize=100000 --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
+                    NAME systest_compiler_${sliceCache}_${cacheSize}
+                    COMMAND systest -n 20 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/compiler_${sliceCache}_${cacheSize} --exclude-groups large --data ${EXPANDED_TEST_DATA_PATH} -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.taskQueueSize=100000 --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
         endforeach ()
     endforeach ()
 endif (NOT CODE_COVERAGE)
@@ -121,14 +121,20 @@ if (ENABLE_LARGE_TESTS)
                     if (NOT cacheSize EQUAL 10)
                         message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache")
                         continue()
-                    endif()
-                endif()
+                    endif ()
+                endif ()
 
                 set(joinStrategy HASH_JOIN) # We simp<ly test here with a hash join, as a NLJ does not finish in 2h
                 ExternalData_Add_Test(TEST_DATA_LARGE
                         NAME systest_large_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
                         COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${EXPANDED_TEST_DATA_PATH} --groups large File
                         --exclude-groups Memory -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.defaultQueryExecution.joinStrategy=${joinStrategy} --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
+
+                # We want to test if our systest with benchmark flag also works
+                ExternalData_Add_Test(TEST_DATA_LARGE
+                        NAME systest_large_benchmark_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
+                        COMMAND systest -b --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${EXPANDED_TEST_DATA_PATH} --exclude-groups Memory
+                        -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.defaultQueryExecution.joinStrategy=${joinStrategy} --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
 
                 # Running here the Nexmark.test queries with NLJ to test it for larger data sets but the input data size
                 # is still small enough to finish the test in minutes.
@@ -153,8 +159,8 @@ if (NOT CODE_COVERAGE)
                     if (NOT cacheSize EQUAL 10)
                         message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache")
                         continue()
-                    endif()
-                endif()
+                    endif ()
+                endif ()
                 ExternalData_Add_Test(test-data
                         NAME systest_task_queue_size_${taskQueueSize}_${sliceCache}_${cacheSize}_interpreter
                         COMMAND systest -n 4 --exclude-groups large --workingDir=${CMAKE_CURRENT_BINARY_DIR}/${taskQueueSize}_${sliceCache}_${cacheSize}_interpreter --data ${EXPANDED_TEST_DATA_PATH} -- --worker.queryEngine.numberOfWorkerThreads=4 --worker.defaultQueryExecution.executionMode=INTERPRETER --worker.numberOfBuffersInGlobalBufferManager=200000 --worker.queryEngine.taskQueueSize=${taskQueueSize} --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
@@ -176,8 +182,8 @@ if (NOT CODE_COVERAGE)
                     if (NOT cacheSize EQUAL 10)
                         message(STATUS "Skipping ${cacheSize} for ${sliceCache}, as we do not use a slice cache")
                         continue()
-                    endif()
-                endif()
+                    endif ()
+                endif ()
                 foreach (joinStrategy IN LISTS joinStrategies)
                     ExternalData_Add_Test(TEST_DATA
                             NAME systest_join_${workerThreads}_${joinStrategy}_${sliceCache}_${cacheSize}_interpreter
