@@ -82,7 +82,8 @@ void reportResult(
     {
         failed.push_back(runningQuery);
     }
-    printQueryResultToStdOut(*runningQuery, errorMessage, finishedCount++, total, queryPerformanceMessage(*runningQuery));
+    printQueryResultToStdOut(*runningQuery, errorMessage, finishedCount, total, queryPerformanceMessage(*runningQuery));
+    ++finishedCount;
 }
 
 bool passes(const std::shared_ptr<RunningQuery>& runningQuery)
@@ -318,7 +319,7 @@ std::vector<RunningQuery> runQueriesAtLocalWorker(
 {
     auto embeddedQueryManager = std::make_unique<EmbeddedWorkerQueryManager>(configuration);
     QuerySubmitter submitter(std::move(embeddedQueryManager));
-    return runQueries(queries, numConcurrentQueries, submitter);
+    return runQueries(queries, numConcurrentQueries, submitter, [](auto) { return ""; });
 }
 
 std::vector<RunningQuery>
@@ -326,7 +327,7 @@ runQueriesAtRemoteWorker(const std::vector<SystestQuery>& queries, const uint64_
 {
     auto remoteQueryManager = std::make_unique<GRPCQueryManager>(CreateChannel(serverURI, grpc::InsecureChannelCredentials()));
     QuerySubmitter submitter(std::move(remoteQueryManager));
-    return runQueries(queries, numConcurrentQueries, submitter);
+    return runQueries(queries, numConcurrentQueries, submitter, [](auto) { return ""; });
 }
 
 }
