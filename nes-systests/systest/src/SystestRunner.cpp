@@ -74,20 +74,15 @@ void reportResult(
     const std::size_t total,
     std::vector<std::shared_ptr<RunningQuery>>& failed,
     ErrorCallable&& errorBuilder,
-    SuccessCallback&& successCallback)
+    QueryPerformanceMessageBuilder&& queryPerformanceMessage)
 {
     const std::string errorMessage = errorBuilder();
     runningQuery->passed = errorMessage.empty();
-    std::string queryPerformanceMessage = "";
     if (not errorMessage.empty())
     {
         failed.push_back(runningQuery);
     }
-    else
-    {
-        queryPerformanceMessage = successCallback(*runningQuery);
-    }
-    printQueryResultToStdOut(*runningQuery, errorMessage, finishedCount++, total, queryPerformanceMessage);
+    printQueryResultToStdOut(*runningQuery, errorMessage, finishedCount++, total, queryPerformanceMessage(*runningQuery));
 }
 
 bool passes(const std::shared_ptr<RunningQuery>& runningQuery)
@@ -128,7 +123,7 @@ std::vector<RunningQuery> runQueries(
     const std::vector<SystestQuery>& queries,
     const uint64_t numConcurrentQueries,
     QuerySubmitter& querySubmitter,
-    SuccessCallback&& successCallback)
+    QueryPerformanceMessageBuilder&& queryPerformanceMessage)
 {
     std::queue<SystestQuery> pending;
     for (auto it = queries.rbegin(); it != queries.rend(); ++it)
@@ -211,7 +206,7 @@ std::vector<RunningQuery> runQueries(
                         }
                         return std::string{};
                     },
-                    std::move(successCallback));
+                    std::move(queryPerformanceMessage));
             }
             active.erase(it);
         }
@@ -225,28 +220,23 @@ std::vector<RunningQuery> runQueries(
 
 namespace
 {
-std::vector<RunningQuery> serializeExecutionResults(const std::vector<RunningQuery>& queries, nlohmann::json& resultJson)
+void serializeExecutionResults(const RunningQuery& queryRan, nlohmann::json& resultJson)
 {
-    std::vector<RunningQuery> failedQueries;
-    for (const auto& queryRan : queries)
+    if (not queryRan.passed)
     {
-        if (!queryRan.passed)
-        {
-            failedQueries.emplace_back(queryRan);
-        }
-        const auto executionTimeInSeconds = queryRan.getElapsedTime().count();
-        resultJson.push_back({
-            {"query_name", fmt::format("{}_{}", queryRan.systestQuery.testName, queryRan.systestQuery.queryIdInFile)},
-            {"time", executionTimeInSeconds},
-            {"bytesPerSecond",
-             queryRan.bytesProcessed.has_value() ? static_cast<double>(queryRan.bytesProcessed.value()) / executionTimeInSeconds
-                                                 : std::numeric_limits<double>::quiet_NaN()},
-            {"tuplesPerSecond",
-             queryRan.tuplesProcessed.has_value() ? static_cast<double>(queryRan.tuplesProcessed.value()) / executionTimeInSeconds
-                                                  : std::numeric_limits<double>::quiet_NaN()},
-        });
+        return;
     }
-    return failedQueries;
+    const auto executionTimeInSeconds = queryRan.getElapsedTime().count();
+    resultJson.push_back({
+        {"query_name", fmt::format("{}_{}", queryRan.systestQuery.testName, queryRan.systestQuery.queryIdInFile)},
+        {"time", executionTimeInSeconds},
+        {"bytesPerSecond",
+         queryRan.bytesProcessed.has_value() ? static_cast<double>(queryRan.bytesProcessed.value()) / executionTimeInSeconds
+                                             : std::numeric_limits<double>::quiet_NaN()},
+        {"tuplesPerSecond",
+         queryRan.tuplesProcessed.has_value() ? static_cast<double>(queryRan.tuplesProcessed.value()) / executionTimeInSeconds
+                                              : std::numeric_limits<double>::quiet_NaN()},
+    });
 }
 }
 
@@ -257,7 +247,7 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
     QuerySubmitter submitter(std::move(worker));
     constexpr auto numConcurrentQueries = 1;
 
-    auto successCallback = [](RunningQuery& runningQuery)
+    auto queryPerformanceMessage = [&resultJson](RunningQuery& runningQuery)
     {
         /// Getting the size and no. tuples of all input files to pass this information to currentRunningQuery.bytesProcessed
         size_t bytesProcessed = 0;
@@ -282,11 +272,11 @@ std::vector<RunningQuery> runQueriesAndBenchmark(
         }
         runningQuery.bytesProcessed = bytesProcessed;
         runningQuery.tuplesProcessed = tuplesProcessed;
+        serializeExecutionResults(runningQuery, resultJson);
         return fmt::format(" in {} ({})", runningQuery.getElapsedTime(), runningQuery.getThroughput());
     };
 
-    const auto ranQueries = runQueries(queries, numConcurrentQueries, submitter, successCallback);
-    return serializeExecutionResults(ranQueries, resultJson);
+    return runQueries(queries, numConcurrentQueries, submitter, queryPerformanceMessage);
 }
 
 void printQueryResultToStdOut(
