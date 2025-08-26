@@ -74,7 +74,7 @@ void reportResult(
     const std::size_t total,
     std::vector<std::shared_ptr<RunningQuery>>& failed,
     ErrorCallable&& errorBuilder,
-    QueryPerformanceMessageBuilder&& queryPerformanceMessage)
+    const QueryPerformanceMessageBuilder queryPerformanceMessage)
 {
     const std::string errorMessage = errorBuilder();
     runningQuery->passed = errorMessage.empty();
@@ -124,7 +124,7 @@ std::vector<RunningQuery> runQueries(
     const std::vector<SystestQuery>& queries,
     const uint64_t numConcurrentQueries,
     QuerySubmitter& querySubmitter,
-    QueryPerformanceMessageBuilder&& queryPerformanceMessage)
+    QueryPerformanceMessageBuilder queryPerformanceMessage)
 {
     std::queue<SystestQuery> pending;
     for (auto it = queries.rbegin(); it != queries.rend(); ++it)
