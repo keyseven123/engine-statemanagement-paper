@@ -50,7 +50,7 @@ AggregationOperatorHandler::getCreateNewSlicesFunction(const CreateNewSlicesArgu
     PRECONDITION(
         numberOfWorkerThreads > 0, "Number of worker threads not set for window based operator. Was setWorkerThreads() being called?");
     auto newHashMapArgs = dynamic_cast<const CreateNewHashMapSliceArgs&>(newSlicesArguments);
-    const auto avgNumberOfKeys = std::min(10000.0, rollingAverageNumberOfKeys.getAverage());
+    const auto avgNumberOfKeys = std::max(1.0, std::min(10000.0, rollingAverageNumberOfKeys.getAverage()));
     newHashMapArgs.numberOfBuckets = avgNumberOfKeys == 0.0 ? newHashMapArgs.numberOfBuckets : static_cast<uint64_t>(avgNumberOfKeys);
     return std::function(
         [outputOriginId = outputOriginId, numberOfWorkerThreads = numberOfWorkerThreads, copyOfNewHashMapArgs = newHashMapArgs](
