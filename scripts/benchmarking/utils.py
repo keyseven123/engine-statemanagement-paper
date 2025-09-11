@@ -67,6 +67,7 @@ def get_vcpkg_dir():
     return vcpkg_dir
 
 def run_command(command, cwd=None):
+    print(f"Running {command}")
     result = subprocess.run(command, cwd=cwd, shell=True, check=True, text=True, capture_output=True)
     return result.stdout
 

@@ -188,7 +188,7 @@ fi
 if [ $BUILD_LOCAL -eq 1 ]; then
   echo "Building local docker images using hash: ${HASH}."
   echo "This might take a while..."
-  docker build -f docker/dependency/Base.dockerfile -t nebulastream/nes-development-base:local .
+  docker build -f docker/dependency/Base.dockerfile --platform linux/arm/v7 -t nebulastream/nes-development-base:local .
 
   docker build -f docker/dependency/Dependency.dockerfile \
           --build-arg VCPKG_DEPENDENCY_HASH=${HASH} \
@@ -197,16 +197,19 @@ if [ $BUILD_LOCAL -eq 1 ]; then
           --build-arg ARCH=${ARCH} \
           --build-arg SANITIZER=${SANITIZER} \
           --no-cache \
+          --platform linux/arm/v7 \
           -t nebulastream/nes-development-dependency:local .
 
   docker build -f docker/dependency/Development.dockerfile \
             --build-arg TAG=local \
             --no-cache \
+            --platform linux/arm/v7 \
             -t nebulastream/nes-development:default .
 
   docker build -f docker/dependency/DevelopmentLocal.dockerfile \
                -t nebulastream/nes-development:local \
                --no-cache \
+               --platform linux/arm/v7 \
                --build-arg UID=${USE_UID} \
                --build-arg GID=${USE_GID} \
                --build-arg USERNAME=${USE_USERNAME} \

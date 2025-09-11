@@ -130,11 +130,13 @@ if (ENABLE_LARGE_TESTS)
                         COMMAND systest -n 6 --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${EXPANDED_TEST_DATA_PATH} --groups large File
                         --exclude-groups Memory -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.defaultQueryExecution.joinStrategy=${joinStrategy} --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
 
-                # We want to test if our systest with benchmark flag also works
-                ExternalData_Add_Test(TEST_DATA_LARGE
-                        NAME systest_large_benchmark_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
-                        COMMAND systest -b --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${EXPANDED_TEST_DATA_PATH} --exclude-groups Memory
-                        -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.defaultQueryExecution.joinStrategy=${joinStrategy} --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
+                if (NOT resourceAssignment STREQUAL "WORK_DEALING_NEW_QUEUE_AND_THREAD")
+                    # We want to test if our systest with benchmark flag also works
+                    ExternalData_Add_Test(TEST_DATA_LARGE
+                            NAME systest_large_benchmark_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment}
+                            COMMAND systest -b --workingDir=${CMAKE_CURRENT_BINARY_DIR}/large_scale_${joinStrategy}_${sliceCache}_${cacheSize}_${resourceAssignment} --data ${EXPANDED_TEST_DATA_PATH} --exclude-groups Memory
+                            -- --worker.defaultQueryExecution.executionMode=COMPILER --worker.queryEngine.resourceAssignment=${resourceAssignment} --worker.queryEngine.numberOfWorkerThreads=8 --worker.numberOfBuffersInGlobalBufferManager=8000000 --worker.defaultQueryExecution.joinStrategy=${joinStrategy} --worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache=${cacheSize} --worker.defaultQueryExecution.sliceCache.sliceCacheType=${sliceCache})
+                endif ()
 
                 # Running here the Nexmark.test queries with NLJ to test it for larger data sets but the input data size
                 # is still small enough to finish the test in minutes.

@@ -294,6 +294,9 @@ def main():
                     if "YSB" in query_name:
                         # If we go above 5M for YSB, we require more RAM than we have on the machine
                         num_records = 5 * 1000 * 1000
+                    # if "NM" in query_name:
+                    #     If we go above 500k for NM queries, we require more RAM than we have on the PI
+                        # num_records = 500 * 1000
 
                     prepare()
                     run_flink_job(query_class, parallelism, num_records, MAX_RUNTIME_PER_JOB)

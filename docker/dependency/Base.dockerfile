@@ -3,7 +3,7 @@
 # Additionally we install a recent CMake version and the mold linker.
 FROM ubuntu:24.04
 
-ARG LLVM_TOOLCHAIN_VERSION=19
+ARG LLVM_TOOLCHAIN_VERSION=18
 ARG MOLD_VERSION=2.37.1
 ARG CMAKE_VERSION=3.31.6
 ENV LLVM_TOOLCHAIN_VERSION=${LLVM_TOOLCHAIN_VERSION}
@@ -36,12 +36,12 @@ RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /et
     && echo "deb-src [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/"$(. /etc/os-release && echo "$VERSION_CODENAME")"/ llvm-toolchain-"$(. /etc/os-release && echo "$VERSION_CODENAME")"-${LLVM_TOOLCHAIN_VERSION} main" >> /etc/apt/sources.list.d/llvm-snapshot.list \
     && apt update -y && apt install clang-${LLVM_TOOLCHAIN_VERSION} libc++-${LLVM_TOOLCHAIN_VERSION}-dev libc++abi-${LLVM_TOOLCHAIN_VERSION}-dev libclang-rt-${LLVM_TOOLCHAIN_VERSION}-dev -y
 
-# install recent version of the mold linker
-RUN wget https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-$(uname -m)-linux.tar.gz \
-    && tar -xf mold-${MOLD_VERSION}-$(uname -m)-linux.tar.gz \
-    && cp -r mold-${MOLD_VERSION}-$(uname -m)-linux/* /usr \
-    && rm -rf mold-${MOLD_VERSION}-$(uname -m)-linux mold-${MOLD_VERSION}-$(uname -m)-linux.tar.gz \
-    && mold --version
+## install recent version of the mold linker
+#RUN wget https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-$(uname -m)-linux.tar.gz \
+#    && tar -xf mold-${MOLD_VERSION}-$(uname -m)-linux.tar.gz \
+#    && cp -r mold-${MOLD_VERSION}-$(uname -m)-linux/* /usr \
+#    && rm -rf mold-${MOLD_VERSION}-$(uname -m)-linux mold-${MOLD_VERSION}-$(uname -m)-linux.tar.gz \
+#    && mold --version
 
 # install recent version of cmake
 RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz \

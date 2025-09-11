@@ -16,7 +16,7 @@ SINK q1CheckSum TYPE Checksum UINT64 bid$timestamp INT32 bid$auctionId INT32 bid
 SINK q2CheckSum TYPE Checksum INT32 bid$auctionId FLOAT64 bid$price
 SINK q5Checksum TYPE Checksum UINT64 bidbid$start UINT64 bidbid$end INT32 bid$auctionId UINT64 bid$num UINT64 bid$max_tmp
 SINK q8CheckSum TYPE Checksum UINT64 personauction$start UINT64 personauction$end INT32 person$id VARSIZED person$name
-SINK q8VariantCheckSum TYPE Checksum UINT64 bidauction$start UINT64 bidauction$end UINT64 bid$timestamp INT32 bid$auctionId INT32 bid$bidder FLOAT64 bid$price UINT64 bid$timestamp INT32 auction$id INT32 auction$initialbid INT32 auction$reserve UINT64 auction$expires INT32 auction$seller INT32 auction$category
+SINK q8VariantCheckSum TYPE Checksum UINT64 bidauction$start UINT64 bidauction$end UINT64 bid$timestamp INT32 bid$auctionId INT32 bid$bidder FLOAT64 bid$price INT32 auction$id INT32 auction$initialbid INT32 auction$reserve UINT64 auction$expires INT32 auction$seller INT32 auction$category
 
 
 # Query 0
@@ -76,4 +76,4 @@ INNER JOIN
     (SELECT * FROM auction)
 ON auctionId = id WINDOW TUMBLING (timestamp, size 10 sec) INTO q8VariantCheckSum;
 ----
-182197843 1176742157900
+182197843 1043871719351

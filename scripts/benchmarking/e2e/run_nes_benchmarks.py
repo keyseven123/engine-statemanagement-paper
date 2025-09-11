@@ -245,9 +245,10 @@ if __name__ == "__main__":
                 buffersInGlobalBufferManager = 250000
                 bufferSizeInBytes = 250 * 1024
 
-            if query == "NM8" and  socket.gethostname() == "docker-hostname":
-                buffersInGlobalBufferManager = 20000
-                bufferSizeInBytes = 1048576
+            # For PI 4B with 8 GB of RAM
+            if socket.gethostname() == "docker-hostname":
+                buffersInGlobalBufferManager = 40000
+                bufferSizeInBytes = 102400
 
 
             config = {
