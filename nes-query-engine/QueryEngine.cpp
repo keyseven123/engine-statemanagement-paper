@@ -50,13 +50,8 @@
 #include <PipelineExecutionContext.hpp>
 #include <QueryEngineConfiguration.hpp>
 #include <QueryEngineStatisticListener.hpp>
-#include <RoundRobinTaskQueue.hpp>
 #include <RunningQueryPlan.hpp>
 #include <Task.hpp>
-#include <TaskQueue.hpp>
-#include <TaskQueuePerThread.hpp>
-
-#include "SingleTaskQueue.hpp"
 
 namespace NES
 {
@@ -277,7 +272,7 @@ public:
         switch (continuationPolicy)
         {
             case PipelineExecutionContext::ContinuationPolicy::POSSIBLE:
-                addTaskOrDoItInPlace(qid, std::move(task));
+                addTaskOrDoItInPlace(std::move(task));
                 return true;
 
             case PipelineExecutionContext::ContinuationPolicy::REPEAT:
@@ -384,7 +379,7 @@ private:
 
     private:
         ThreadPool& pool; ///NOLINT The ThreadPool will always outlive the worker and not move.
-        bool terminating{};
+        mutable bool terminating{};
     };
 
     void doTaskInPlace(Task&& task)
@@ -393,13 +388,13 @@ private:
         handleTask(worker, std::move(task));
     }
 
-    void addTaskOrDoItInPlace(const QueryId& queryId, Task&& task)
+    void addTaskOrDoItInPlace(Task&& task)
     {
         PRECONDITION(ThreadPool::WorkerThread::id != INVALID<WorkerThreadId>, "This should only be called from a worker thread");
         taskQueue.internalTask(std::move(task)); /// NOLINT no move will happen if tryWriteUntil has failed
     }
 
-    void addTaskOrDoNextTask(const QueryId& queryId, Task&& task, uint64_t stackLevel = 0)
+    void addTaskOrDoNextTask(Task&& task, uint64_t stackLevel = 0)
     {
         PRECONDITION(ThreadPool::WorkerThread::id != INVALID<WorkerThreadId>, "This should only be called from a worker thread");
 
@@ -459,8 +454,9 @@ bool ThreadPool::WorkerThread::operator()(WorkTask& task) const
                 /// If the current WorkTask is a 'repeat' task, re-emit the same tuple buffer and the same pipeline as a WorkTask.
                 if (continuationPolicy == PipelineExecutionContext::ContinuationPolicy::REPEAT)
                 {
-                    pool.statistic->onEvent(
-                        TaskEmit{id, task.queryId, pipeline->id, pipeline->id, taskId, tupleBuffer.getNumberOfTuples()});
+                    std::ranges::for_each(pool.statistic, [&](auto& listener) {
+                        listener->onEvent(TaskEmit{id, task.queryId, pipeline->id, pipeline->id, taskId, tupleBuffer.getNumberOfTuples(), tupleBuffer.getBufferSize(), pec.formattingTask});
+                    });
                     return pool.emitWork(task.queryId, pipeline, tupleBuffer, TaskCallback{}, continuationPolicy);
                 }
                 /// Otherwise, get the successor of the pipeline, and emit a work task for it.
@@ -468,8 +464,9 @@ bool ThreadPool::WorkerThread::operator()(WorkTask& task) const
                     pipeline->successors,
                     [&](const auto& successor)
                     {
-                        pool.statistic->onEvent(
-                            TaskEmit{id, task.queryId, pipeline->id, successor->id, taskId, tupleBuffer.getNumberOfTuples()});
+                        std::ranges::for_each(pool.statistic, [&](auto& listener) {
+                            listener->onEvent(TaskEmit{id, task.queryId, pipeline->id, successor->id, taskId, tupleBuffer.getNumberOfTuples(), tupleBuffer.getBufferSize(), pec.formattingTask});
+                        });
                         return pool.emitWork(task.queryId, successor, tupleBuffer, TaskCallback{}, continuationPolicy);
                     });
             });
@@ -563,7 +560,7 @@ bool ThreadPool::WorkerThread::operator()(PendingPipelineStopTask& pendingPipeli
             }
         }
 
-        pool.addTaskOrDoNextTask(pendingPipelineStop.queryId, std::move(pendingPipelineStop));
+        pool.addTaskOrDoNextTask(std::move(pendingPipelineStop));
     }
 
     return true;
@@ -662,10 +659,10 @@ bool ThreadPool::WorkerThread::operator()(FailSourceTask& failSource) const
     return false;
 }
 
-void ThreadPool::addThread(const QueryId& queryId)
+void ThreadPool::addThread(const QueryId& /*queryId*/)
 {
     pool.emplace_back(
-        [this, id = numberOfThreads_++, queryId = queryId](const std::stop_token& stopToken)
+        [this, id = numberOfThreads_++](const std::stop_token& stopToken)
         {
             WorkerThread::id = WorkerThreadId(WorkerThreadId::INITIAL + id);
             setThreadName(fmt::format("WorkerThread-{}", id));
@@ -703,37 +700,11 @@ QueryEngine::QueryEngine(
     , statusListener(std::move(listener))
     , statisticListener(std::move(statListener))
     , queryCatalog(std::make_shared<QueryCatalog>())
-    , threadPool(std::make_unique<ThreadPool>(
-          statusListener, statisticListener, bufferManager, config.taskQueueSize.getValue(), config.admissionQueueSize.getValue()))
 {
-    /// Creating the admission and internal task queues depending on the task assignment
-    std::unique_ptr<TaskQueue> admissionQueue;
-    std::unique_ptr<TaskQueue> internalTaskQueue;
-    switch (config.resourceAssignments.getValue())
-    {
-        case QueryEngineConfiguration::ResourceAssignment::WORK_DEALING_NEW_QUEUE_AND_THREAD: {
-            internalTaskQueue = std::make_unique<TaskQueuePerQuery>(config.taskQueueSize.getValue());
-            admissionQueue = std::make_unique<TaskQueuePerQuery>(config.admissionQueueSize.getValue());
-            break;
-        }
-        case QueryEngineConfiguration::ResourceAssignment::WORK_DEALING_ROUND_ROBIN: {
-            internalTaskQueue
-                = std::make_unique<RoundRobinTaskQueue>(config.numberOfWorkerThreads.getValue(), config.taskQueueSize.getValue());
-            admissionQueue = std::make_unique<RoundRobinTaskQueue>(1, config.admissionQueueSize.getValue());
-            break;
-        }
-        case QueryEngineConfiguration::ResourceAssignment::WORK_STEALING: {
-            internalTaskQueue = std::make_unique<SingleTaskQueue>(config.taskQueueSize.getValue());
-            admissionQueue = std::make_unique<SingleTaskQueue>(config.admissionQueueSize.getValue());
-            break;
-        }
-            std::unreachable();
-    }
-
     const auto newThreadPerQuery
         = config.resourceAssignments.getValue() == QueryEngineConfiguration::ResourceAssignment::WORK_DEALING_NEW_QUEUE_AND_THREAD;
     threadPool = std::make_unique<ThreadPool>(
-        statusListener, statisticListener, bufferManager, std::move(admissionQueue), std::move(internalTaskQueue), newThreadPerQuery);
+        statusListener, statisticListener, bufferManager, config.taskQueueSize.getValue(), config.admissionQueueSize.getValue());
 
     /// If we do not create a new thread per query, we need to create the threads here
     if (not threadPool->newThreadPerQuery)

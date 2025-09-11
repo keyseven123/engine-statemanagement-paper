@@ -207,7 +207,7 @@ std::vector<RunningQuery> runQueries(
                         }
                         return std::string{};
                     },
-                    std::move(queryPerformanceMessage));
+                    queryPerformanceMessage);
             }
             active.erase(it);
         }
