@@ -1,0 +1,3 @@
+[submodule "lightsaber/LightSaber"]
+	path = lightsaber/LightSaber
+	url = https://github.com/lsds/LightSaber
