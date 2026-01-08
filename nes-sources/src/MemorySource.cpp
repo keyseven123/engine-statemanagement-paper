@@ -114,7 +114,9 @@ Memory::TupleBuffer MemorySource::allocateTupleBuffer()
 
 size_t MemorySource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, const std::stop_token&)
 {
-    while (not setupFinished) {}
+    while (not setupFinished)
+    {
+    }
 
     if (nextBufferIterator == storedBuffers.end())
     {

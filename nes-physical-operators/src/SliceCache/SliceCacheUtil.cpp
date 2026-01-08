@@ -16,6 +16,7 @@
 #include <SliceCache/SliceCacheUtil.hpp>
 
 #include <SliceCache/SliceCache2Q.hpp>
+#include <SliceCache/SliceCacheAlwaysMiss.hpp>
 #include <SliceCache/SliceCacheFIFO.hpp>
 #include <SliceCache/SliceCacheLRU.hpp>
 #include <SliceCache/SliceCacheSecondChance.hpp>
@@ -65,6 +66,14 @@ std::unique_ptr<SliceCache> createSliceCache(
                 globalOperatorHandler,
                 sliceCacheOptions.numberOfEntries,
                 sizeof(SliceCacheEntrySecondChance),
+                sliceCacheEntries,
+                hitsRef,
+                missesRef);
+        case NES::Configurations::SliceCacheType::ALWAYS_MISS:
+            return std::make_unique<SliceCacheAlwaysMiss>(
+                globalOperatorHandler,
+                sliceCacheOptions.numberOfEntries,
+                sizeof(SliceCacheEntryAlwaysMiss),
                 sliceCacheEntries,
                 hitsRef,
                 missesRef);

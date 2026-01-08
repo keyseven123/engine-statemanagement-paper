@@ -51,7 +51,7 @@ allNumberOfWorkerThreads = ['1', '4', '8', '16', '24'] #['4', '16']
 allNumberOfBuffersInGlobalBufferManagers = [20000] #[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
 allNumberOfEntriesSliceCaches = [10]
-allSliceCacheTypes = ["NONE", "SECOND_CHANCE", "LRU"]
+allSliceCacheTypes = ["NONE", "SECOND_CHANCE", "LRU", "ALWAYS_MISS"]
 allBufferSizes = [1048576] #[8192] #[100 * 1024]
 allPageSizes = [8192]
 
@@ -204,7 +204,7 @@ if __name__ == "__main__":
     check_repository_root()
 
     # Create folder
-    # create_folder_and_remove_if_exists(build_dir)
+    create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
     compile_nebulastream(cmake_flags, build_dir)

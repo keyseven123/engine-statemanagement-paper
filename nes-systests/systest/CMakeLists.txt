@@ -60,7 +60,7 @@ target_include_directories(systest PUBLIC $<INSTALL_INTERFACE:/include/nebulastr
 
 # We want to run different systests with and w/o slice caches for different no. entries
 # We simply run the tests for LRU and SECOND_CHANCE, as they have showcased the best trade-off between accuracy and throughput
-set(sliceCaches NONE LRU SECOND_CHANCE)
+set(sliceCaches NONE LRU SECOND_CHANCE ALWAYS_MISS)
 set(resourceAssignmentsFixQueues WORK_STEALING) #set(resourceAssignmentsFixQueues WORK_STEALING WORK_DEALING_ROUND_ROBIN)
 set(resourceAssignmentsDynamicQueues WORK_DEALING_NEW_QUEUE_AND_THREAD)
 set(resourceAssignmentCombined ${resourceAssignmentsDynamicQueues} ${resourceAssignmentsFixQueues})

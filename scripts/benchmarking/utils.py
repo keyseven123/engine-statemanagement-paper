@@ -17,6 +17,8 @@ import shutil
 import subprocess
 import socket
 
+from typing import Optional, Tuple
+
 
 
 #### General Util Methods
@@ -90,10 +92,58 @@ def convert_unit_prefix(value, unit_prefix):
     else:
         raise ValueError(f"Could not convert {value} for {unit_prefix}")
 
-def compile_nebulastream(cmake_flags, build_dir):
-    cmake_command = f"cmake {cmake_flags} -S . -B {build_dir}"
-    build_command = f"cmake --build {build_dir}"
 
+from typing import Optional
+
+def parse_version(version_str: str) -> Tuple[int, int, int]:
+    """Parse a version string (e.g., '3.22.1') into a tuple of integers."""
+    parts = version_str.split(".")
+    # Pad with zeros if minor or patch is missing (e.g., '3.22' becomes '3.22.0')
+    while len(parts) < 3:
+        parts.append("0")
+    return tuple(map(int, parts))
+
+def find_cmake_version(cmake_path: str) -> Optional[Tuple[int, int, int]]:
+    """Check the version of a cmake executable."""
+    try:
+        result = subprocess.run(
+            [cmake_path, "--version"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        # Extract version string (e.g., "cmake version 3.22.1")
+        version_str = result.stdout.split()[2]
+        return parse_version(version_str)
+    except (subprocess.CalledProcessError, IndexError, ValueError):
+        return None
+
+def find_suitable_cmake() -> Optional[str]:
+    """Search for cmake in PATH and return the first one with version >= 3.21.0."""
+    # Get all cmake executables in PATH
+    cmake_paths = []
+    for path in os.environ.get("PATH", "").split(os.pathsep):
+        cmake_exe = os.path.join(path, "cmake")
+        if os.path.isfile(cmake_exe) and os.access(cmake_exe, os.X_OK):
+            cmake_paths.append(cmake_exe)
+
+    # Check versions
+    for cmake_path in cmake_paths:
+        version = find_cmake_version(cmake_path)
+        if version is not None and version >= (3, 21, 0):
+            return cmake_path
+
+    return None
+
+def compile_nebulastream(cmake_flags, build_dir):
+    cmake_path = find_suitable_cmake()
+    if not cmake_path:
+        raise RuntimeError("No suitable cmake (version >= 3.21) found in PATH.")
+
+    cmake_command = f"{cmake_path} {cmake_flags} -S . -B {build_dir}"
+    build_command = f"{cmake_path} --build {build_dir}"
+
+    print(f"Using cmake at: {cmake_path}")
     print("Running cmake...")
     run_command(cmake_command)
     print("Building the project...")
