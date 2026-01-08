@@ -53,7 +53,7 @@ using QueryPerformanceMessageBuilder = std::function<std::string(RunningQuery&)>
     const std::vector<SystestQuery>& queries,
     uint64_t numConcurrentQueries,
     QuerySubmitter& querySubmitter,
-    QueryPerformanceMessageBuilder queryPerformanceMessage);
+    const QueryPerformanceMessageBuilder& queryPerformanceMessage);
 
 /// Run queries locally ie not on single-node-worker in a separate process
 /// @return returns a collection of failed queries
