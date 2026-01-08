@@ -25,6 +25,7 @@
 #include <Nautilus/Interface/Record.hpp>
 #include <Runtime/Execution/OperatorHandler.hpp>
 #include <SliceCache/SliceCache2Q.hpp>
+#include <SliceCache/SliceCacheAlwaysMiss.hpp>
 #include <SliceCache/SliceCacheFIFO.hpp>
 #include <SliceCache/SliceCacheLRU.hpp>
 #include <SliceCache/SliceCacheSecondChance.hpp>
@@ -33,6 +34,7 @@
 #include <Time/Timestamp.hpp>
 #include <Watermark/TimeFunction.hpp>
 #include <nautilus/val_enum.hpp>
+
 #include <ErrorHandling.hpp>
 #include <ExecutionContext.hpp>
 #include <SliceCacheConfiguration.hpp>
@@ -85,6 +87,9 @@ void NLJBuildCachePhysicalOperator::setup(ExecutionContext& executionCtx, const 
             break;
         case Configurations::SliceCacheType::TWO_QUEUES:
             sizeOfEntry = sizeof(SliceCacheEntry2Q);
+            break;
+        case NES::Configurations::SliceCacheType::ALWAYS_MISS:
+            sizeOfEntry = sizeof(SliceCacheEntryAlwaysMiss);
             break;
     }
 

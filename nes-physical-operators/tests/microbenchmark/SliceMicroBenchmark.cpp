@@ -22,6 +22,7 @@
 #include <Nautilus/Util.hpp>
 #include <SliceCache/SliceCache.hpp>
 #include <SliceCache/SliceCache2Q.hpp>
+#include <SliceCache/SliceCacheAlwaysMiss.hpp>
 #include <SliceCache/SliceCacheFIFO.hpp>
 #include <SliceCache/SliceCacheLFU.hpp>
 #include <SliceCache/SliceCacheLRU.hpp>
@@ -31,6 +32,7 @@
 #include <Time/Timestamp.hpp>
 #include <fmt/ranges.h>
 #include <magic_enum/magic_enum.hpp>
+
 #include <SliceCacheConfiguration.hpp>
 
 #include <Engine.hpp>
@@ -68,6 +70,8 @@ size_t getSliceCacheEntrySize(const Configurations::SliceCacheOptions& sliceCach
             return sizeof(SliceCacheEntryLRU);
         case NES::Configurations::SliceCacheType::SECOND_CHANCE:
             return sizeof(SliceCacheEntrySecondChance);
+        case NES::Configurations::SliceCacheType::ALWAYS_MISS:
+            return sizeof(SliceCacheEntryAlwaysMiss);
     }
     std::unreachable();
 }

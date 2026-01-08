@@ -398,6 +398,7 @@ RewriteRuleResultSubgraph LowerToPhysicalHashJoin::apply(LogicalOperator logical
         case NES::Configurations::SliceCacheType::LRU:
         case NES::Configurations::SliceCacheType::FIFO:
         case NES::Configurations::SliceCacheType::SECOND_CHANCE:
+        case NES::Configurations::SliceCacheType::ALWAYS_MISS:
             NES::Configurations::SliceCacheOptions sliceCacheOptions{
                 conf.sliceCacheConfiguration.sliceCacheType.getValue(), conf.sliceCacheConfiguration.numberOfEntriesSliceCache.getValue()};
             leftBuildWrapper = std::make_shared<PhysicalOperatorWrapper>(

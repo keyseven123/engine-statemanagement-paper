@@ -29,7 +29,8 @@ enum class SliceCacheType : uint8_t
     TWO_QUEUES,
     LRU,
     FIFO,
-    SECOND_CHANCE
+    SECOND_CHANCE,
+    ALWAYS_MISS
 };
 
 struct SliceCacheOptions

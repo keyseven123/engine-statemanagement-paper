@@ -27,6 +27,7 @@
 #include <Nautilus/Interface/PagedVector/PagedVectorRef.hpp>
 #include <Nautilus/Interface/Record.hpp>
 #include <SliceCache/SliceCache2Q.hpp>
+#include <SliceCache/SliceCacheAlwaysMiss.hpp>
 #include <SliceCache/SliceCacheFIFO.hpp>
 #include <SliceCache/SliceCacheLRU.hpp>
 #include <SliceCache/SliceCacheSecondChance.hpp>
@@ -96,6 +97,9 @@ void AggregationBuildCachePhysicalOperator::setup(ExecutionContext& executionCtx
             break;
         case NES::Configurations::SliceCacheType::TWO_QUEUES:
             sizeOfEntry = sizeof(SliceCacheEntry2Q);
+            break;
+        case NES::Configurations::SliceCacheType::ALWAYS_MISS:
+            sizeOfEntry = sizeof(SliceCacheEntryAlwaysMiss);
             break;
     }
     nautilus::invoke(
