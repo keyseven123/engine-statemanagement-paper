@@ -124,7 +124,7 @@ std::vector<RunningQuery> runQueries(
     const std::vector<SystestQuery>& queries,
     const uint64_t numConcurrentQueries,
     QuerySubmitter& querySubmitter,
-    QueryPerformanceMessageBuilder queryPerformanceMessage)
+    const QueryPerformanceMessageBuilder& queryPerformanceMessage)
 {
     std::queue<SystestQuery> pending;
     for (auto it = queries.rbegin(); it != queries.rend(); ++it)
@@ -207,7 +207,7 @@ std::vector<RunningQuery> runQueries(
                         }
                         return std::string{};
                     },
-                    std::move(queryPerformanceMessage));
+                    queryPerformanceMessage);
             }
             active.erase(it);
         }
