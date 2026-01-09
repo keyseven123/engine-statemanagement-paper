@@ -17,6 +17,7 @@ Python script that runs the below systest files for different worker configurati
 """
 
 import argparse
+import ast
 import subprocess
 import json
 import os
@@ -169,6 +170,19 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
             writer.writerow({**result, **config})
         print(f"Results for config {config} written to CSV.")
 
+def parse_buffer_config(config_strings):
+    """Parse a list of buffer config strings into a list of tuples."""
+    result = []
+    for s in config_strings:
+        try:
+            parsed = ast.literal_eval(s.strip())
+            if isinstance(parsed, tuple) and len(parsed) == 2:
+                result.append(parsed)
+            else:
+                raise ValueError(f"Expected a tuple of 2 elements, got {parsed}")
+        except (ValueError, SyntaxError) as e:
+            raise ValueError(f"Invalid tuple format: {s}. Expected format like '(1234, 100)'") from e
+    return result
 
 if __name__ == "__main__":
     # Initialize argument parser
@@ -177,6 +191,7 @@ if __name__ == "__main__":
     parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
     parser.add_argument("-s", "--slice-cache-type", nargs="+", help="List of slice cache types to run the queries.")
     parser.add_argument("-w", "--worker-threads", nargs="+", help="Number of worker threads to run the queries.")
+    parser.add_argument("-b", "--buffer-config", nargs="+", help="List of buffer configurations as tuples and buffer size is first, e.g., '(1234, 100) (128, 40)'.")
     args = parser.parse_args()
 
     # Determine which queries to run
@@ -191,14 +206,21 @@ if __name__ == "__main__":
     if args.slice_cache_type:
         slice_caches_to_run = [slice_cache for slice_cache in allSliceCacheTypes if slice_cache in args.slice_cache_type]
 
-    # Determine with number of worker threads to run it with
+    # Determine the number of worker threads to run with
     number_of_worker_threads_to_run = allNumberOfWorkerThreads
     if args.worker_threads:
         number_of_worker_threads_to_run = [str(no_worker_threads) for no_worker_threads in args.worker_threads]
 
+    # Parse buffer configurations
+    allBufferConfigs = (allBufferSizes[0], allNumberOfBuffersInGlobalBufferManagers[0])
+    if args.buffer_config:
+        allBufferConfigs = parse_buffer_config(args.buffer_config)
+
+    # Print results
     print(",".join(queries_to_run.keys()))
     print(",".join(slice_caches_to_run))
     print(",".join(number_of_worker_threads_to_run))
+    print(",".join(map(str, allBufferConfigs)))
 
     # Checking if the script has been executed from the repository root
     check_repository_root()
@@ -221,34 +243,36 @@ if __name__ == "__main__":
             len(allNumberOfEntriesSliceCaches) *
             len(slice_caches_to_run) *
             len(allBufferSizes) *
-            len(allPageSizes)
+            len(allPageSizes) *
+            len(allBufferConfigs)
     )
     no_queries = len(queries_to_run)
     for queryIdx, query in enumerate(queries_to_run):
         workerConfigIdx = 0
 
         combinations = itertools.product(allExecutionModes, number_of_worker_threads_to_run,
-                                         allNumberOfBuffersInGlobalBufferManagers, allJoinStrategies,
-                                         allNumberOfEntriesSliceCaches, slice_caches_to_run, allBufferSizes,
+                                         allBufferConfigs, allJoinStrategies,
+                                         allNumberOfEntriesSliceCaches, slice_caches_to_run,
                                          allPageSizes)
-        for [executionMode, numberOfWorkerThreads, buffersInGlobalBufferManager, joinStrategy,
+        for [executionMode, numberOfWorkerThreads, (bufferSizeInBytes, buffersInGlobalBufferManager), joinStrategy,
              numberOfEntriesSliceCaches,
-             sliceCacheType, bufferSizeInBytes, pageSize] in combinations:
+             sliceCacheType, pageSize] in combinations:
             workerConfigIdx += 1
 
             # Otherwise we run out-of-memory / out-of-buffers
-            if query == "NM8":
-                buffersInGlobalBufferManager = 312000
-                bufferSizeInBytes = 400 * 1024
+            if not args.buffer_config:
+                if query == "NM8":
+                    buffersInGlobalBufferManager = min(buffersInGlobalBufferManager, 312000)
+                    bufferSizeInBytes = min(bufferSizeInBytes, 400 * 1024)
 
-            if query == "NM8" and  socket.gethostname() == "mif-ws":
-                buffersInGlobalBufferManager = 250000
-                bufferSizeInBytes = 250 * 1024
+                if query == "NM8" and  socket.gethostname() == "mif-ws":
+                    buffersInGlobalBufferManager = min(buffersInGlobalBufferManager, 250000)
+                    bufferSizeInBytes = min(bufferSizeInBytes, 250 * 1024)
 
-            # For PI 4B with 8 GB of RAM
-            if socket.gethostname() == "docker-hostname":
-                buffersInGlobalBufferManager = 40000
-                bufferSizeInBytes = 102400
+                # For PI 4B with 8 GB of RAM
+                if socket.gethostname() == "docker-hostname":
+                    buffersInGlobalBufferManager = min(buffersInGlobalBufferManager, 40000)
+                    bufferSizeInBytes = min(bufferSizeInBytes, 102400)
 
 
             config = {

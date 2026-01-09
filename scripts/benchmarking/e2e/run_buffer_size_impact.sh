@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#    https://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -euo pipefail
+
+# Create a Python virtual environment and install the required python libraries
+python3 -m venv myenv
+source myenv/bin/activate
+pip3 install argparse requests pandas pyyaml
+
+#/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -w 16 -q YSB1k SG2 SG3 NM1 NM5 NM8 -s SECOND_CHANCE -b "(1024, 32000000)" "(2048, 16000000)" "(4096, 8000000)" "(8192, 4000000)" "(102400, 500000)""
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -w 16 -q NM8 -s SECOND_CHANCE -b "(1024, 32000000)" "(2048, 16000000)" "(4096, 8000000)" "(8192, 4000000)" "(102400, 500000)"
+
+# Deactivate the virtual environment
+deactivate
+rm -rf myenv
