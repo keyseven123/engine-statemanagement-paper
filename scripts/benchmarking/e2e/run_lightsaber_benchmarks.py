@@ -86,16 +86,20 @@ def write_to_csv(query_name, avg_throughput, parallelism):
 
 def run_command_in_docker(command, timeout=None):
     docker_run_cmd = (
-        f"docker run -d --rm --ulimit core=-1 --tmpfs /tmp:exec,size=1g "
-        f"-v $(pwd):/root/LightSaber lightsaber /bin/bash -c \"{command}\""
+        f"docker run -d --rm -v $(pwd):/root/LightSaber lightsaber /bin/bash -c \"{command}\""
     )
+    print(f"Running {docker_run_cmd}")
     result = subprocess.run(docker_run_cmd, shell=True, check=True, text=True, capture_output=True)
     container_id = result.stdout.strip()
 
     # Wait for the timeout and then stop the container
     if timeout:
         time.sleep(timeout)
-        subprocess.run(f"docker stop -t 1 {container_id}", shell=True, check=True)
+        # Check if the container exists before stopping
+        inspect_cmd = f"docker inspect -f '{{{{.State.Running}}}}' {container_id} 2>/dev/null"
+        inspect_result = subprocess.run(inspect_cmd, shell=True, capture_output=True, text=True)
+        if inspect_result.returncode == 0 and inspect_result.stdout.strip() == "true":
+            subprocess.run(f"docker stop -t 1 {container_id}", shell=True, check=True)
 
 
 def analyze_logs(log_path):
