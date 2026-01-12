@@ -55,8 +55,8 @@ def get_vcpkg_dir():
     hostname = socket.gethostname()
 
     # Determine the vcpkg directory based on the hostname
-    if hostname == "nils-ThinkStation-P3-Tower":
-        vcpkg_dir = "/home/nils/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    if hostname == "nschubert-thinkstation":
+        vcpkg_dir = "/home/nschubert/remote_server/vcpkg/scripts/buildsystems/vcpkg.cmake"
     elif hostname == "hare":
         vcpkg_dir = "/data/vcpkg/scripts/buildsystems/vcpkg.cmake"
     elif hostname == "mif-ws":

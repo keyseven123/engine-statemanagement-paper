@@ -49,12 +49,12 @@ NUM_RUNS_PER_EXPERIMENT = 1
 #### Worker Configurations
 allExecutionModes = ["COMPILER"]  # ["COMPILER", "INTERPRETER"]
 allNumberOfWorkerThreads = ['1', '4', '8', '16', '24'] #['4', '16']
-allNumberOfBuffersInGlobalBufferManagers = [20000] #[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
 allJoinStrategies = ["HASH_JOIN"]
 allNumberOfEntriesSliceCaches = [10]
 allSliceCacheTypes = ["NONE", "SECOND_CHANCE", "LRU", "ALWAYS_MISS"]
-allBufferSizes = [1048576] #[8192] #[100 * 1024]
 allPageSizes = [8192]
+#[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
+allBufferConfigs = [(1048576, 20000)]
 
 #### Queries
 queries = {
@@ -120,29 +120,28 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
     # Create the working directory
     create_folder_and_remove_if_exists(working_dir)
 
-    # Running the query with a particular worker configuration
-    worker_config = (f"--worker.queryEngine.numberOfWorkerThreads={numberOfWorkerThreads} "
-                     f"--worker.defaultQueryExecution.executionMode={executionMode} "
-                     f"--worker.numberOfBuffersInGlobalBufferManager={buffersInGlobalBufferManager} "
-                     f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
-                     f"--worker.defaultQueryExecution.joinStrategy={joinStrategy} "
-                     f"--worker.queryEngine.taskQueueSize=10000 "
-                     f"--worker.queryEngine.admissionQueueSize=1000000 "
-                     f"--worker.numberOfBuffersInSourceLocalPools=1024 "
-                     f"--worker.defaultQueryExecution.pageSize={pageSize} "
-                     f"--worker.defaultQueryExecution.operatorBufferSize={bufferSizeInBytes} "
-                     f"--worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
-                     f"--worker.defaultQueryExecution.sliceCache.sliceCacheType={sliceCacheType}")
-
-    benchmark_command = f"{systest_executable} -b -t {os.path.abspath(queries[query])} --data {os.path.abspath(test_data_dir)} --workingDir={working_dir} -- {worker_config}"
-
-    print(
-        f"Running {query} [{queryIdx}/{no_queries}] for worker configuration [{workerConfigIdx}/{no_combinations}]...")
-    stdout = run_command(benchmark_command)
-
-    # Parse and save benchmark results
     try:
+        # Running the query with a particular worker configuration
+        worker_config = (f"--worker.queryEngine.numberOfWorkerThreads={numberOfWorkerThreads} "
+                         f"--worker.defaultQueryExecution.executionMode={executionMode} "
+                         f"--worker.numberOfBuffersInGlobalBufferManager={buffersInGlobalBufferManager} "
+                         f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
+                         f"--worker.defaultQueryExecution.joinStrategy={joinStrategy} "
+                         f"--worker.queryEngine.taskQueueSize=10000 "
+                         f"--worker.queryEngine.admissionQueueSize=1000000 "
+                         f"--worker.numberOfBuffersInSourceLocalPools=1024 "
+                         f"--worker.defaultQueryExecution.pageSize={pageSize} "
+                         f"--worker.defaultQueryExecution.operatorBufferSize={bufferSizeInBytes} "
+                         f"--worker.defaultQueryExecution.sliceCache.numberOfEntriesSliceCache={numberOfEntriesSliceCaches} "
+                         f"--worker.defaultQueryExecution.sliceCache.sliceCacheType={sliceCacheType}")
 
+        benchmark_command = f"{systest_executable} -b -t {os.path.abspath(queries[query])} --data {os.path.abspath(test_data_dir)} --workingDir={working_dir} -- {worker_config}"
+
+        print(
+            f"Running {query} [{queryIdx}/{no_queries}] for worker configuration [{workerConfigIdx}/{no_combinations}]...")
+        stdout = run_command(benchmark_command)
+
+        # Parse and save benchmark results
         with open(benchmark_json_file, 'r') as file:
             content = file.read()
             benchmark_results = json.loads(content)
@@ -212,7 +211,6 @@ if __name__ == "__main__":
         number_of_worker_threads_to_run = [str(no_worker_threads) for no_worker_threads in args.worker_threads]
 
     # Parse buffer configurations
-    allBufferConfigs = (allBufferSizes[0], allNumberOfBuffersInGlobalBufferManagers[0])
     if args.buffer_config:
         allBufferConfigs = parse_buffer_config(args.buffer_config)
 
@@ -226,7 +224,7 @@ if __name__ == "__main__":
     check_repository_root()
 
     # Create folder
-    create_folder_and_remove_if_exists(build_dir)
+    # create_folder_and_remove_if_exists(build_dir)
 
     # Build NebulaStream
     compile_nebulastream(cmake_flags, build_dir)
@@ -238,11 +236,9 @@ if __name__ == "__main__":
     no_combinations = (
             len(allExecutionModes) *
             len(number_of_worker_threads_to_run) *
-            len(allNumberOfBuffersInGlobalBufferManagers) *
             len(allJoinStrategies) *
             len(allNumberOfEntriesSliceCaches) *
             len(slice_caches_to_run) *
-            len(allBufferSizes) *
             len(allPageSizes) *
             len(allBufferConfigs)
     )
@@ -262,17 +258,17 @@ if __name__ == "__main__":
             # Otherwise we run out-of-memory / out-of-buffers
             if not args.buffer_config:
                 if query == "NM8":
-                    buffersInGlobalBufferManager = min(buffersInGlobalBufferManager, 312000)
-                    bufferSizeInBytes = min(bufferSizeInBytes, 400 * 1024)
+                    buffersInGlobalBufferManager = 312000
+                    bufferSizeInBytes = 400 * 1024
 
                 if query == "NM8" and  socket.gethostname() == "mif-ws":
-                    buffersInGlobalBufferManager = min(buffersInGlobalBufferManager, 250000)
-                    bufferSizeInBytes = min(bufferSizeInBytes, 250 * 1024)
+                    buffersInGlobalBufferManager = 250000
+                    bufferSizeInBytes = 250 * 1024
 
                 # For PI 4B with 8 GB of RAM
                 if socket.gethostname() == "docker-hostname":
-                    buffersInGlobalBufferManager = min(buffersInGlobalBufferManager, 40000)
-                    bufferSizeInBytes = min(bufferSizeInBytes, 102400)
+                    buffersInGlobalBufferManager = 40000
+                    bufferSizeInBytes = 102400
 
 
             config = {

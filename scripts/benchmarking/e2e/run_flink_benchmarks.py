@@ -73,8 +73,8 @@ def get_tmp_data_dir():
     # Get the hostname
     hostname = socket.gethostname()
 
-    # Determine the vcpkg directory based on the hostname
-    if hostname == "nils-ThinkStation-P3-Tower":
+    # Determine the tmp directory based on the hostname
+    if hostname == "nschubert-thinkstation":
         data_dir = "/tmp/data"
     elif hostname == "hare":
         data_dir = "/data/tmp_data"

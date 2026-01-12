@@ -19,7 +19,7 @@ python3 -m venv myenv
 source myenv/bin/activate
 pip3 install argparse requests pandas pyyaml
 
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -w 16 -q LRB1 LRB2 SG1 SG2 NM8 YSB1k -s SECOND_CHANCE ALWAYS_MISS NONE
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks -w 24 -q LRB1 LRB2 SG1 SG2 NM8 YSB1k -s SECOND_CHANCE ALWAYS_MISS NONE
 
 # Deactivate the virtual environment
 deactivate

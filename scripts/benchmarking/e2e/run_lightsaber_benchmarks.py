@@ -28,18 +28,15 @@ from scripts.benchmarking.utils import *
 from urllib.request import urlretrieve
 
 queries = {
-    "CM1": "/root/LightSaber/build/test/benchmarks/applications/cluster_monitoring --circular-size 16777216 --unbounded-size 524288 --batch-size 524288 --bundle-size 524288 --query 1 --latency true",
-    "CM2": "/root/LightSaber/build/test/benchmarks/applications/cluster_monitoring --circular-size 16777216 --unbounded-size 1048576 --batch-size 524288 --bundle-size 524288 --query 2 --latency true",
     "SG1": "/root/LightSaber/build/test/benchmarks/applications/smartgrid  --query 1 --unbounded-size 262144 --batch-size 1048576 --circular-size 33554432 --bundle-size 1048576 --slots 128 --latency true",
-    "SG2": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 2 --hashtable-size 512 --unbounded-size 1048576 --circular-size 16777216 --bundle-size 524288  --slots 128 --batch-size 524288 --unbounded-size 4194304 --create-merge true --parallel-merge true --latency true",
-    "SG3": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 3 --hashtable-size 512 --unbounded-size 1048576 --circular-size 16777216 --bundle-size 524288 --slots 128 --batch-size 524288 --unbounded-size 4194304 --create-merge true --parallel-merge true --latency true",
-    "LRB1": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --unbounded-size 8388608 --circular-size 16777216 --batch-size 524288 --bundle-size 524288 --query 1 --hashtable-size 256 --create-merge true --parallel-merge true --latency true",
-    "LRB2": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --unbounded-size 16777216 --circular-size 16777216 --batch-size 262144 --bundle-size 262144 --query 2 --create-merge true --parallel-merge true --latency true",
+    "SG2": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 2 --hashtable-size 512 --unbounded-size 1048576 --circular-size 16777216 --bundle-size 524288  --slots 128 --batch-size 524288 --unbounded-size 4194304 --parallel-merge true --latency true",
+    "SG3": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 3 --hashtable-size 512 --unbounded-size 1048576 --circular-size 16777216 --bundle-size 524288 --slots 128 --batch-size 524288 --unbounded-size 4194304 --parallel-merge true --latency true",
+    "LRB1": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --unbounded-size 8388608 --circular-size 16777216 --batch-size 524288 --bundle-size 524288 --query 1 --hashtable-size 256 --parallel-merge true --latency true",
+    "LRB2": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --unbounded-size 16777216 --circular-size 16777216 --batch-size 262144 --bundle-size 262144 --query 2 --parallel-merge true --latency true",
 }
 
-num_of_records = [20 * 1000 * 1000]  # [10000, 1000000, 10000000]
-parallelisms = ["1", "16"]
-# parallelisms = ["1", "4", "8", "16", "24"]
+# parallelisms = ["1", "24"]
+parallelisms = ["1", "4", "8", "16", "24"]
 MAX_RUNTIME_PER_JOB = 10  # in seconds
 
 
@@ -47,8 +44,8 @@ def get_tmp_data_dir():
     # Get the hostname
     hostname = socket.gethostname()
 
-    # Determine the vcpkg directory based on the hostname
-    if hostname == "nils-ThinkStation-P3-Tower":
+    # Determine the tmp directory based on the hostname
+    if hostname == "nschubert-thinkstation":
         data_dir = "/tmp/data"
     elif hostname == "hare":
         data_dir = "/data/tmp_data"
@@ -88,7 +85,7 @@ def run_command_in_docker(command, timeout=None):
     docker_run_cmd = (
         f"docker run -d --rm -v $(pwd):/root/LightSaber lightsaber /bin/bash -c \"{command}\""
     )
-    print(f"Running {docker_run_cmd}")
+    print(f"Running {docker_run_cmd} at cwd {os.getcwd()}")
     result = subprocess.run(docker_run_cmd, shell=True, check=True, text=True, capture_output=True)
     container_id = result.stdout.strip()
 
@@ -104,7 +101,7 @@ def run_command_in_docker(command, timeout=None):
 
 def analyze_logs(log_path):
     # Use regex to find all "Average: <decimal>" values
-    pattern = r'Average: (\d+\.?\d*) t/sec'
+    pattern = r'Average: (\d+\.?\d*) tuples/sec'
     print(f"log path abs : {os.path.abspath(log_path)}")
     with open(log_path) as f:
         log_content = f.read()
@@ -114,7 +111,10 @@ def analyze_logs(log_path):
     averages = [float(avg) for avg in averages]
     print(f"Averages: {averages}")
 
-    return sum(averages) / len(averages)
+    if averages and len(averages) > 0:
+        return sum(averages) / len(averages)
+    else:
+        return 0
 
 
 def main():
@@ -148,7 +148,7 @@ def main():
     original_dir = os.getcwd()
 
     try:
-        os.chdir('lightsaber/LightSaber')
+        os.chdir('LightSaber')
 
         if os.path.exists(csv_folder):
             shutil.rmtree(csv_folder)
