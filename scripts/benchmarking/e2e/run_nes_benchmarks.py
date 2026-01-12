@@ -55,7 +55,6 @@ allSliceCacheTypes = ["NONE", "SECOND_CHANCE", "LRU", "ALWAYS_MISS"]
 allPageSizes = [8192]
 #[4000000] if buffer size is 8192 #[500000] if buffer size is 102400
 allBufferConfigs = [(1048576, 20000)]
-allResourceAssignments = ["WORK_STEALING", "WORK_DEALING_ROUND_ROBIN"]
 
 #### Queries
 queries = {
@@ -129,7 +128,6 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
                          f"--worker.bufferSizeInBytes={bufferSizeInBytes} "
                          f"--worker.defaultQueryExecution.joinStrategy={joinStrategy} "
                          f"--worker.queryEngine.taskQueueSize=10000 "
-                         f"--worker.queryEngine.resourceAssignment={resourceAssignment} "
                          f"--worker.queryEngine.admissionQueueSize=1000000 "
                          f"--worker.numberOfBuffersInSourceLocalPools=1024 "
                          f"--worker.defaultQueryExecution.pageSize={pageSize} "
@@ -163,7 +161,7 @@ def run_benchmark(config, query, queryIdx, workerConfigIdx, no_combinations, no_
             'bytesPerSecond', 'query_name', 'time', 'tuplesPerSecond', 'tuplesPerSecond_listener',
             'executionMode', 'numberOfWorkerThreads', 'buffersInGlobalBufferManager',
             'joinStrategy', 'numberOfEntriesSliceCaches', 'sliceCacheType',
-            'bufferSizeInBytes', 'pageSize', 'resourceAssignment'
+            'bufferSizeInBytes', 'pageSize'
         ])
         for result in benchmark_results:
             result['query_name'] = query
@@ -193,7 +191,6 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--slice-cache-type", nargs="+", help="List of slice cache types to run the queries.")
     parser.add_argument("-w", "--worker-threads", nargs="+", help="Number of worker threads to run the queries.")
     parser.add_argument("-b", "--buffer-config", nargs="+", help="List of buffer configurations as tuples and buffer size is first, e.g., '(1234, 100) (128, 40)'.")
-    parser.add_argument("-r", "--resource-assignment", nargs="+", help="List of resource assignments to run the benchmarks with.")
     args = parser.parse_args()
 
     # Determine which queries to run
@@ -216,10 +213,6 @@ if __name__ == "__main__":
     # Parse buffer configurations
     if args.buffer_config:
         allBufferConfigs = parse_buffer_config(args.buffer_config)
-
-    # Parse resource assignment
-    if args.resource_assignment:
-        allResourceAssignments = [resource_assignment for resource_assignment in allResourceAssignments if resource_assignment in args.resource_assignment]
 
     # Print results
     print(",".join(queries_to_run.keys()))
@@ -247,7 +240,6 @@ if __name__ == "__main__":
             len(allNumberOfEntriesSliceCaches) *
             len(slice_caches_to_run) *
             len(allPageSizes) *
-            len(allResourceAssignments) *
             len(allBufferConfigs)
     )
     no_queries = len(queries_to_run)
@@ -257,10 +249,10 @@ if __name__ == "__main__":
         combinations = itertools.product(allExecutionModes, number_of_worker_threads_to_run,
                                          allBufferConfigs, allJoinStrategies,
                                          allNumberOfEntriesSliceCaches, slice_caches_to_run,
-                                         allPageSizes, allResourceAssignments)
+                                         allPageSizes)
         for [executionMode, numberOfWorkerThreads, (bufferSizeInBytes, buffersInGlobalBufferManager), joinStrategy,
              numberOfEntriesSliceCaches,
-             sliceCacheType, pageSize, resourceAssignment] in combinations:
+             sliceCacheType, pageSize] in combinations:
             workerConfigIdx += 1
 
             # Otherwise we run out-of-memory / out-of-buffers
@@ -287,8 +279,7 @@ if __name__ == "__main__":
                 'numberOfEntriesSliceCaches': numberOfEntriesSliceCaches,
                 'sliceCacheType': sliceCacheType,
                 'bufferSizeInBytes': bufferSizeInBytes,
-                'pageSize': pageSize,
-                'resourceAssignment': resourceAssignment
+                'pageSize': pageSize
             }
 
             for i in range(NUM_RUNS_PER_EXPERIMENT):
