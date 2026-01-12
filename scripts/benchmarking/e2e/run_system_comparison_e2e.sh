@@ -20,9 +20,9 @@ source myenv/bin/activate
 pip3 install argparse requests pandas pyyaml
 
 #/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks --all
-#/usr/bin/python3 -m scripts.benchmarking.e2e.run_flink_benchmarks -q NM1 NM2
 #/usr/bin/python3 -m scripts.benchmarking.e2e.run_nes_benchmarks --all -s SECOND_CHANCE
-/usr/bin/python3 -m scripts.benchmarking.e2e.run_lightsaber_benchmarks --all
+#/usr/bin/python3 -m scripts.benchmarking.e2e.run_lightsaber_benchmarks --all
+/usr/bin/python3 -m scripts.benchmarking.e2e.run_spark_benchmarks -p 24
 
 # Deactivate the virtual environment
 deactivate
