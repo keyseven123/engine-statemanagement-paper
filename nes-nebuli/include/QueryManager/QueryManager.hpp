@@ -18,6 +18,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <expected>
 
 #include <Identifiers/Identifiers.hpp>
 #include <Listeners/QueryLog.hpp>
