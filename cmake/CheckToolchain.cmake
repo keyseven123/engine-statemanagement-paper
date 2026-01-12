@@ -44,21 +44,21 @@ endif ()
 if (NOT ${USING_LIBCXX})
     # Check if Libstdc++ version is 14 or above
     set(CMAKE_REQUIRED_FLAGS "-std=c++23")
-#    check_cxx_source_compiles("
-#        #include <cstddef>
-#        #if defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE >= 14
-#            int main() { return 0; }
-#        #else
-#            #error \"libstdc++ version is below 14\"
-#        #endif
-#    " LIBSTDCXX_VERSION_CHECK)
-#
-#    if (LIBSTDCXX_VERSION_CHECK)
+    check_cxx_source_compiles("
+        #include <cstddef>
+        #if defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE >= 14
+            int main() { return 0; }
+        #else
+            #error \"libstdc++ version is below 14\"
+        #endif
+    " LIBSTDCXX_VERSION_CHECK)
+
+    if (LIBSTDCXX_VERSION_CHECK)
         set(USING_LIBSTDCXX ON)
         message(STATUS "Libstdc++ >= 14")
-#    else ()
-#        message(FATAL_ERROR "Requires Libstdc++ >= 14. On ubuntu systems this can be installed via g++-14")
-#    endif ()
+    else ()
+        message(FATAL_ERROR "Requires Libstdc++ >= 14. On ubuntu systems this can be installed via g++-14")
+    endif ()
 endif ()
 
 if (${USING_LIBCXX})
