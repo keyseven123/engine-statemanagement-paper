@@ -91,11 +91,11 @@ def main():
 
         # Downloading the data sets and building the docker image
         run_command("./scripts/download_data.sh")
-        run_command("docker build -t spark-batch-benchmark .")
+        run_command("docker build -t spark-streaming-benchmark .")
 
         # Running all queries with different no. parallelism
         for parallelism in parallelisms_to_run:
-            stdout = run_command(f"docker run -v $(pwd)/data:/data -e SPARK_DRIVER_MEMORY=80g -e SPARK_CORES={parallelism} spark-batch-benchmark")
+            stdout = run_command(f"docker run -v $(pwd)/data:/data -e SPARK_DRIVER_MEMORY=64g -e SPARK_CORES={parallelism} spark-streaming-benchmark:latest")
             csv_rows = parse_throughput(stdout)
             with open(csv_path, 'a') as file:
                 for row in csv_rows[:-1]:

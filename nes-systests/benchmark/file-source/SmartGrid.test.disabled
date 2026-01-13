@@ -23,7 +23,7 @@ INTO CHECKSUM;
 SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
-WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
+WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
 INTO CHECKSUM;
 ----
 94690277 199750670242
@@ -32,6 +32,6 @@ INTO CHECKSUM;
 SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
-WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
+WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
 INTO DISCARD;
 ----
