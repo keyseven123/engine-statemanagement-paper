@@ -25,7 +25,7 @@ INTO q1Discard;
 SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
-WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
+WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
 INTO q2Discard;
 ----
 
@@ -33,6 +33,6 @@ INTO q2Discard;
 SELECT start, end, plugId, householdId, houseId, AVG(value) AS avg_value
 FROM smartGrid
 GROUP BY (plugId, householdId, houseId)
-WINDOW SLIDING(creationTS, SIZE 128 SEC, ADVANCE BY 1 SEC)
+WINDOW SLIDING(creationTS, SIZE 1 HOUR, ADVANCE BY 1 SEC)
 INTO q3Discard;
 ----
