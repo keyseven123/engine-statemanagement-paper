@@ -1,0 +1,4 @@
+query_name,parallelism,numOfRecords,tuplesPerSecond
+YSB10k,16,5000000,842495
+NM1,16,20000000,0
+NM5,16,20000000,2137982

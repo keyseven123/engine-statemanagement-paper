@@ -1,0 +1,6 @@
+query_name,parallelism,numOfRecords,tuplesPerSecond
+NM1,4,1000000,270074
+NM2,4,1000000,232964
+NM5,4,1000000,152877
+NM8,4,500000,39450
+NM8_Variant,4,500000,51664
