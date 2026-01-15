@@ -793,7 +793,7 @@ QueryEngine::QueryEngine(
         case QueryEngineConfiguration::ResourceAssignment::WORK_DEALING_ROUND_ROBIN: {
             internalTaskQueue
                 = std::make_unique<RoundRobinTaskQueue>(config.numberOfWorkerThreads.getValue(), config.taskQueueSize.getValue());
-            admissionQueue = std::make_unique<RoundRobinTaskQueue>(1, config.admissionQueueSize.getValue());
+            admissionQueue = std::make_unique<RoundRobinTaskQueue>(config.numberOfWorkerThreads.getValue(), config.admissionQueueSize.getValue());
             break;
         }
         case QueryEngineConfiguration::ResourceAssignment::WORK_STEALING: {

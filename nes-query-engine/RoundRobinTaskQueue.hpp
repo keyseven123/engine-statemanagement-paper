@@ -27,7 +27,7 @@ class RoundRobinTaskQueue final : public TaskQueue
 
     detail::Queue& getOwnQueue(const WorkerThreadId& threadId)
     {
-        thread_local auto pos = threadId % taskQueues.size();
+        const auto pos = threadId % taskQueues.size();
         return taskQueues[pos];
     }
 
