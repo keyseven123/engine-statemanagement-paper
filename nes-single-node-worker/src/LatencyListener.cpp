@@ -43,7 +43,7 @@ struct TaskIntermediateStore
     }
 
     explicit TaskIntermediateStore()
-        : queryId(INVALID_QUERY_ID), bytes(0), numberOfTuples(0), startTimePoint(std::chrono::high_resolution_clock::now())
+        : queryId(INVALID_QUERY_ID), bytes(0), numberOfTuples(0), startTimePoint(std::chrono::system_clock::now())
     {
     }
 
@@ -55,7 +55,7 @@ struct TaskIntermediateStore
 
 struct TimestampAndLatencies
 {
-    explicit TimestampAndLatencies() : firstTimePoint(std::chrono::high_resolution_clock::now()) { }
+    explicit TimestampAndLatencies() : firstTimePoint(std::chrono::system_clock::now()) { }
 
     ChronoClock::time_point firstTimePoint;
     std::vector<std::chrono::duration<double>> latencies;
@@ -158,7 +158,7 @@ void LatencyListener::onNodeShutdown()
 {
     /// We wait until the queue is empty or for 30 seconds
     const std::chrono::seconds timeout{30};
-    const auto endTime = std::chrono::high_resolution_clock::now() + timeout;
+    const auto endTime = std::chrono::system_clock::now() + timeout;
     while (true)
     {
         /// Check if the queue is empty
@@ -168,7 +168,7 @@ void LatencyListener::onNodeShutdown()
         }
 
         /// Check if the timeout has been reached
-        if (std::chrono::high_resolution_clock::now() >= endTime)
+        if (std::chrono::system_clock::now() >= endTime)
         {
             std::cout << fmt::format(
                 "Queue in ThroughputListener still contains {} elements but could not finish in {}.", events.rlock()->size(), timeout)

@@ -69,7 +69,7 @@ void GeneratorSource::open()
 
 void GeneratorSource::close()
 {
-    auto totalElapsedTime = std::chrono::high_resolution_clock::now() - generatorStartTime;
+    auto totalElapsedTime = std::chrono::system_clock::now() - generatorStartTime;
     NES_TRACE("Generated {} buffers in {}. Closing GeneratorSource.", generatedBuffers, totalElapsedTime);
 }
 
@@ -135,7 +135,7 @@ size_t GeneratorSource::fillTupleBuffer(NES::Memory::TupleBuffer& tupleBuffer, c
         /// Calculating how long to sleep. The whole method should take the duration of the flushInterval. If we have some time left, we
         /// sleep for the remaining duration. If there is no time left, we print a warning.
         const auto durationGeneratingTuples
-            = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startOfInterval);
+            = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startOfInterval);
         if (durationGeneratingTuples > (flushInterval * noIntervals))
         {
             NES_WARNING(
