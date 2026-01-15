@@ -49,22 +49,38 @@ public class CM1 {
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
+
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
         env.getConfig().enableObjectReuse();
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-         MemorySource<CMRecord> source = new MemorySource<CMRecord>(basePathForDataFiles + "/google-cluster-data-original_1G.csv", numOfRecords, CMRecord.class, CMRecord.schema);
-         WatermarkStrategy<CMRecord> strategy = WatermarkStrategy
-                 .<CMRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
-                 .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
-         DataStream<CMRecord> sourceStream = env
-            .fromSource(source, strategy, "CM_Source")
-            .returns(TypeExtractor.getForClass(CMRecord.class))
-            .setParallelism(1);
+        String dataFilePath = basePathForDataFiles + "/google-cluster-data-original_1G.csv";
+        WatermarkStrategy<CMRecord> strategy = WatermarkStrategy
+                .<CMRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
+                .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
+
+        DataStream<CMRecord> sourceStream;
+        if (useFileSource) {
+            CsvReaderFormat<CMRecord> csvFormat = CsvReaderFormat.forPojo(CMRecord.class);
+            FileSource<CMRecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, strategy, "CM_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<CMRecord> memSource = new MemorySource<CMRecord>(dataFilePath, numOfRecords, CMRecord.class, CMRecord.schema);
+            sourceStream = env
+                    .fromSource(memSource, strategy, "CM_MemorySource")
+                    .returns(TypeExtractor.getForClass(CMRecord.class))
+                    .setParallelism(1);
+        }
 
 
         sourceStream

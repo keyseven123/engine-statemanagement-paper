@@ -44,23 +44,38 @@ public class MA {
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
+
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
         env.getConfig().enableObjectReuse();
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-         MemorySource<MARecord> source = new MemorySource<MARecord>(basePathForDataFiles + "/manufacturing_1G.csv", numOfRecords, MARecord.class, MARecord.schema, true);
-         WatermarkStrategy<MARecord> strategy = WatermarkStrategy
-                 .<MARecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
-                 .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
+        String dataFilePath = basePathForDataFiles + "/manufacturing_1G.csv";
+        WatermarkStrategy<MARecord> strategy = WatermarkStrategy
+                .<MARecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
+                .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
 
-         DataStream<MARecord> sourceStream = env
-                    .fromSource(source, strategy, "MA_Source")
+        DataStream<MARecord> sourceStream;
+        if (useFileSource) {
+            CsvReaderFormat<MARecord> csvFormat = CsvReaderFormat.forPojo(MARecord.class);
+            FileSource<MARecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, strategy, "MA_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<MARecord> memSource = new MemorySource<MARecord>(dataFilePath, numOfRecords, MARecord.class, MARecord.schema, true);
+            sourceStream = env
+                    .fromSource(memSource, strategy, "MA_MemorySource")
                     .returns(TypeExtractor.getForClass(MARecord.class))
                     .setParallelism(1);
+        }
 
 
         AllWindowedStream<MARecord, TimeWindow> windowedStream = sourceStream

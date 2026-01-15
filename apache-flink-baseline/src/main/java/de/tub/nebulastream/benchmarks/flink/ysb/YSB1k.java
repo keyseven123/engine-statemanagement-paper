@@ -57,8 +57,10 @@ public class YSB1k {
         final long numOfRecords = params.getLong("numOfRecords", 10_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
 
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -67,14 +69,30 @@ public class YSB1k {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<YSBRecord> source = new MemorySource<YSBRecord>(basePathForDataFiles + "/ysb1k_more_data_3GB.csv", numOfRecords, YSBRecord.class, YSBRecord.schema);
+        String dataFilePath = basePathForDataFiles + "/ysb1k_more_data_3GB.csv";
+
         WatermarkStrategy<YSBRecord> strategy = WatermarkStrategy
              .<YSBRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
              .withTimestampAssigner((event, timestamp) -> event.event_time / 1000);
-        DataStream<YSBRecord> sourceStream = env
-                    .fromSource(source, strategy, "YSB1k_Source")
+
+        DataStream<YSBRecord> sourceStream;
+        if (useFileSource) {
+            // Use Flink's built-in FileSource - reads from file on-the-fly
+            CsvReaderFormat<YSBRecord> csvFormat = CsvReaderFormat.forPojo(YSBRecord.class);
+            FileSource<YSBRecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, strategy, "YSB1k_FileSource")
+                    .setParallelism(1);
+        } else {
+            // Use MemorySource - loads all data into memory first
+            MemorySource<YSBRecord> memSource = new MemorySource<YSBRecord>(dataFilePath, numOfRecords, YSBRecord.class, YSBRecord.schema);
+            sourceStream = env
+                    .fromSource(memSource, strategy, "YSB1k_MemorySource")
                     .returns(TypeExtractor.getForClass(YSBRecord.class))
                     .setParallelism(1);
+        }
 
         sourceStream
             .flatMap(new ThroughputLogger<YSBRecord>(500))

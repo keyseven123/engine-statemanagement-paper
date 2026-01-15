@@ -44,9 +44,10 @@ public class NM8_Variant {
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
-
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
@@ -55,24 +56,50 @@ public class NM8_Variant {
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
         // Auctions stream
+        String auctionFilePath = basePathForDataFiles + "/auction_more_data_707MB.csv";
         WatermarkStrategy<NMAuctionRecord> strategyAuction = WatermarkStrategy
                 .<NMAuctionRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>(basePathForDataFiles + "/auction_more_data_707MB.csv", numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
-        DataStream<NMAuctionRecord> sourceStreamAuctions = env
-            .fromSource(auctionSource, strategyAuction, "Auction_Source")
-            .returns(TypeExtractor.getForClass(NMAuctionRecord.class))
-            .setParallelism(1);
+
+        DataStream<NMAuctionRecord> sourceStreamAuctions;
+        if (useFileSource) {
+            CsvReaderFormat<NMAuctionRecord> csvFormatAuction = CsvReaderFormat.forPojo(NMAuctionRecord.class);
+            FileSource<NMAuctionRecord> fileSourceAuction = FileSource
+                    .forRecordStreamFormat(csvFormatAuction, new Path(auctionFilePath))
+                    .build();
+            sourceStreamAuctions = env
+                    .fromSource(fileSourceAuction, strategyAuction, "Auction_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>(auctionFilePath, numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
+            sourceStreamAuctions = env
+                    .fromSource(auctionSource, strategyAuction, "Auction_MemorySource")
+                    .returns(TypeExtractor.getForClass(NMAuctionRecord.class))
+                    .setParallelism(1);
+        }
 
         // Bids stream
+        String bidFilePath = basePathForDataFiles + "/bid_more_data_6GB.csv";
         WatermarkStrategy<NMBidRecord> strategyBids = WatermarkStrategy
                 .<NMBidRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1))
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMBidRecord> bidSource = new MemorySource<NMBidRecord>(basePathForDataFiles + "/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
-        DataStream<NMBidRecord> sourceStreamBids = env
-            .fromSource(bidSource, strategyBids, "Bid_Source")
-            .returns(TypeExtractor.getForClass(NMBidRecord.class))
-            .setParallelism(1);
+
+        DataStream<NMBidRecord> sourceStreamBids;
+        if (useFileSource) {
+            CsvReaderFormat<NMBidRecord> csvFormatBid = CsvReaderFormat.forPojo(NMBidRecord.class);
+            FileSource<NMBidRecord> fileSourceBid = FileSource
+                    .forRecordStreamFormat(csvFormatBid, new Path(bidFilePath))
+                    .build();
+            sourceStreamBids = env
+                    .fromSource(fileSourceBid, strategyBids, "Bid_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<NMBidRecord> bidSource = new MemorySource<NMBidRecord>(bidFilePath, numOfRecords, NMBidRecord.class, NMBidRecord.schema);
+            sourceStreamBids = env
+                    .fromSource(bidSource, strategyBids, "Bid_MemorySource")
+                    .returns(TypeExtractor.getForClass(NMBidRecord.class))
+                    .setParallelism(1);
+        }
 
 
         sourceStreamBids.flatMap(new ThroughputLogger<NMBidRecord>(1000));

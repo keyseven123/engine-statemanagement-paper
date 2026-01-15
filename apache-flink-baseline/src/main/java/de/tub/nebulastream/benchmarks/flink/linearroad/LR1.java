@@ -41,23 +41,38 @@ public class LR1 {
         final int numOfRecords = params.getInt("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
+
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
         env.getConfig().enableObjectReuse();
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<LRRecord> source = new MemorySource<LRRecord>(basePathForDataFiles + "/linear_road_benchmark_5GB.csv", numOfRecords, LRRecord.class, LRRecord.schema);
+        String dataFilePath = basePathForDataFiles + "/linear_road_benchmark_5GB.csv";
         WatermarkStrategy<LRRecord> strategy = WatermarkStrategy
                 .<LRRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
 
-        DataStream<LRRecord> sourceStream = env
-            .fromSource(source, strategy, "LR_Source")
-            .returns(TypeExtractor.getForClass(LRRecord.class))
-            .setParallelism(1);
+        DataStream<LRRecord> sourceStream;
+        if (useFileSource) {
+            CsvReaderFormat<LRRecord> csvFormat = CsvReaderFormat.forPojo(LRRecord.class);
+            FileSource<LRRecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, strategy, "LR_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<LRRecord> memSource = new MemorySource<LRRecord>(dataFilePath, numOfRecords, LRRecord.class, LRRecord.schema);
+            sourceStream = env
+                    .fromSource(memSource, strategy, "LR_MemorySource")
+                    .returns(TypeExtractor.getForClass(LRRecord.class))
+                    .setParallelism(1);
+        }
 
 
         sourceStream
