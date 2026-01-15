@@ -90,7 +90,7 @@ def main():
             writer.writeheader()
 
         # Downloading the data sets and building the docker image
-        run_command("./scripts/download_data.sh")
+        run_command("bash download_data.sh")
         run_command("docker build -t spark-streaming-benchmark .")
 
         # Running all queries with different no. parallelism

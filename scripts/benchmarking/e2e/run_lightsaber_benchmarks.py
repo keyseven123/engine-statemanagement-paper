@@ -28,11 +28,13 @@ from scripts.benchmarking.utils import *
 from urllib.request import urlretrieve
 
 queries = {
-    "SG1": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 1 --slots 128 --latency true",
-    "SG2": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 2 --hashtable-size 512 --unbounded-size 1048576 --circular-size 16777216 --bundle-size 524288  --slots 128 --batch-size 524288 --unbounded-size 4194304 --parallel-merge true --latency true",
-    "SG3": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 3 --hashtable-size 512 --unbounded-size 1048576  --slots 128  --unbounded-size 4194304 --parallel-merge true --latency true",
-    "LRB1": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --unbounded-size 8388608 --circular-size 16777216 --batch-size 524288 --bundle-size 524288 --query 1 --hashtable-size 256 --parallel-merge true --latency true",
-    "LRB2": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --unbounded-size 16777216 --circular-size 16777216 --batch-size 262144 --bundle-size 262144 --query 2 --parallel-merge true --latency true",
+    # "SG1": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 1 --slots 128 --latency true",
+    "SG1": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 1 --hashtable-size 1024 --unbounded-size 1048576  --slots 128   --parallel-merge true --latency true",
+    "SG2": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 2 --slots 128 --latency true",
+    # "SG2": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 2 --hashtable-size 512 --unbounded-size 1048576 --circular-size 16777216 --bundle-size 524288  --slots 128 --batch-size 524288 --unbounded-size 4194304 --parallel-merge true --latency true",
+    "SG3": "/root/LightSaber/build/test/benchmarks/applications/smartgrid --query 3 --hashtable-size 2048 --unbounded-size 1048576  --slots 128  --unbounded-size 4194304 --parallel-merge true --latency true",
+    "LRB1": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --query 1 --unbounded-size 8388608 --circular-size 16777216 --batch-size 524288 --bundle-size 524288 --hashtable-size 256 --parallel-merge true --latency true",
+    "LRB2": "/root/LightSaber/build/test/benchmarks/applications/linear_road_benchmark --query 2 --unbounded-size 16777216 --circular-size 16777216 --batch-size 262144 --bundle-size 262144 --parallel-merge true --latency true",
 }
 
 # parallelisms = ["1", "24"]
