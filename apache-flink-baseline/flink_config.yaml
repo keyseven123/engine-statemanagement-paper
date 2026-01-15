@@ -316,7 +316,7 @@ rest.bind-address: localhost
 
 # Reduce number of floating buffers
 #taskmanager.network.memory.floating-buffers-per-gate: 2
-taskmanager.compute.numa: true
+taskmanager.compute.numa: false
 taskmanager.task.initialization-timeout: 300s
 env.java.opts: -XX:+TieredCompilation -server -XX:+UseG1GC -Dorg.apache.flink.shaded.netty4.io.netty.buffer.bytebuf.checkAccessible=false -Dorg.apache.flink.shaded.netty4.io.netty.leakDetection.level=DISABLED --add-opens=java.base/java.util=ALL-UNNAMED -Xms2048m -Xmx32768m -XX:MaxMetaspaceSize=1024m
 #jobmanager.heap.size: 8gb
