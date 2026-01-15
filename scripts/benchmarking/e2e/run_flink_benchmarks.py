@@ -20,12 +20,128 @@ import argparse
 import csv
 import requests
 import socket
+import threading
+import time
+import re
 
 from scripts.benchmarking.utils import *
 
 from urllib.request import urlretrieve
 
-flink = "flink-2.0.0"
+
+class MemorySampler:
+    """Samples memory usage of a process over time."""
+
+    def __init__(self, sample_interval_ms=100):
+        self.sample_interval = sample_interval_ms / 1000.0
+        self.samples = []  # List of (timestamp, rss_bytes, heap_used, heap_committed)
+        self._stop_event = threading.Event()
+        self._thread = None
+        self._start_time = None
+
+    def _find_taskexecutor_pid(self):
+        """Find the PID of the Flink TaskExecutor process."""
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", "taskexecutor"],
+                capture_output=True, text=True
+            )
+            pids = result.stdout.strip().split('\n')
+            if pids and pids[0]:
+                return int(pids[0])
+        except Exception:
+            pass
+        return None
+
+    def _get_memory_from_proc(self, pid):
+        """Get memory stats from /proc/<pid>/status."""
+        try:
+            with open(f"/proc/{pid}/status", 'r') as f:
+                content = f.read()
+
+            rss_match = re.search(r'^VmRSS:\s+(\d+)\s+kB', content, re.MULTILINE)
+            rss_kb = int(rss_match.group(1)) if rss_match else 0
+
+            return rss_kb * 1024  # Return bytes
+        except Exception:
+            return None
+
+    def _get_memory_from_rest_api(self):
+        """Get memory stats from Flink REST API."""
+        try:
+            resp = requests.get("http://localhost:8081/taskmanagers", timeout=1)
+            tms = resp.json().get('taskmanagers', [])
+            if not tms:
+                return None, None
+
+            tm_id = tms[0]['id']
+            metrics_url = f"http://localhost:8081/taskmanagers/{tm_id}/metrics"
+            metrics_resp = requests.get(
+                metrics_url,
+                params={'get': 'Status.JVM.Memory.Heap.Used,Status.JVM.Memory.Heap.Committed'},
+                timeout=1
+            )
+            metrics = {m['id']: int(m['value']) for m in metrics_resp.json()}
+
+            return (
+                metrics.get('Status.JVM.Memory.Heap.Used'),
+                metrics.get('Status.JVM.Memory.Heap.Committed')
+            )
+        except Exception:
+            return None, None
+
+    def _sample_loop(self):
+        """Background thread that samples memory."""
+        pid = None
+        while not self._stop_event.is_set():
+            # Find TaskExecutor PID if we don't have it
+            if pid is None:
+                pid = self._find_taskexecutor_pid()
+
+            if pid:
+                elapsed_ms = (time.time() - self._start_time) * 1000
+                rss = self._get_memory_from_proc(pid)
+                heap_used, heap_committed = self._get_memory_from_rest_api()
+
+                if rss is not None:
+                    self.samples.append({
+                        'time_ms': elapsed_ms,
+                        'rss_bytes': rss,
+                        'heap_used_bytes': heap_used,
+                        'heap_committed_bytes': heap_committed
+                    })
+
+            self._stop_event.wait(self.sample_interval)
+
+    def start(self):
+        """Start sampling in background thread."""
+        self.samples = []
+        self._start_time = time.time()
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._sample_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        """Stop sampling and return samples."""
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=2)
+        return self.samples
+
+    def save_to_csv(self, filepath):
+        """Save samples to CSV file."""
+        if not self.samples:
+            return
+
+        with open(filepath, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['time_ms', 'rss_bytes', 'heap_used_bytes', 'heap_committed_bytes'])
+            writer.writeheader()
+            writer.writerows(self.samples)
+
+        print(f"Memory samples saved to {filepath}")
+
+
+flink = "flink-2.0.1"
 jar_path = os.path.join("target", "bench-flink_2.0-0.1-SNAPSHOT.jar")
 
 queries = {
@@ -82,6 +198,8 @@ def get_tmp_data_dir():
         data_dir = "/tmp/data"
     elif hostname == "docker-hostname":
         data_dir = "/tmp/data"
+    elif hostname == "sr665-fat-node-1":
+        data_dir = "/data/lukas-ldap/spark-experiments/memory-source/engine-statemanagement-paper/data"
     else:
         raise ValueError(f"Unknown hostname: {hostname}. Cannot determine vcpkg directory.")
 
@@ -178,24 +296,86 @@ def download_flink():
     os.remove("flink.tgz")
 
 
-def prepare():
+def generate_flink_config(tm_memory_mb):
+    """Generate Flink config with specified TaskManager memory."""
+    config = f"""# Auto-generated Flink config for memory experiments
+# TaskManager memory: {tm_memory_mb} MB
+
+jobmanager.rpc.address: localhost
+jobmanager.rpc.port: 6123
+jobmanager.bind-host: localhost
+jobmanager.memory.process.size: 2048m
+
+taskmanager.bind-host: localhost
+taskmanager.host: localhost
+taskmanager.memory.process.size: {tm_memory_mb}m
+taskmanager.numberOfTaskSlots: 256
+parallelism.default: 1
+
+rest.address: localhost
+rest.bind-address: localhost
+
+jobmanager.execution.failover-strategy: region
+taskmanager.compute.numa: false
+
+# Required for Java 9+ module system compatibility
+env.java.opts: --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED
+"""
+    return config
+
+
+def prepare(tm_memory_mb=None):
     # Set config file
-    shutil.copy("flink_config.yaml", os.path.join(flink, "conf", "config.yaml"))
-    # CLeanup log files
+    config_dest = os.path.join(flink, "conf", "config.yaml")
+    if tm_memory_mb:
+        # Generate config with specified memory
+        config_content = generate_flink_config(tm_memory_mb)
+        with open(config_dest, 'w') as f:
+            f.write(config_content)
+        print(f"Generated Flink config with TaskManager memory: {tm_memory_mb} MB")
+    else:
+        # Use default config file
+        shutil.copy("flink_config.yaml", config_dest)
+    # Cleanup log files
     subprocess.run(f"rm -rf {flink}/log/*", shell=True, check=True)
     # Stop Flink cluster
     subprocess.run([os.path.join(flink, "bin", "stop-cluster.sh")], check=True)
 
 
-def run_flink_job(query, parallelism, num_records, max_runtime_per_job):
+def run_flink_job(query, parallelism, num_records, max_runtime_per_job, memory_csv_path=None, use_file_source=False):
     # Start Flink cluster
     subprocess.run([os.path.join(flink, "bin", "start-cluster.sh")], check=True)
+
+    # Start memory sampling if path provided
+    sampler = None
+    if memory_csv_path:
+        sampler = MemorySampler(sample_interval_ms=100)
+        sampler.start()
+        time.sleep(1)  # Give TaskExecutor time to start
+
     # Start query
-    print(f"Now running query {query} with {parallelism} threads.")
-    subprocess.run(
-        [os.path.join(flink, "bin", "flink"), "run", "--class", f"de.tub.nebulastream.benchmarks.flink.{query}",
-         jar_path, "--parallelism", parallelism, "--numOfRecords", f"{num_records}", "-Xmx41456m", "--maxRuntime ",
-         str(max_runtime_per_job), "--basePathForDataFiles", f"{local_data_folder}"])  # continue even if it fails
+    source_type = "FileStreamSource" if use_file_source else "MemorySource"
+    print(f"Now running query {query} with {parallelism} threads using {source_type}.")
+
+    cmd = [
+        os.path.join(flink, "bin", "flink"), "run",
+        "--class", f"de.tub.nebulastream.benchmarks.flink.{query}",
+        jar_path,
+        "--parallelism", parallelism,
+        "--numOfRecords", f"{num_records}",
+        "--maxRuntime", str(max_runtime_per_job),
+        "--basePathForDataFiles", f"{local_data_folder}"
+    ]
+    if use_file_source:
+        cmd.extend(["--useFileSource", "true"])
+
+    subprocess.run(cmd)  # continue even if it fails
+
+    # Stop memory sampling and save results
+    if sampler:
+        sampler.stop()
+        sampler.save_to_csv(memory_csv_path)
+
     # Stop Flink cluster
     subprocess.run([os.path.join(flink, "bin", "stop-cluster.sh")], check=True)
 
@@ -241,6 +421,10 @@ def main():
     parser.add_argument("--all", action="store_true", help="Run all queries.")
     parser.add_argument("-q", "--queries", nargs="+", help="List of queries to run.")
     parser.add_argument("-p", "--parallelism", nargs="+", help="Parallelism to run the query with.")
+    parser.add_argument("--memory", action="store_true", help="Enable memory profiling over time.")
+    parser.add_argument("--memory-interval", type=int, default=100, help="Memory sampling interval in ms (default: 100).")
+    parser.add_argument("--file-source", action="store_true", help="Use FileStreamSource instead of MemorySource (reads from file on-the-fly).")
+    parser.add_argument("--tm-memory", type=int, default=None, help="TaskManager memory in MB (e.g., 2048, 4096). If not set, uses flink_config.yaml.")
     args = parser.parse_args()
 
     # Determine which queries to run
@@ -298,8 +482,18 @@ def main():
                     #     If we go above 500k for NM queries, we require more RAM than we have on the PI
                         # num_records = 500 * 1000
 
-                    prepare()
-                    run_flink_job(query_class, parallelism, num_records, MAX_RUNTIME_PER_JOB)
+                    prepare(args.tm_memory)
+
+                    # Set up memory profiling path if enabled
+                    memory_csv_path = None
+                    if args.memory:
+                        mem_suffix = f"_tm{args.tm_memory}m" if args.tm_memory else ""
+                        memory_csv_path = os.path.join(
+                            csv_folder,
+                            f"memory_{query_name}_p{parallelism}_n{num_records}{mem_suffix}.csv"
+                        )
+
+                    run_flink_job(query_class, parallelism, num_records, MAX_RUNTIME_PER_JOB, memory_csv_path, args.file_source)
                     analyze_logs(query_name, parallelism)
                     write_to_csv(query_name, num_records)
 

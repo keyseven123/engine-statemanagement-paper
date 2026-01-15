@@ -53,8 +53,10 @@ public class YSB10k {
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
@@ -62,14 +64,27 @@ public class YSB10k {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<YSBRecord> source = new MemorySource<YSBRecord>(basePathForDataFiles + "/ysb10k_more_data_3GB.csv", numOfRecords, YSBRecord.class, YSBRecord.schema);
+        String dataFilePath = basePathForDataFiles + "/ysb10k_more_data_3GB.csv";
         WatermarkStrategy<YSBRecord> strategy = WatermarkStrategy
              .<YSBRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
              .withTimestampAssigner((event, timestamp) -> event.event_time / 1000);
-       DataStream<YSBRecord> sourceStream = env
-                    .fromSource(source, strategy, "YSB10k_Source")
+
+        DataStream<YSBRecord> sourceStream;
+        if (useFileSource) {
+            CsvReaderFormat<YSBRecord> csvFormat = CsvReaderFormat.forPojo(YSBRecord.class);
+            FileSource<YSBRecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, strategy, "YSB10k_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<YSBRecord> memSource = new MemorySource<YSBRecord>(dataFilePath, numOfRecords, YSBRecord.class, YSBRecord.schema);
+            sourceStream = env
+                    .fromSource(memSource, strategy, "YSB10k_MemorySource")
                     .returns(TypeExtractor.getForClass(YSBRecord.class))
                     .setParallelism(1);
+        }
 
         sourceStream
             .flatMap(new ThroughputLogger<YSBRecord>(100))

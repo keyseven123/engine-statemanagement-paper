@@ -39,22 +39,38 @@ public class SG1 {
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
+
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
         env.getConfig().enableObjectReuse();
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<SGRecord> source = new MemorySource<SGRecord>(basePathForDataFiles + "/smartgrid-data_2GB.csv", numOfRecords, SGRecord.class, SGRecord.schema);
+        String dataFilePath = basePathForDataFiles + "/smartgrid-data_2GB.csv";
         WatermarkStrategy<SGRecord> strategy = WatermarkStrategy
              .<SGRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
              .withTimestampAssigner((event, timestamp) -> event.creationTS / 1000);
-        DataStream<SGRecord> sourceStream = env
-                    .fromSource(source, strategy, "SG_Source")
+
+        DataStream<SGRecord> sourceStream;
+        if (useFileSource) {
+            CsvReaderFormat<SGRecord> csvFormat = CsvReaderFormat.forPojo(SGRecord.class);
+            FileSource<SGRecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, strategy, "SG_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<SGRecord> memSource = new MemorySource<SGRecord>(dataFilePath, numOfRecords, SGRecord.class, SGRecord.schema);
+            sourceStream = env
+                    .fromSource(memSource, strategy, "SG_MemorySource")
                     .returns(TypeExtractor.getForClass(SGRecord.class))
                     .setParallelism(1);
+        }
 
 
         sourceStream

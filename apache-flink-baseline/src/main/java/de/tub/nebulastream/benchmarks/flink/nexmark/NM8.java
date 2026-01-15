@@ -44,9 +44,10 @@ public class NM8 {
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
-
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
@@ -55,24 +56,50 @@ public class NM8 {
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
         // Auctions stream
+        String auctionFilePath = basePathForDataFiles + "/auction_more_data_707MB.csv";
         WatermarkStrategy<NMAuctionRecord> strategyAuction = WatermarkStrategy
                 .<NMAuctionRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>(basePathForDataFiles + "/auction_more_data_707MB.csv", numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
-        DataStream<NMAuctionRecord> sourceStreamAuctions = env
-            .fromSource(auctionSource, strategyAuction, "Auction_Source")
-            .returns(TypeExtractor.getForClass(NMAuctionRecord.class))
-            .setParallelism(1);
+
+        DataStream<NMAuctionRecord> sourceStreamAuctions;
+        if (useFileSource) {
+            CsvReaderFormat<NMAuctionRecord> csvFormatAuction = CsvReaderFormat.forPojo(NMAuctionRecord.class);
+            FileSource<NMAuctionRecord> fileSourceAuction = FileSource
+                    .forRecordStreamFormat(csvFormatAuction, new Path(auctionFilePath))
+                    .build();
+            sourceStreamAuctions = env
+                    .fromSource(fileSourceAuction, strategyAuction, "Auction_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<NMAuctionRecord> auctionSource = new MemorySource<NMAuctionRecord>(auctionFilePath, numOfRecords, NMAuctionRecord.class, NMAuctionRecord.schema);
+            sourceStreamAuctions = env
+                    .fromSource(auctionSource, strategyAuction, "Auction_MemorySource")
+                    .returns(TypeExtractor.getForClass(NMAuctionRecord.class))
+                    .setParallelism(1);
+        }
 
         // Persons stream
+        String personFilePath = basePathForDataFiles + "/person_more_data_840MB.csv";
         WatermarkStrategy<NMPersonRecord> strategyPerson = WatermarkStrategy
                 .<NMPersonRecord>forBoundedOutOfOrderness(Duration.ofSeconds(1)) // We have no out-of-orderness in the dataset
                 .withTimestampAssigner((event, timestamp) -> event.timestamp / 1000);
-        MemorySource<NMPersonRecord> personSource = new MemorySource<NMPersonRecord>(basePathForDataFiles + "/person_more_data_840MB.csv", numOfRecords, NMPersonRecord.class, NMPersonRecord.schema);
-        DataStream<NMPersonRecord> sourceStreamPersons = env
-            .fromSource(personSource, strategyPerson, "Person_Source")
-            .returns(TypeExtractor.getForClass(NMPersonRecord.class))
-            .setParallelism(1);
+
+        DataStream<NMPersonRecord> sourceStreamPersons;
+        if (useFileSource) {
+            CsvReaderFormat<NMPersonRecord> csvFormatPerson = CsvReaderFormat.forPojo(NMPersonRecord.class);
+            FileSource<NMPersonRecord> fileSourcePerson = FileSource
+                    .forRecordStreamFormat(csvFormatPerson, new Path(personFilePath))
+                    .build();
+            sourceStreamPersons = env
+                    .fromSource(fileSourcePerson, strategyPerson, "Person_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<NMPersonRecord> personSource = new MemorySource<NMPersonRecord>(personFilePath, numOfRecords, NMPersonRecord.class, NMPersonRecord.schema);
+            sourceStreamPersons = env
+                    .fromSource(personSource, strategyPerson, "Person_MemorySource")
+                    .returns(TypeExtractor.getForClass(NMPersonRecord.class))
+                    .setParallelism(1);
+        }
 
         sourceStreamAuctions.flatMap(new ThroughputLogger<NMAuctionRecord>(500));
         sourceStreamPersons.flatMap(new ThroughputLogger<NMPersonRecord>(500));

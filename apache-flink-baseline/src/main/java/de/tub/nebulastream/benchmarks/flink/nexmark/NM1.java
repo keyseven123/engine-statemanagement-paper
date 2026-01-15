@@ -47,8 +47,10 @@ public class NM1 {
         final long numOfRecords = params.getLong("numOfRecords", 1_000_000);
         final int maxRuntimeInSeconds = params.getInt("maxRuntime", 10);
         final String basePathForDataFiles = params.get("basePathForDataFiles", "/tmp/data");
+        final boolean useFileSource = params.getBoolean("useFileSource", false);
 
         LOG.info("Arguments: {}", params);
+        LOG.info("Using {} source", useFileSource ? "FileSource (built-in)" : "MemorySource");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(parallelism);
@@ -56,11 +58,23 @@ public class NM1 {
         env.setMaxParallelism(parallelism);
         env.getConfig().setLatencyTrackingInterval(latencyTrackingInterval);
 
-        MemorySource<NMBidRecord> source = new MemorySource<NMBidRecord>(basePathForDataFiles + "/bid_more_data_6GB.csv", numOfRecords, NMBidRecord.class, NMBidRecord.schema);
-        DataStream<NMBidRecord> sourceStream = env
-                    .fromSource(source, WatermarkStrategy.noWatermarks(), "Bid_Source")
+        String dataFilePath = basePathForDataFiles + "/bid_more_data_6GB.csv";
+        DataStream<NMBidRecord> sourceStream;
+        if (useFileSource) {
+            CsvReaderFormat<NMBidRecord> csvFormat = CsvReaderFormat.forPojo(NMBidRecord.class);
+            FileSource<NMBidRecord> fileSource = FileSource
+                    .forRecordStreamFormat(csvFormat, new Path(dataFilePath))
+                    .build();
+            sourceStream = env
+                    .fromSource(fileSource, WatermarkStrategy.noWatermarks(), "Bid_FileSource")
+                    .setParallelism(1);
+        } else {
+            MemorySource<NMBidRecord> memSource = new MemorySource<NMBidRecord>(dataFilePath, numOfRecords, NMBidRecord.class, NMBidRecord.schema);
+            sourceStream = env
+                    .fromSource(memSource, WatermarkStrategy.noWatermarks(), "Bid_MemorySource")
                     .returns(TypeExtractor.getForClass(NMBidRecord.class))
                     .setParallelism(1);
+        }
 
 
         sourceStream
