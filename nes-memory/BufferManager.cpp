@@ -20,10 +20,13 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <memory_resource>
 #include <mutex>
 #include <optional>
+#include <thread>
 #include <utility>
 #include <unistd.h>
 #include <Runtime/AbstractBufferProvider.hpp>
@@ -42,7 +45,9 @@ BufferManager::BufferManager(
     const uint32_t bufferSize,
     const uint32_t numOfBuffers,
     std::shared_ptr<std::pmr::memory_resource> memoryResource,
-    const uint32_t withAlignment)
+    const uint32_t withAlignment,
+    std::optional<std::filesystem::path> monitorFilePath,
+    std::chrono::milliseconds monitorInterval)
     : availableBuffers(numOfBuffers)
     , numOfAvailableBuffers(numOfBuffers)
     , unpooledChunksManager(std::make_shared<UnpooledChunksManager>(memoryResource))
@@ -52,6 +57,42 @@ BufferManager::BufferManager(
 {
     ((void)withAlignment);
     initialize(DEFAULT_ALIGNMENT);
+
+    /// Start buffer usage monitoring thread if a file path is provided.
+    /// The thread uses a pointer to numOfAvailableBuffers which is safe because:
+    /// monitorThread is the last member, so it's destroyed first. The jthread destructor
+    /// requests stop and joins, ensuring the thread exits before other members are destroyed.
+    if (monitorFilePath.has_value())
+    {
+        monitorThread = std::jthread(
+            [availableBuffersPtr = &numOfAvailableBuffers,
+             interval = monitorInterval,
+             totalBuffers = numOfBuffers,
+             path = std::move(monitorFilePath.value())](const std::stop_token& stopToken)
+            {
+                std::ofstream file(path);
+                if (!file.is_open())
+                {
+                    return;
+                }
+                file << "timestamp_ms,used_buffers\n";
+
+                while (!stopToken.stop_requested())
+                {
+                    std::this_thread::sleep_for(interval);
+                    if (stopToken.stop_requested())
+                    {
+                        break;
+                    }
+                    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                         std::chrono::system_clock::now().time_since_epoch())
+                                         .count();
+                    const auto available = availableBuffersPtr->load();
+                    const auto used = totalBuffers - available;
+                    file << now << "," << used << "\n";
+                }
+            });
+    }
 }
 
 void BufferManager::destroy()
@@ -111,9 +152,15 @@ void BufferManager::destroy()
 }
 
 std::shared_ptr<BufferManager> BufferManager::create(
-    uint32_t bufferSize, uint32_t numOfBuffers, const std::shared_ptr<std::pmr::memory_resource>& memoryResource, uint32_t withAlignment)
+    uint32_t bufferSize,
+    uint32_t numOfBuffers,
+    const std::shared_ptr<std::pmr::memory_resource>& memoryResource,
+    uint32_t withAlignment,
+    std::optional<std::filesystem::path> monitorFilePath,
+    std::chrono::milliseconds monitorInterval)
 {
-    return std::make_shared<BufferManager>(Private{}, bufferSize, numOfBuffers, memoryResource, withAlignment);
+    return std::make_shared<BufferManager>(
+        Private{}, bufferSize, numOfBuffers, memoryResource, withAlignment, std::move(monitorFilePath), monitorInterval);
 }
 
 BufferManager::~BufferManager()

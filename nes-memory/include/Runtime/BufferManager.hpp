@@ -17,10 +17,12 @@
 #include <atomic>
 #include <condition_variable>
 #include <deque>
+#include <filesystem>
 #include <memory>
 #include <memory_resource>
 #include <mutex>
 #include <optional>
+#include <thread>
 #include <vector>
 #include <Runtime/AbstractBufferProvider.hpp>
 #include <Runtime/Allocator/NesDefaultMemoryAllocator.hpp>
@@ -76,18 +78,24 @@ public:
         uint32_t bufferSize,
         uint32_t numOfBuffers,
         std::shared_ptr<std::pmr::memory_resource> memoryResource,
-        uint32_t withAlignment);
+        uint32_t withAlignment,
+        std::optional<std::filesystem::path> monitorFilePath,
+        std::chrono::milliseconds monitorInterval);
 
     /// Creates a new global buffer manager
     /// @param bufferSize the size of each buffer in bytes
     /// @param numOfBuffers the total number of buffers in the pool
     /// @param withAlignment the alignment of each buffer, default is 64 so ony cache line aligned buffers, This value must be a pow of two and smaller than page size
     /// @param memoryResource resource for allocating and deallocating memory
+    /// @param monitorFilePath optional path to log buffer usage statistics
+    /// @param monitorInterval interval between buffer usage samples (default 100ms)
     static std::shared_ptr<BufferManager> create(
         uint32_t bufferSize = DEFAULT_BUFFER_SIZE,
         uint32_t numOfBuffers = DEFAULT_NUMBER_OF_BUFFERS,
         const std::shared_ptr<std::pmr::memory_resource>& memoryResource = std::make_shared<NesDefaultMemoryAllocator>(),
-        uint32_t withAlignment = DEFAULT_ALIGNMENT);
+        uint32_t withAlignment = DEFAULT_ALIGNMENT,
+        std::optional<std::filesystem::path> monitorFilePath = "buffer_usage.csv",
+        std::chrono::milliseconds monitorInterval = std::chrono::milliseconds{100});
 
     BufferManager(const BufferManager&) = delete;
     BufferManager& operator=(const BufferManager&) = delete;
@@ -179,6 +187,9 @@ private:
 
     std::shared_ptr<std::pmr::memory_resource> memoryResource;
     std::atomic<bool> isDestroyed{false};
+
+    /// Buffer usage monitoring thread
+    std::jthread monitorThread;
 };
 
 
