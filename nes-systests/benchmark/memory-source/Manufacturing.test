@@ -16,3 +16,37 @@ WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 1 SEC)
 INTO manufacturingDiscard;
 ----
 
+# Query 1 but with 2 sec window slide
+SELECT start, end, AVG(mf01) AS avg_mf01, SUM(mf02) AS sum_mf02, MIN(mf03) AS min_mf03, COUNT(mf01) AS count_mf01, SUM(mf01) AS sum_mf01
+FROM manufacturing
+WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 2 SEC)
+INTO manufacturingDiscard;
+----
+
+# Query 1 but with 5 sec window slide
+SELECT start, end, AVG(mf01) AS avg_mf01, SUM(mf02) AS sum_mf02, MIN(mf03) AS min_mf03, COUNT(mf01) AS count_mf01, SUM(mf01) AS sum_mf01
+FROM manufacturing
+WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 5 SEC)
+INTO manufacturingDiscard;
+----
+
+# Query 1 but with 10 sec window slide
+SELECT start, end, AVG(mf01) AS avg_mf01, SUM(mf02) AS sum_mf02, MIN(mf03) AS min_mf03, COUNT(mf01) AS count_mf01, SUM(mf01) AS sum_mf01
+FROM manufacturing
+WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 10 SEC)
+INTO manufacturingDiscard;
+----
+
+# Query 1 but with 30 sec window slide
+SELECT start, end, AVG(mf01) AS avg_mf01, SUM(mf02) AS sum_mf02, MIN(mf03) AS min_mf03, COUNT(mf01) AS count_mf01, SUM(mf01) AS sum_mf01
+FROM manufacturing
+WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 30 SEC)
+INTO manufacturingDiscard;
+----
+
+# Query 1 but with 60 sec window slide
+SELECT start, end, AVG(mf01) AS avg_mf01, SUM(mf02) AS sum_mf02, MIN(mf03) AS min_mf03, COUNT(mf01) AS count_mf01, SUM(mf01) AS sum_mf01
+FROM manufacturing
+WINDOW SLIDING(creationTS, SIZE 1 MINUTE, ADVANCE BY 60 SEC)
+INTO manufacturingDiscard;
+----

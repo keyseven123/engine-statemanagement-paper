@@ -48,6 +48,13 @@ DefaultTimeBasedSliceStore::~DefaultTimeBasedSliceStore()
 std::vector<std::shared_ptr<Slice>> DefaultTimeBasedSliceStore::getSlicesOrCreate(
     const Timestamp timestamp, const std::function<std::vector<std::shared_ptr<Slice>>(SliceStart, SliceEnd)>& createNewSlice)
 {
+    // thread_local uint64_t counter = 0;
+    // const auto modulo = 100 * 1000;
+    // if (counter++ % modulo)
+    // {
+    //     std::cout << "Currently there are " << slices->size() << " slices active" << std::endl;
+    // }
+
     /// We first check, if the slice already exist in the slice store
     const auto sliceStart = sliceAssigner.getSliceStartTs(timestamp);
     const auto sliceEnd = sliceAssigner.getSliceEndTs(timestamp);
