@@ -25,3 +25,35 @@ GROUP BY (vehicle, highway, direction, positionDiv5280)
 WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 1 SEC)
 INTO q2Discard;
 ----
+
+# Query 2-2 (Increased the slide factor to be able to measure the impact of the slice size)
+SELECT start, end, vehicle, highway, direction, positionDiv5280, COUNT(speed) AS cntSpeed
+FROM (SELECT creationTS, vehicle, highway, direction, position / INT32(5280) AS positionDiv5280, speed FROM lrb)
+GROUP BY (vehicle, highway, direction, positionDiv5280)
+WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 2 SEC)
+INTO q2Discard;
+----
+
+# Query 2-3 (Increased the slide factor to be able to measure the impact of the slice size)
+SELECT start, end, vehicle, highway, direction, positionDiv5280, COUNT(speed) AS cntSpeed
+FROM (SELECT creationTS, vehicle, highway, direction, position / INT32(5280) AS positionDiv5280, speed FROM lrb)
+GROUP BY (vehicle, highway, direction, positionDiv5280)
+WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 5 SEC)
+INTO q2Discard;
+----
+
+# Query 2-4 (Increased the slide factor to be able to measure the impact of the slice size)
+SELECT start, end, vehicle, highway, direction, positionDiv5280, COUNT(speed) AS cntSpeed
+FROM (SELECT creationTS, vehicle, highway, direction, position / INT32(5280) AS positionDiv5280, speed FROM lrb)
+GROUP BY (vehicle, highway, direction, positionDiv5280)
+WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 10 SEC)
+INTO q2Discard;
+----
+
+# Query 2-5 (Increased the slide factor to be able to measure the impact of the slice size)
+SELECT start, end, vehicle, highway, direction, positionDiv5280, COUNT(speed) AS cntSpeed
+FROM (SELECT creationTS, vehicle, highway, direction, position / INT32(5280) AS positionDiv5280, speed FROM lrb)
+GROUP BY (vehicle, highway, direction, positionDiv5280)
+WINDOW SLIDING(creationTS, SIZE 30 SEC, ADVANCE BY 30 SEC)
+INTO q2Discard;
+----
